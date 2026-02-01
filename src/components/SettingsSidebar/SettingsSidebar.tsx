@@ -170,6 +170,27 @@ export function SettingsSidebar({
             </div>
           </section>
 
+          {/* Tools Settings */}
+          <section className="settings-section">
+            <h3 className="settings-section__title">Tools</h3>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="webSearchEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.webSearchEnabled || false}
+                  onChange={handleCheckboxChange('webSearchEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Web Search</span>
+              </label>
+              <span className="settings-field__hint">
+                Ground responses with real-time web data via Bing. Incurs additional costs.
+              </span>
+            </div>
+          </section>
+
           {/* Optional Settings */}
           <section className="settings-section">
             <h3 className="settings-section__title">Optional</h3>
@@ -246,27 +267,6 @@ export function SettingsSidebar({
                 placeholder="System prompt / developer instructions..."
                 rows={4}
               />
-            </div>
-          </section>
-
-          {/* Tools Settings */}
-          <section className="settings-section">
-            <h3 className="settings-section__title">Tools</h3>
-
-            <div className="settings-field">
-              <label className="settings-field__checkbox-wrapper">
-                <input
-                  id="webSearchEnabled"
-                  type="checkbox"
-                  className="settings-field__checkbox"
-                  checked={settings.webSearchEnabled || false}
-                  onChange={handleCheckboxChange('webSearchEnabled')}
-                />
-                <span className="settings-field__checkbox-label">Web Search</span>
-              </label>
-              <span className="settings-field__hint">
-                Ground responses with real-time web data via Bing. Incurs additional costs.
-              </span>
             </div>
           </section>
         </div>
