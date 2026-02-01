@@ -1,0 +1,104 @@
+.attachment-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+.attachment-preview__item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background-color: #f5f5f5;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.attachment-preview__image {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+}
+
+.attachment-preview__file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  max-width: 200px;
+}
+
+.attachment-preview__file-icon {
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
+  color: #dc3545;
+}
+
+.attachment-preview__filename {
+  font-size: 12px;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.attachment-preview__remove {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.2s;
+}
+
+.attachment-preview__item:hover .attachment-preview__remove,
+.attachment-preview__item:focus-within .attachment-preview__remove,
+.attachment-preview__remove:focus {
+  opacity: 1;
+}
+
+.attachment-preview__remove:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: 1px;
+}
+
+.attachment-preview__remove:hover {
+  background-color: rgba(220, 53, 69, 0.9);
+}
+
+.attachment-preview__remove:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.attachment-preview__remove svg {
+  width: 12px;
+  height: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .attachment-preview__item {
+    background-color: #2a2a2a;
+    border-color: #444;
+  }
+
+  .attachment-preview__filename {
+    color: #ddd;
+  }
+
+  .attachment-preview__file-icon {
+    color: #ff6b6b;
+  }
+}
