@@ -53,6 +53,7 @@ describe('API utilities', () => {
       apiKey: 'test-key',
       modelName: 'gpt-5-mini',
       deploymentName: '',
+      messageRenderMode: 'markdown',
     };
 
     it('creates a client with normalized endpoint', () => {
