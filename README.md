@@ -131,18 +131,18 @@ VITE_RECORD_MODE=true npm run dev
 
 ### How It Works
 
-1. When you send a message, the app captures the full request payload and all streaming events
+1. When you send a message, the app captures all streaming response events from the API
 2. On conversation completion, a JSONL file automatically downloads to your browser's download folder
-3. File naming format: `recording-{guid}-{timestamp}.jsonl`
+3. File naming format: `recording-{guid}.jsonl`
 
 ### JSONL File Format
 
 Each file contains one JSON object per line:
 
 ```jsonl
-{"type":"request","timestamp":"...","data":{...}}    // Request payload
-{"type":"event","timestamp":"...","data":{...}}      // Each streaming event
-{"type":"event","timestamp":"...","data":{...}}
+{"type":"response.created","timestamp":0,"data":{...}}                     // Initial streaming event
+{"type":"response.output_text.delta","timestamp":45,"data":{...}}          // Subsequent streaming event
+{"type":"response.output_text.delta","timestamp":67,"data":{...}}
 ...
 ```
 
