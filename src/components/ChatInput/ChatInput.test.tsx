@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { ChatInput } from './ChatInput';
 import type { Message } from '../../types';
 
@@ -297,7 +296,6 @@ describe('ChatInput', () => {
     });
 
     it('copies conversation JSON when button clicked', async () => {
-      const user = userEvent.setup();
       render(
         <ChatInput
           onSendMessage={mockOnSendMessage}
@@ -309,8 +307,26 @@ describe('ChatInput', () => {
       const copyButton = screen.getByTitle('Copy conversation as JSON');
       expect(copyButton).toHaveTextContent('📋 Copy JSON');
 
-      // Click should not throw
-      await user.click(copyButton);
+      fireEvent.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith(
+          JSON.stringify([
+            {
+              role: 'user',
+              content: 'Hello',
+              timestamp: '2026-01-15T10:00:00.000Z',
+              requestJson: { model: 'gpt-5', input: 'Hello' },
+            },
+            {
+              role: 'assistant',
+              content: 'Hi there!',
+              timestamp: '2026-01-15T10:00:01.000Z',
+              responseJson: { id: 'resp-1', output: [{ text: 'Hi there!' }] },
+            },
+          ], null, 2)
+        );
+      });
     });
   });
 });

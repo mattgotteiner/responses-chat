@@ -419,7 +419,6 @@ describe('Message', () => {
     });
 
     it('copies message content when copy button clicked', async () => {
-      const user = userEvent.setup();
       const assistantMessage: MessageType = {
         ...baseMessage,
         role: 'assistant',
@@ -431,8 +430,11 @@ describe('Message', () => {
       expect(copyButton).toHaveTextContent('📋');
       expect(copyButton).not.toBeDisabled();
 
-      // Click should not throw
-      await user.click(copyButton);
+      fireEvent.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith('Copy this text');
+      });
     });
   });
 });
