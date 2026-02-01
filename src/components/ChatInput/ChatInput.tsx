@@ -68,6 +68,10 @@ export function ChatInput({
         role: m.role,
         content: m.content,
         timestamp: m.timestamp.toISOString(),
+        ...(m.reasoning && { reasoning: m.reasoning }),
+        ...(m.toolCalls && { toolCalls: m.toolCalls }),
+        ...(m.isError && { isError: m.isError }),
+        ...(m.isStopped && { isStopped: m.isStopped }),
         ...(m.requestJson && { requestJson: m.requestJson }),
         ...(m.responseJson && { responseJson: m.responseJson }),
       }));
