@@ -3,7 +3,7 @@
  */
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
-import type { TokenUsage } from '../../types';
+import type { Message, TokenUsage } from '../../types';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
 import './ChatInput.css';
 
@@ -22,6 +22,8 @@ interface ChatInputProps {
   placeholder?: string;
   /** Token usage for the conversation */
   tokenUsage?: TokenUsage;
+  /** Messages array for conversation JSON export */
+  messages?: Message[];
 }
 
 /**
@@ -35,6 +37,7 @@ export function ChatInput({
   disabled = false,
   placeholder = 'Type a message...',
   tokenUsage,
+  messages = [],
 }: ChatInputProps) {
   const [value, setValue] = useState('');
 
@@ -58,6 +61,23 @@ export function ChatInput({
     },
     [handleSend]
   );
+
+  const handleCopyConversation = useCallback(async () => {
+    if (messages.length > 0) {
+      const conversationJson = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp.toISOString(),
+        ...(m.requestJson && { requestJson: m.requestJson }),
+        ...(m.responseJson && { responseJson: m.responseJson }),
+      }));
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(conversationJson, null, 2));
+      } catch {
+        // Clipboard write failed silently
+      }
+    }
+  }, [messages]);
 
   return (
     <div className="chat-input">
@@ -119,6 +139,15 @@ export function ChatInput({
             Clear conversation
           </button>
           <TokenUsageDisplay usage={tokenUsage} mode="compact" />
+          {messages.length > 0 && (
+            <button
+              className="chat-input__copy-json"
+              onClick={handleCopyConversation}
+              title="Copy conversation as JSON"
+            >
+              📋 Copy JSON
+            </button>
+          )}
         </div>
         <span className="chat-input__hint">
           Press Enter to send, Shift+Enter for new line
