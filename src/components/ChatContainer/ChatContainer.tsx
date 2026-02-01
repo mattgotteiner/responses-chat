@@ -77,6 +77,7 @@ export function ChatContainer() {
         disabled={!isConfigured || isStreaming}
         placeholder={inputPlaceholder}
         tokenUsage={conversationUsage}
+        messages={messages}
       />
 
       <SettingsSidebar

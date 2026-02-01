@@ -59,12 +59,19 @@
   border-radius: 50%;
   color: #fff;
   cursor: pointer;
-  opacity: 0;
+  opacity: 0.6;
   transition: opacity 0.2s;
 }
 
-.attachment-preview__item:hover .attachment-preview__remove {
+.attachment-preview__item:hover .attachment-preview__remove,
+.attachment-preview__item:focus-within .attachment-preview__remove,
+.attachment-preview__remove:focus {
   opacity: 1;
+}
+
+.attachment-preview__remove:focus {
+  outline: 2px solid #0078d4;
+  outline-offset: 1px;
 }
 
 .attachment-preview__remove:hover {

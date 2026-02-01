@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Message } from './Message';
-import type { Message as MessageType } from '../../types';
+import type { Message as MessageType, Attachment } from '../../types';
 import { SettingsProvider } from '../../context/SettingsContext';
 import type { ReactElement } from 'react';
 
@@ -441,6 +441,100 @@ describe('citations', () => {
       expect(container.querySelector('.message-content--markdown')).toBeInTheDocument();
       // Bold text should be in a strong tag
       expect(screen.getByText('bold').tagName.toLowerCase()).toBe('strong');
+    });
+  });
+
+  describe('attachments', () => {
+    const imageAttachment: Attachment = {
+      id: 'attach-1',
+      name: 'photo.png',
+      type: 'image',
+      mimeType: 'image/png',
+      base64: 'abc123',
+      previewUrl: 'data:image/png;base64,abc123',
+    };
+
+    const fileAttachment: Attachment = {
+      id: 'attach-2',
+      name: 'document.pdf',
+      type: 'file',
+      mimeType: 'application/pdf',
+      base64: 'def456',
+    };
+
+    it('renders image attachments with preview', () => {
+      const messageWithImageAttachment: MessageType = {
+        ...baseMessage,
+        attachments: [imageAttachment],
+      };
+      renderWithSettings(
+        <Message message={messageWithImageAttachment} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      const image = screen.getByRole('img', { name: 'photo.png' });
+      expect(image).toBeInTheDocument();
+      expect(image).toHaveAttribute('src', imageAttachment.previewUrl);
+    });
+
+    it('renders file attachments with filename', () => {
+      const messageWithFileAttachment: MessageType = {
+        ...baseMessage,
+        attachments: [fileAttachment],
+      };
+      renderWithSettings(
+        <Message message={messageWithFileAttachment} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      expect(screen.getByText('document.pdf')).toBeInTheDocument();
+    });
+
+    it('renders multiple attachments', () => {
+      const messageWithMultipleAttachments: MessageType = {
+        ...baseMessage,
+        attachments: [imageAttachment, fileAttachment],
+      };
+      renderWithSettings(
+        <Message message={messageWithMultipleAttachments} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      expect(screen.getByRole('img', { name: 'photo.png' })).toBeInTheDocument();
+      expect(screen.getByText('document.pdf')).toBeInTheDocument();
+    });
+
+    it('does not render attachments section when no attachments', () => {
+      const messageWithoutAttachments: MessageType = {
+        ...baseMessage,
+        attachments: undefined,
+      };
+      const { container } = renderWithSettings(
+        <Message message={messageWithoutAttachments} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      expect(container.querySelector('.message__attachments')).not.toBeInTheDocument();
+    });
+
+    it('does not render attachments section when attachments array is empty', () => {
+      const messageWithEmptyAttachments: MessageType = {
+        ...baseMessage,
+        attachments: [],
+      };
+      const { container } = renderWithSettings(
+        <Message message={messageWithEmptyAttachments} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      expect(container.querySelector('.message__attachments')).not.toBeInTheDocument();
+    });
+
+    it('renders attachments section with correct class', () => {
+      const messageWithAttachments: MessageType = {
+        ...baseMessage,
+        attachments: [imageAttachment],
+      };
+      const { container } = renderWithSettings(
+        <Message message={messageWithAttachments} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      
+      expect(container.querySelector('.message__attachments')).toBeInTheDocument();
     });
   });
 });

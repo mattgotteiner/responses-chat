@@ -8,20 +8,51 @@ import {
   getAcceptString,
   isSupportedMimeType,
   createAttachmentFromFile,
+  formatFileSize,
 } from '../../utils/attachment';
 import './AttachmentButton.css';
+
+/** Maximum file size in bytes (10 MB) */
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/** Information about a rejected file */
+export interface RejectedFile {
+  /** Original filename */
+  name: string;
+  /** Reason for rejection */
+  reason: 'unsupported-type' | 'file-too-large';
+  /** Human-readable message */
+  message: string;
+}
+
+/** Result of file selection */
+export interface AttachmentResult {
+  /** Successfully processed attachments */
+  attachments: Attachment[];
+  /** Files that were rejected */
+  rejectedFiles: RejectedFile[];
+}
 
 interface AttachmentButtonProps {
   /** Handler called when files are selected */
   onAttach: (attachments: Attachment[]) => void;
+  /** Optional handler called with full result including rejected files */
+  onAttachResult?: (result: AttachmentResult) => void;
   /** Whether the button is disabled */
   disabled?: boolean;
+  /** Maximum file size in bytes (default: 10 MB) */
+  maxFileSize?: number;
 }
 
 /**
  * Button that opens a file picker for attaching images or PDFs
  */
-export function AttachmentButton({ onAttach, disabled = false }: AttachmentButtonProps) {
+export function AttachmentButton({
+  onAttach,
+  onAttachResult,
+  disabled = false,
+  maxFileSize = MAX_FILE_SIZE_BYTES,
+}: AttachmentButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleClick = useCallback(() => {
@@ -33,29 +64,49 @@ export function AttachmentButton({ onAttach, disabled = false }: AttachmentButto
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      const validFiles = Array.from(files).filter((file) =>
-        isSupportedMimeType(file.type)
-      );
+      const rejectedFiles: RejectedFile[] = [];
+      const validFiles: File[] = [];
 
-      if (validFiles.length === 0) {
-        // Reset input so user can try again
-        e.target.value = '';
-        return;
+      // Validate each file for type and size
+      Array.from(files).forEach((file) => {
+        if (!isSupportedMimeType(file.type)) {
+          rejectedFiles.push({
+            name: file.name,
+            reason: 'unsupported-type',
+            message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). Supported types: PNG, JPEG, WebP, and PDF.`,
+          });
+        } else if (file.size > maxFileSize) {
+          rejectedFiles.push({
+            name: file.name,
+            reason: 'file-too-large',
+            message: `"${file.name}" is too large (${formatFileSize(file.size)}). Maximum file size is ${formatFileSize(maxFileSize)}.`,
+          });
+        } else {
+          validFiles.push(file);
+        }
+      });
+
+      let attachments: Attachment[] = [];
+      if (validFiles.length > 0) {
+        try {
+          attachments = await Promise.all(
+            validFiles.map((file) => createAttachmentFromFile(file))
+          );
+          onAttach(attachments);
+        } catch (error) {
+          console.error('Failed to process attachments:', error);
+        }
       }
 
-      try {
-        const attachments = await Promise.all(
-          validFiles.map((file) => createAttachmentFromFile(file))
-        );
-        onAttach(attachments);
-      } catch (error) {
-        console.error('Failed to process attachments:', error);
+      // Notify about complete result including rejections
+      if (onAttachResult) {
+        onAttachResult({ attachments, rejectedFiles });
       }
 
       // Reset input to allow selecting the same file again
       e.target.value = '';
     },
-    [onAttach]
+    [onAttach, onAttachResult, maxFileSize]
   );
 
   return (

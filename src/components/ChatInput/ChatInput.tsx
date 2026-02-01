@@ -3,10 +3,10 @@
  */
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
-import type { Attachment, TokenUsage } from '../../types';
-import { TokenUsageDisplay } from '../TokenUsageDisplay';
+import type { Attachment, Message, TokenUsage } from '../../types';
 import { AttachmentButton } from '../AttachmentButton';
 import { AttachmentPreview } from '../AttachmentPreview';
+import { TokenUsageDisplay } from '../TokenUsageDisplay';
 import './ChatInput.css';
 
 interface ChatInputProps {
@@ -24,6 +24,8 @@ interface ChatInputProps {
   placeholder?: string;
   /** Token usage for the conversation */
   tokenUsage?: TokenUsage;
+  /** Messages array for conversation JSON export */
+  messages?: Message[];
 }
 
 /**
@@ -37,6 +39,7 @@ export function ChatInput({
   disabled = false,
   placeholder = 'Type a message...',
   tokenUsage,
+  messages = [],
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -45,6 +48,14 @@ export function ChatInput({
     setValue(e.target.value);
   }, []);
 
+  const handleSend = useCallback(() => {
+    if (value.trim() && !disabled) {
+      onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
+      setValue('');
+      setAttachments([]);
+    }
+  }, [value, disabled, onSendMessage, attachments]);
+
   const handleAttach = useCallback((newAttachments: Attachment[]) => {
     setAttachments((prev) => [...prev, ...newAttachments]);
   }, []);
@@ -52,16 +63,6 @@ export function ChatInput({
   const handleRemoveAttachment = useCallback((id: string) => {
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
-
-  const canSend = (value.trim() || attachments.length > 0) && !disabled;
-
-  const handleSend = useCallback(() => {
-    if (canSend) {
-      onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
-      setValue('');
-      setAttachments([]);
-    }
-  }, [value, attachments, canSend, onSendMessage]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -73,14 +74,35 @@ export function ChatInput({
     [handleSend]
   );
 
+  const handleCopyConversation = useCallback(async () => {
+    if (messages.length > 0) {
+      const conversationJson = messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        timestamp: m.timestamp.toISOString(),
+        ...(m.reasoning && { reasoning: m.reasoning }),
+        ...(m.toolCalls && { toolCalls: m.toolCalls }),
+        ...(m.isError && { isError: m.isError }),
+        ...(m.isStopped && { isStopped: m.isStopped }),
+        ...(m.requestJson && { requestJson: m.requestJson }),
+        ...(m.responseJson && { responseJson: m.responseJson }),
+      }));
+      try {
+        await navigator.clipboard.writeText(JSON.stringify(conversationJson, null, 2));
+      } catch {
+        // Clipboard write failed silently
+      }
+    }
+  }, [messages]);
+
   return (
     <div className="chat-input">
-      {/* Attachment preview */}
-      <AttachmentPreview
-        attachments={attachments}
-        onRemove={handleRemoveAttachment}
-        disabled={disabled}
-      />
+      {attachments.length > 0 && (
+        <AttachmentPreview
+          attachments={attachments}
+          onRemove={handleRemoveAttachment}
+        />
+      )}
       <div className="chat-input__container">
         <textarea
           className="chat-input__textarea"
@@ -92,7 +114,6 @@ export function ChatInput({
           rows={1}
           aria-label="Message input"
         />
-        <AttachmentButton onAttach={handleAttach} disabled={disabled} />
         {isStreaming ? (
           <button
             className="chat-input__stop"
@@ -111,7 +132,7 @@ export function ChatInput({
           <button
             className="chat-input__send"
             onClick={handleSend}
-            disabled={!canSend}
+            disabled={disabled || !value.trim()}
             aria-label="Send message"
             title="Send message"
           >
@@ -128,6 +149,7 @@ export function ChatInput({
             </svg>
           </button>
         )}
+        <AttachmentButton onAttach={handleAttach} disabled={disabled} />
       </div>
       <div className="chat-input__actions">
         <div className="chat-input__actions-left">
@@ -140,6 +162,15 @@ export function ChatInput({
             Clear conversation
           </button>
           <TokenUsageDisplay usage={tokenUsage} mode="compact" />
+          {messages.length > 0 && (
+            <button
+              className="chat-input__copy-json"
+              onClick={handleCopyConversation}
+              title="Copy conversation as JSON"
+            >
+              📋 Copy JSON
+            </button>
+          )}
         </div>
         <span className="chat-input__hint">
           Press Enter to send, Shift+Enter for new line
