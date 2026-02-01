@@ -3,16 +3,20 @@
  */
 
 import { readFileSync, readdirSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { loadRecording, type Recording } from '../utils/recording';
 
 /**
  * Get the path to the recordings directory
- * Works from both project root and src/test directory
+ * Uses import.meta.url to derive the path from this file's location,
+ * making it robust regardless of the current working directory.
  */
 function getRecordingsDir(): string {
-  // Vitest runs from project root, so this path works directly
-  return resolve(process.cwd(), 'recordings');
+  // Derive path from this file's location: src/test/helpers.ts -> recordings/
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  // Go up two levels (src/test -> src -> project root) then into recordings
+  return resolve(__dirname, '..', '..', 'recordings');
 }
 
 /**

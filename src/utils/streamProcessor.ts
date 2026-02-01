@@ -8,6 +8,20 @@
 import type { ReasoningStep, ToolCall } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
+/** ID generator functions for customizable ID generation */
+export interface IdGenerators {
+  /** Generate a unique reasoning step ID */
+  generateReasoningId: () => string;
+  /** Generate a unique tool call ID */
+  generateToolCallId: () => string;
+}
+
+/** Default ID generators using the api module functions */
+export const defaultIdGenerators: IdGenerators = {
+  generateReasoningId,
+  generateToolCallId,
+};
+
 /** Raw streaming event from the OpenAI SDK */
 export interface StreamEvent {
   type: string;
@@ -45,17 +59,27 @@ export function createInitialAccumulator(): StreamAccumulator {
  * This is a pure function: (accumulator, event) => newAccumulator
  * It does not mutate the input accumulator.
  * 
+ * When delta is empty, the original accumulator is returned to avoid
+ * unnecessary React state updates/rerenders in the UI.
+ * 
  * @param accumulator - Current accumulated state
  * @param event - Streaming event from the API
+ * @param idGenerators - Optional custom ID generators (for testing/replay)
  * @returns Updated accumulator with the event processed
  */
 export function processStreamEvent(
   accumulator: StreamAccumulator,
-  event: StreamEvent
+  event: StreamEvent,
+  idGenerators: IdGenerators = defaultIdGenerators
 ): StreamAccumulator {
   switch (event.type) {
     case 'response.output_text.delta': {
       const delta = (event as { delta?: string }).delta || '';
+      // Short-circuit: return original accumulator when delta is empty
+      // to avoid unnecessary React state updates/rerenders
+      if (delta === '') {
+        return accumulator;
+      }
       return {
         ...accumulator,
         content: accumulator.content + delta,
@@ -79,7 +103,7 @@ export function processStreamEvent(
           .map((s) => s.text!);
 
         if (summaryTexts.length > 0) {
-          const itemId = itemEvent.item.id || generateReasoningId();
+          const itemId = itemEvent.item.id || idGenerators.generateReasoningId();
           const content = summaryTexts.join('\n');
 
           // Find or update reasoning step
@@ -112,7 +136,20 @@ export function processStreamEvent(
         summary_index?: number;
       };
       const delta = reasoningEvent.delta || '';
-      const itemId = reasoningEvent.item_id || generateReasoningId();
+      // Short-circuit: return original accumulator when delta is empty
+      // to avoid unnecessary React state updates/rerenders
+      if (delta === '' && reasoningEvent.item_id) {
+        // Only short-circuit if item_id exists (no new step needs to be created)
+        const summaryIndex = reasoningEvent.summary_index ?? 0;
+        const uniqueId = `${reasoningEvent.item_id}_${summaryIndex}`;
+        const existingIndex = accumulator.reasoning.findIndex(
+          (r) => r.id === uniqueId
+        );
+        if (existingIndex >= 0) {
+          return accumulator;
+        }
+      }
+      const itemId = reasoningEvent.item_id || idGenerators.generateReasoningId();
       const summaryIndex = reasoningEvent.summary_index ?? 0;
       const uniqueId = `${itemId}_${summaryIndex}`;
 
@@ -145,7 +182,17 @@ export function processStreamEvent(
         name?: string;
       };
       const delta = toolEvent.delta || '';
-      const itemId = toolEvent.item_id || generateToolCallId();
+      // Short-circuit: return original accumulator when delta is empty
+      // and the tool call already exists (to avoid unnecessary rerenders)
+      if (delta === '' && toolEvent.item_id) {
+        const existingIndex = accumulator.toolCalls.findIndex(
+          (t) => t.id === toolEvent.item_id
+        );
+        if (existingIndex >= 0) {
+          return accumulator;
+        }
+      }
+      const itemId = toolEvent.item_id || idGenerators.generateToolCallId();
 
       // Find or create tool call
       const existingIndex = accumulator.toolCalls.findIndex(

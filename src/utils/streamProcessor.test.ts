@@ -3,8 +3,10 @@ import {
   createInitialAccumulator,
   processStreamEvent,
   processStream,
+  defaultIdGenerators,
   type StreamAccumulator,
   type StreamEvent,
+  type IdGenerators,
 } from './streamProcessor';
 
 describe('streamProcessor', () => {
@@ -46,20 +48,22 @@ describe('streamProcessor', () => {
         expect(result.content).toBe('Hello world!');
       });
 
-      it('handles empty delta', () => {
+      it('returns same accumulator for empty delta (to avoid rerenders)', () => {
         const event: StreamEvent = {
           type: 'response.output_text.delta',
           delta: '',
         };
         const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator); // Same reference
         expect(result.content).toBe('');
       });
 
-      it('handles missing delta', () => {
+      it('returns same accumulator for missing delta (to avoid rerenders)', () => {
         const event: StreamEvent = {
           type: 'response.output_text.delta',
         };
         const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator); // Same reference
         expect(result.content).toBe('');
       });
 
@@ -138,6 +142,35 @@ describe('streamProcessor', () => {
         const result = processStreamEvent(accumulator, event);
         expect(result.reasoning[0].id).toBe('rs_123_0');
       });
+
+      it('returns same accumulator for empty delta when step exists (to avoid rerenders)', () => {
+        accumulator = {
+          ...accumulator,
+          reasoning: [{ id: 'rs_123_0', content: 'Existing' }],
+        };
+        const event: StreamEvent = {
+          type: 'response.reasoning_summary_text.delta',
+          delta: '',
+          item_id: 'rs_123',
+          summary_index: 0,
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator); // Same reference
+      });
+
+      it('uses custom ID generator when item_id is missing', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'custom_reason_id',
+          generateToolCallId: () => 'custom_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.reasoning_summary_text.delta',
+          delta: 'Thinking...',
+          summary_index: 0,
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.reasoning[0].id).toBe('custom_reason_id_0');
+      });
     });
 
     describe('response.function_call_arguments.delta', () => {
@@ -178,6 +211,34 @@ describe('streamProcessor', () => {
         };
         const result = processStreamEvent(accumulator, event);
         expect(result.toolCalls[0].name).toBe('unknown');
+      });
+
+      it('returns same accumulator for empty delta when tool call exists (to avoid rerenders)', () => {
+        accumulator = {
+          ...accumulator,
+          toolCalls: [{ id: 'tool_123', name: 'my_function', arguments: '{}' }],
+        };
+        const event: StreamEvent = {
+          type: 'response.function_call_arguments.delta',
+          delta: '',
+          item_id: 'tool_123',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator); // Same reference
+      });
+
+      it('uses custom ID generator when item_id is missing', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'custom_reason_id',
+          generateToolCallId: () => 'custom_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.function_call_arguments.delta',
+          delta: '{"key": "value"}',
+          name: 'my_function',
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.toolCalls[0].id).toBe('custom_tool_id');
       });
     });
 
@@ -242,6 +303,24 @@ describe('streamProcessor', () => {
         expect(result.reasoning[0].content).toBe('First thought\nSecond thought');
       });
 
+      it('uses custom ID generator when item id is missing', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'custom_output_item_id',
+          generateToolCallId: () => 'custom_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            type: 'reasoning',
+            summary: [
+              { type: 'summary_text', text: 'Thought' },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.reasoning[0].id).toBe('custom_output_item_id');
+      });
+
       it('ignores non-reasoning output items', () => {
         const event: StreamEvent = {
           type: 'response.output_item.done',
@@ -264,6 +343,41 @@ describe('streamProcessor', () => {
         };
         const result = processStreamEvent(accumulator, event);
         expect(result).toBe(accumulator);
+      });
+    });
+
+    describe('injectable ID generators', () => {
+      it('exports defaultIdGenerators', () => {
+        expect(defaultIdGenerators).toBeDefined();
+        expect(typeof defaultIdGenerators.generateReasoningId).toBe('function');
+        expect(typeof defaultIdGenerators.generateToolCallId).toBe('function');
+      });
+
+      it('uses custom ID generators for deterministic testing', () => {
+        let reasoningCounter = 0;
+        let toolCallCounter = 0;
+        const deterministicGenerators: IdGenerators = {
+          generateReasoningId: () => `test_reason_${++reasoningCounter}`,
+          generateToolCallId: () => `test_tool_${++toolCallCounter}`,
+        };
+
+        // Test reasoning ID generation
+        const reasoningEvent: StreamEvent = {
+          type: 'response.reasoning_summary_text.delta',
+          delta: 'Thinking',
+          summary_index: 0,
+        };
+        const reasoningResult = processStreamEvent(accumulator, reasoningEvent, deterministicGenerators);
+        expect(reasoningResult.reasoning[0].id).toBe('test_reason_1_0');
+
+        // Test tool call ID generation (counter is separate, so starts at 1)
+        const toolEvent: StreamEvent = {
+          type: 'response.function_call_arguments.delta',
+          delta: '{}',
+          name: 'test_fn',
+        };
+        const toolResult = processStreamEvent(accumulator, toolEvent, deterministicGenerators);
+        expect(toolResult.toolCalls[0].id).toBe('test_tool_1');
       });
     });
   });
