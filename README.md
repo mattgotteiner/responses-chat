@@ -113,6 +113,69 @@ Open the settings sidebar (gear icon) to configure:
 | Verbosity | low, medium, high |
 | Developer Instructions | System-level instructions for the model |
 
+## Record Mode
+
+Record mode captures wire-level API requests and responses for creating e2e test fixtures. When enabled, each conversation generates a JSONL file that can be used to replay API interactions without making actual API calls.
+
+### Enabling Record Mode
+
+Set the `VITE_RECORD_MODE` environment variable when starting the dev server:
+
+```bash
+# Windows PowerShell
+$env:VITE_RECORD_MODE="true"; npm run dev
+
+# macOS/Linux
+VITE_RECORD_MODE=true npm run dev
+```
+
+### How It Works
+
+1. When you send a message, the app captures all streaming response events from the API
+2. On conversation completion, a JSONL file automatically downloads to your browser's download folder
+3. File naming format: `recording-{guid}.jsonl`
+
+### JSONL File Format
+
+Each file contains one JSON object per line. The first line is the request payload, followed by streaming response events:
+
+```jsonl
+{"type":"request","timestamp":0,"data":{"model":"gpt-5","input":"Hello!","reasoning":{"effort":"low","summary":"detailed"}}}
+{"type":"response.created","timestamp":1165,"data":{"type":"response.created","sequence_number":0,"response":{"id":"resp_...","status":"in_progress",...}}}
+{"type":"response.in_progress","timestamp":1212,"data":{"type":"response.in_progress","sequence_number":1,...}}
+{"type":"response.output_text.delta","timestamp":1250,"data":{"type":"response.output_text.delta","delta":"Hi",...}}
+{"type":"response.completed","timestamp":2500,"data":{"type":"response.completed","response":{"id":"resp_...","status":"completed",...}}}
+```
+
+**Line structure:**
+- `type` - Event type (`request` for the first line, SDK event types for subsequent lines)
+- `timestamp` - Milliseconds since session start (always `0` for request)
+- `data` - Full event payload from the SDK
+
+### Loading Recordings
+
+Use the `loadRecording()` utility to parse recording files:
+
+```typescript
+import { loadRecording } from './utils/recording';
+
+const content = await fetch('/recordings/example.jsonl').then(r => r.text());
+const recording = loadRecording(content);
+
+console.log(recording.request.data);  // Original request payload
+console.log(recording.events);        // Array of streaming events
+```
+
+### Recordings Directory
+
+Downloaded recordings can be moved to the `recordings/` directory (gitignored) for organization. This directory is intended for storing test fixtures.
+
+### Use Cases
+
+- **E2E Testing**: Replay recorded API responses without spending tokens
+- **Debugging**: Inspect exact wire-level data exchanged with the API
+- **Development**: Test UI changes against known API response patterns
+
 ## Deployment
 
 ### GitHub Pages

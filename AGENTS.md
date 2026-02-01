@@ -126,6 +126,7 @@ Follow the existing structure in `src/`. See examples:
 - Test files should be co-located with source files or in `src/test/`
 - Run `npm run test:run` before committing
 - All tests must pass before merging
+- **Always add unit tests when implementing new features** – new utilities, hooks, and components should have corresponding `.test.ts` or `.test.tsx` files
 
 ```tsx
 // ✅ Good test pattern
