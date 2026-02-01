@@ -15,6 +15,7 @@ import {
   generateReasoningId,
   generateToolCallId,
 } from '../utils/api';
+import { createRecordingSession } from '../utils/recording';
 
 /** Return type for the useChat hook */
 export interface UseChatReturn {
@@ -121,8 +122,13 @@ export function useChat(): UseChatReturn {
         const accumulatedReasoning: ReasoningStep[] = [];
         const accumulatedToolCalls: ToolCall[] = [];
 
+        // Start recording session if RECORD mode is enabled
+        const recordingSession = createRecordingSession();
+
         // Process the stream - cast to async iterable since we set stream: true
         for await (const event of stream as AsyncIterable<{ type: string; [key: string]: unknown }>) {
+          // Record event if recording is active
+          recordingSession?.recordEvent(event);
           // Handle different event types
           if (event.type === 'response.output_text.delta') {
             // Text content delta
@@ -246,6 +252,9 @@ export function useChat(): UseChatReturn {
             }
           }
         }
+
+        // Finalize recording if active
+        recordingSession?.finalize();
 
         // Mark message as no longer streaming
         setMessages((prev) =>

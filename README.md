@@ -113,6 +113,49 @@ Open the settings sidebar (gear icon) to configure:
 | Verbosity | low, medium, high |
 | Developer Instructions | System-level instructions for the model |
 
+## Record Mode
+
+Record mode captures wire-level API requests and responses for creating e2e test fixtures. When enabled, each conversation generates a JSONL file that can be used to replay API interactions without making actual API calls.
+
+### Enabling Record Mode
+
+Set the `VITE_RECORD_MODE` environment variable when starting the dev server:
+
+```bash
+# Windows PowerShell
+$env:VITE_RECORD_MODE="true"; npm run dev
+
+# macOS/Linux
+VITE_RECORD_MODE=true npm run dev
+```
+
+### How It Works
+
+1. When you send a message, the app captures the full request payload and all streaming events
+2. On conversation completion, a JSONL file automatically downloads to your browser's download folder
+3. File naming format: `recording-{guid}-{timestamp}.jsonl`
+
+### JSONL File Format
+
+Each file contains one JSON object per line:
+
+```jsonl
+{"type":"request","timestamp":"...","data":{...}}    // Request payload
+{"type":"event","timestamp":"...","data":{...}}      // Each streaming event
+{"type":"event","timestamp":"...","data":{...}}
+...
+```
+
+### Recordings Directory
+
+Downloaded recordings can be moved to the `recordings/` directory (gitignored) for organization. This directory is intended for storing test fixtures.
+
+### Use Cases
+
+- **E2E Testing**: Replay recorded API responses without spending tokens
+- **Debugging**: Inspect exact wire-level data exchanged with the API
+- **Development**: Test UI changes against known API response patterns
+
 ## Deployment
 
 ### GitHub Pages
