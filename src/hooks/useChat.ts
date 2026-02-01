@@ -15,6 +15,7 @@ import {
   generateReasoningId,
   generateToolCallId,
 } from '../utils/api';
+import { createRecordingSession } from '../utils/recording';
 
 /** Return type for the useChat hook */
 export interface UseChatReturn {
@@ -76,6 +77,9 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
 
+      // Start recording session if RECORD mode is enabled (declared here for finally block access)
+      const recordingSession = createRecordingSession();
+
       try {
         const client = createAzureClient(settings);
         const deployment = settings.deploymentName || settings.modelName;
@@ -111,6 +115,9 @@ export function useChat(): UseChatReturn {
           requestParams.verbosity = settings.verbosity;
         }
 
+        // Record the request payload if recording is active
+        recordingSession?.recordRequest(requestParams);
+
         // Use the responses API with streaming
         const stream = await client.responses.create({
           ...requestParams,
@@ -123,6 +130,8 @@ export function useChat(): UseChatReturn {
 
         // Process the stream - cast to async iterable since we set stream: true
         for await (const event of stream as AsyncIterable<{ type: string; [key: string]: unknown }>) {
+          // Record event if recording is active
+          recordingSession?.recordEvent(event);
           // Handle different event types
           if (event.type === 'response.output_text.delta') {
             // Text content delta
@@ -272,6 +281,8 @@ export function useChat(): UseChatReturn {
           )
         );
       } finally {
+        // Finalize recording if active (even on error for debugging)
+        recordingSession?.finalize();
         setIsStreaming(false);
       }
     },
