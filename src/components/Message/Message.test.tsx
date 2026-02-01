@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Message } from './Message';
@@ -17,6 +17,8 @@ function renderWithSettings(ui: ReactElement) {
 
 describe('Message', () => {
   const mockOnOpenJsonPanel = vi.fn();
+  const mockClipboardWriteText = vi.fn();
+  let originalClipboard: Clipboard | undefined;
   
   const baseMessage: MessageType = {
     id: 'msg-1',
@@ -27,6 +29,23 @@ describe('Message', () => {
 
   beforeEach(() => {
     mockOnOpenJsonPanel.mockClear();
+    mockClipboardWriteText.mockClear().mockResolvedValue(undefined);
+    originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: mockClipboardWriteText },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    if (originalClipboard) {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 
   it('renders user message with You label', () => {
@@ -444,7 +463,7 @@ describe('citations', () => {
     });
   });
 
-  describe('attachments', () => {
+describe('attachments', () => {
     const imageAttachment: Attachment = {
       id: 'attach-1',
       name: 'photo.png',
@@ -535,6 +554,78 @@ describe('citations', () => {
       );
       
       expect(container.querySelector('.message__attachments')).toBeInTheDocument();
+    });
+  });
+
+  describe('copy button', () => {
+    it('shows copy button for assistant messages with content', () => {
+      const assistantMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Hello',
+      };
+      renderWithSettings(<Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.getByLabelText('Copy message')).toBeInTheDocument();
+    });
+
+    it('does not show copy button for user messages', () => {
+      renderWithSettings(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.queryByLabelText('Copy message')).not.toBeInTheDocument();
+    });
+
+    it('does not show copy button for error messages', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Error occurred',
+        isError: true,
+      };
+      renderWithSettings(<Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.queryByLabelText('Copy message')).not.toBeInTheDocument();
+    });
+
+    it('hides copy button while streaming', () => {
+      const streamingMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Partial response',
+        isStreaming: true,
+      };
+      renderWithSettings(<Message message={streamingMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      const copyButton = screen.getByLabelText('Copy message');
+      expect(copyButton).toHaveClass('message__copy-button--hidden');
+      expect(copyButton).toBeDisabled();
+    });
+
+    it('hides copy button when content is empty', () => {
+      const emptyMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: '',
+      };
+      renderWithSettings(<Message message={emptyMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      const copyButton = screen.getByLabelText('Copy message');
+      expect(copyButton).toHaveClass('message__copy-button--hidden');
+      expect(copyButton).toBeDisabled();
+    });
+
+    it('copies message content when copy button clicked', async () => {
+      const assistantMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Copy this text',
+      };
+      renderWithSettings(<Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+
+      const copyButton = screen.getByLabelText('Copy message');
+      expect(copyButton).toHaveTextContent('📋');
+      expect(copyButton).not.toBeDisabled();
+
+      fireEvent.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith('Copy this text');
+      });
     });
   });
 });

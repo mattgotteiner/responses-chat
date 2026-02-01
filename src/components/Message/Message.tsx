@@ -141,6 +141,16 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
     setOverrideRenderMode(mode);
   }, []);
 
+  const handleCopyContent = useCallback(async () => {
+    if (message.content) {
+      try {
+        await navigator.clipboard.writeText(message.content);
+      } catch {
+        // Clipboard write failed silently
+      }
+    }
+  }, [message.content]);
+
   return (
     <div
       className={`message ${isUser ? 'message--user' : 'message--assistant'} ${
@@ -158,12 +168,36 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
               hasOverride={hasOverride}
             />
           )}
-          {hasJsonData && (
+          {/* JSON and Copy buttons - always render both for assistant to avoid layout shift */}
+          {!isUser && !message.isError && (
+            <>
+              <button
+                className={`message__json-button ${!hasJsonData ? 'message__json-button--hidden' : ''}`}
+                onClick={handleJsonClick}
+                aria-label="View JSON"
+                title="View response JSON"
+                disabled={!hasJsonData}
+              >
+                {'{ }'}
+              </button>
+              <button
+                className={`message__copy-button ${!message.content || message.isStreaming ? 'message__copy-button--hidden' : ''}`}
+                onClick={handleCopyContent}
+                aria-label="Copy message"
+                title="Copy to clipboard"
+                disabled={!message.content || message.isStreaming}
+              >
+                📋
+              </button>
+            </>
+          )}
+          {/* JSON button for user messages */}
+          {isUser && hasJsonData && (
             <button
               className="message__json-button"
               onClick={handleJsonClick}
               aria-label="View JSON"
-              title={isUser ? 'View request JSON' : 'View response JSON'}
+              title="View request JSON"
             >
               {'{ }'}
             </button>
