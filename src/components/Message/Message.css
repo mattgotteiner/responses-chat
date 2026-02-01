@@ -29,8 +29,15 @@
 .message__header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 8px;
   margin-bottom: 6px;
+}
+
+.message__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .message__role {
@@ -151,6 +158,57 @@
   }
 }
 
+/* Render mode toggle */
+.message__render-toggle {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: rgba(0, 0, 0, 0.08);
+  border-radius: 4px;
+  padding: 2px;
+}
+
+.message__render-toggle-btn {
+  padding: 2px 6px;
+  font-size: 0.65rem;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.message__render-toggle-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+  color: #333;
+}
+
+.message__render-toggle-btn--active {
+  background: #0066cc;
+  color: white;
+}
+
+.message__render-toggle-btn--active:hover {
+  background: #0066cc;
+  color: white;
+}
+
+.message__render-toggle-reset {
+  padding: 2px 4px;
+  font-size: 0.75rem;
+  background: transparent;
+  border: none;
+  color: #666;
+  cursor: pointer;
+  margin-left: 2px;
+}
+
+.message__render-toggle-reset:hover {
+  color: #333;
+}
+
 @media (prefers-color-scheme: dark) {
   .message--assistant {
     background-color: #2a2a2a;
@@ -185,6 +243,37 @@
 
   .message__cursor {
     color: #4d9fff;
+  }
+
+  .message__render-toggle {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .message__render-toggle-btn {
+    color: #aaa;
+  }
+
+  .message__render-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.15);
+    color: #ddd;
+  }
+
+  .message__render-toggle-btn--active {
+    background: #4d9fff;
+    color: white;
+  }
+
+  .message__render-toggle-btn--active:hover {
+    background: #4d9fff;
+    color: white;
+  }
+
+  .message__render-toggle-reset {
+    color: #aaa;
+  }
+
+  .message__render-toggle-reset:hover {
+    color: #ddd;
   }
 }
 

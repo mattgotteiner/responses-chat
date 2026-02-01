@@ -43,6 +43,12 @@ export type ReasoningSummary = 'auto' | 'concise' | 'detailed';
 /** All reasoning summary options */
 export const REASONING_SUMMARY_OPTIONS: ReasoningSummary[] = ['auto', 'concise', 'detailed'];
 
+/** Message render mode options */
+export type MessageRenderMode = 'markdown' | 'plaintext' | 'code';
+
+/** All message render mode options */
+export const MESSAGE_RENDER_MODE_OPTIONS: MessageRenderMode[] = ['markdown', 'plaintext', 'code'];
+
 /** Application settings stored in localStorage */
 export interface Settings {
   /** Azure OpenAI endpoint URL */
@@ -63,6 +69,8 @@ export interface Settings {
   developerInstructions?: string;
   /** Enable web search tool for grounding responses with real-time web data */
   webSearchEnabled?: boolean;
+  /** Message render mode for assistant messages */
+  messageRenderMode: MessageRenderMode;
 }
 
 /** Default settings values */
@@ -75,6 +83,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reasoningSummary: 'detailed',
   verbosity: undefined,
   developerInstructions: undefined,
+  messageRenderMode: 'markdown',
 };
 
 /** Tool call information */

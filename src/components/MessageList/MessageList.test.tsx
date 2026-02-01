@@ -2,10 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { MessageList } from './MessageList';
 import type { Message } from '../../types';
+import { SettingsProvider } from '../../context/SettingsContext';
+import type { ReactElement } from 'react';
 
 // Mock scrollIntoView
 const scrollIntoViewMock = vi.fn();
 window.HTMLElement.prototype.scrollIntoView = scrollIntoViewMock;
+
+/**
+ * Helper to render components with SettingsProvider
+ */
+function renderWithSettings(ui: ReactElement) {
+  return render(
+    <SettingsProvider>{ui}</SettingsProvider>
+  );
+}
 
 describe('MessageList', () => {
   const mockOnOpenJsonPanel = vi.fn();
@@ -27,7 +38,7 @@ describe('MessageList', () => {
 
   describe('empty state', () => {
     it('shows configuration prompt when not configured', () => {
-      render(
+      renderWithSettings(
         <MessageList
           messages={[]}
           isConfigured={false}
@@ -44,7 +55,7 @@ describe('MessageList', () => {
     });
 
     it('shows conversation prompt when configured', () => {
-      render(
+      renderWithSettings(
         <MessageList
           messages={[]}
           isConfigured={true}
@@ -65,7 +76,7 @@ describe('MessageList', () => {
         createMessage('2', 'assistant', 'Hi there!'),
       ];
 
-      render(
+      renderWithSettings(
         <MessageList
           messages={messages}
           isConfigured={true}
@@ -83,11 +94,13 @@ describe('MessageList', () => {
       const messages = [createMessage('1', 'user', 'Hello')];
 
       const { rerender } = render(
-        <MessageList
-          messages={messages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={messages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       expect(scrollIntoViewMock).toHaveBeenCalled();
@@ -99,11 +112,13 @@ describe('MessageList', () => {
       ];
 
       rerender(
-        <MessageList
-          messages={newMessages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={newMessages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       expect(scrollIntoViewMock).toHaveBeenCalled();
@@ -113,11 +128,13 @@ describe('MessageList', () => {
       const messages = [createMessage('1', 'user', 'Hello')];
 
       const { container, rerender } = render(
-        <MessageList
-          messages={messages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={messages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       scrollIntoViewMock.mockClear();
@@ -139,11 +156,13 @@ describe('MessageList', () => {
       ];
 
       rerender(
-        <MessageList
-          messages={newMessages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={newMessages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       // Should NOT auto-scroll since user scrolled up
@@ -154,11 +173,13 @@ describe('MessageList', () => {
       const messages = [createMessage('1', 'user', 'Hello')];
 
       const { container, rerender } = render(
-        <MessageList
-          messages={messages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={messages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       // Simulate scrolling up first
@@ -184,11 +205,13 @@ describe('MessageList', () => {
       ];
 
       rerender(
-        <MessageList
-          messages={newMessages}
-          isConfigured={true}
-          onOpenJsonPanel={mockOnOpenJsonPanel}
-        />
+        <SettingsProvider>
+          <MessageList
+            messages={newMessages}
+            isConfigured={true}
+            onOpenJsonPanel={mockOnOpenJsonPanel}
+          />
+        </SettingsProvider>
       );
 
       // Should auto-scroll since user is back at bottom
