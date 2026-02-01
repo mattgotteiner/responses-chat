@@ -9,6 +9,7 @@ import {
   MODEL_REASONING_EFFORTS,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
+  MESSAGE_RENDER_MODE_OPTIONS,
 } from '../../types';
 import './SettingsSidebar.css';
 
@@ -236,6 +237,29 @@ export function SettingsSidebar({
                 placeholder="System prompt / developer instructions..."
                 rows={4}
               />
+            </div>
+
+            <div className="settings-field">
+              <label className="settings-field__label" htmlFor="messageRenderMode">
+                Message Render Mode
+              </label>
+              <select
+                id="messageRenderMode"
+                className="settings-field__select"
+                value={settings.messageRenderMode}
+                onChange={handleInputChange('messageRenderMode')}
+              >
+                {MESSAGE_RENDER_MODE_OPTIONS.map((mode) => (
+                  <option key={mode} value={mode}>
+                    {mode === 'markdown' ? 'Markdown (rendered)' : 
+                     mode === 'plaintext' ? 'Plain Text' : 
+                     'Code Block'}
+                  </option>
+                ))}
+              </select>
+              <span className="settings-field__hint">
+                How assistant messages are displayed. Can be overridden per message.
+              </span>
             </div>
           </section>
         </div>

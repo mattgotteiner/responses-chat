@@ -38,9 +38,11 @@ export interface UseSettingsReturn {
  * }
  */
 export function useSettings(): UseSettingsReturn {
-  const [settings, setSettings] = useState<Settings>(() =>
-    getStoredValue(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS)
-  );
+  const [settings, setSettings] = useState<Settings>(() => {
+    const stored = getStoredValue(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
+    // Merge with defaults to ensure new fields have default values
+    return { ...DEFAULT_SETTINGS, ...stored };
+  });
 
   // Sync to localStorage whenever settings change
   useEffect(() => {
