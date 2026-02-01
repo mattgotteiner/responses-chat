@@ -172,6 +172,58 @@ export function processStreamEvent(
         };
       }
 
+      // Handle code_interpreter_call output items
+      if (itemEvent.item?.type === 'code_interpreter_call') {
+        const codeInterpreterItem = itemEvent.item as {
+          id?: string;
+          type?: string;
+          status?: string;
+          code?: string;
+          container_id?: string;
+          outputs?: Array<{ type?: string; logs?: string }>;
+        };
+        const itemId = codeInterpreterItem.id || idGenerators.generateToolCallId();
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        const newToolCalls = [...accumulator.toolCalls];
+
+        const status = codeInterpreterItem.status as 'in_progress' | 'interpreting' | 'completed' | undefined;
+        const code = codeInterpreterItem.code;
+        const containerId = codeInterpreterItem.container_id;
+        // Extract logs output if present (API returns 'outputs' plural)
+        const outputLogs = codeInterpreterItem.outputs
+          ?.filter((o) => o.type === 'logs')
+          .map((o) => o.logs || '')
+          .join('\n');
+
+        if (existingIndex >= 0) {
+          // Update existing tool call
+          newToolCalls[existingIndex] = {
+            ...newToolCalls[existingIndex],
+            ...(status && { status }),
+            ...(code && { code }),
+            ...(containerId && { containerId }),
+            ...(outputLogs && { output: outputLogs }),
+          };
+        } else {
+          // Add new code interpreter call
+          newToolCalls.push({
+            id: itemId,
+            name: 'code_interpreter',
+            type: 'code_interpreter',
+            arguments: '',
+            status: status || 'in_progress',
+            code: code || '',
+            containerId,
+            output: outputLogs,
+          });
+        }
+
+        return {
+          ...accumulator,
+          toolCalls: newToolCalls,
+        };
+      }
+
       return accumulator;
     }
 
@@ -196,6 +248,145 @@ export function processStreamEvent(
       newToolCalls[existingIndex] = {
         ...newToolCalls[existingIndex],
         status: newStatus,
+      };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.code_interpreter_call.in_progress':
+    case 'response.code_interpreter_call.interpreting':
+    case 'response.code_interpreter_call.completed': {
+      // Update code interpreter call status
+      const codeInterpreterEvent = event as { item_id?: string };
+      const itemId = codeInterpreterEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      if (existingIndex < 0) return accumulator;
+
+      const newStatus = event.type === 'response.code_interpreter_call.completed'
+        ? 'completed'
+        : event.type === 'response.code_interpreter_call.interpreting'
+          ? 'interpreting'
+          : 'in_progress';
+
+      const newToolCalls = [...accumulator.toolCalls];
+      newToolCalls[existingIndex] = {
+        ...newToolCalls[existingIndex],
+        status: newStatus,
+      };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.code_interpreter_call.code.delta':
+    case 'response.code_interpreter_call_code.delta': {
+      // Accumulate code for code interpreter
+      // Both event name formats are supported (API uses underscores: code_interpreter_call_code)
+      const codeEvent = event as { item_id?: string; delta?: string };
+      const delta = codeEvent.delta || '';
+      const itemId = codeEvent.item_id;
+      if (!itemId) return accumulator;
+
+      // Short-circuit on empty delta
+      if (delta === '') {
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        if (existingIndex >= 0) return accumulator;
+      }
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      const newToolCalls = [...accumulator.toolCalls];
+
+      if (existingIndex >= 0) {
+        newToolCalls[existingIndex] = {
+          ...newToolCalls[existingIndex],
+          code: (newToolCalls[existingIndex].code || '') + delta,
+        };
+      } else {
+        // Create new entry if it doesn't exist yet
+        newToolCalls.push({
+          id: itemId,
+          name: 'code_interpreter',
+          type: 'code_interpreter',
+          arguments: '',
+          status: 'in_progress',
+          code: delta,
+        });
+      }
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.code_interpreter_call.code.done':
+    case 'response.code_interpreter_call_code.done': {
+      // Capture final complete code for code interpreter
+      // Both event name formats are supported (API uses underscores: code_interpreter_call_code)
+      const codeEvent = event as { item_id?: string; code?: string };
+      const code = codeEvent.code || '';
+      const itemId = codeEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      const newToolCalls = [...accumulator.toolCalls];
+
+      if (existingIndex >= 0) {
+        // Update with final complete code
+        newToolCalls[existingIndex] = {
+          ...newToolCalls[existingIndex],
+          code,
+        };
+      } else {
+        // Create new entry if it doesn't exist yet
+        newToolCalls.push({
+          id: itemId,
+          name: 'code_interpreter',
+          type: 'code_interpreter',
+          arguments: '',
+          status: 'in_progress',
+          code,
+        });
+      }
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.code_interpreter_call.output':
+    case 'response.code_interpreter_call_outputs.done': {
+      // Capture code interpreter output (supports both singular and plural event names)
+      const outputEvent = event as {
+        item_id?: string;
+        output?: Array<{ type?: string; logs?: string }>;
+        outputs?: Array<{ type?: string; logs?: string }>;
+      };
+      const itemId = outputEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      if (existingIndex < 0) return accumulator;
+
+      // Support both 'output' and 'outputs' property names
+      const outputArray = outputEvent.outputs || outputEvent.output;
+      const logs = outputArray
+        ?.filter((o) => o.type === 'logs')
+        .map((o) => o.logs || '')
+        .join('\n') || '';
+
+      const newToolCalls = [...accumulator.toolCalls];
+      newToolCalls[existingIndex] = {
+        ...newToolCalls[existingIndex],
+        output: logs,
       };
 
       return {

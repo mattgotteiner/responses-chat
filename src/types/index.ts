@@ -69,6 +69,8 @@ export interface Settings {
   developerInstructions?: string;
   /** Enable web search tool for grounding responses with real-time web data */
   webSearchEnabled?: boolean;
+  /** Enable code interpreter tool for executing Python code in a sandbox */
+  codeInterpreterEnabled?: boolean;
   /** Message render mode for assistant messages */
   messageRenderMode: MessageRenderMode;
 }
@@ -90,18 +92,24 @@ export const DEFAULT_SETTINGS: Settings = {
 export interface ToolCall {
   /** Unique identifier for the tool call */
   id: string;
-  /** Name of the tool being called (e.g., 'web_search', function name) */
+  /** Name of the tool being called (e.g., 'web_search', function name, 'code_interpreter') */
   name: string;
-  /** Type of tool call: 'function' for function calls, 'web_search' for web search */
-  type: 'function' | 'web_search';
+  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution */
+  type: 'function' | 'web_search' | 'code_interpreter';
   /** JSON arguments passed to the tool (for function calls) */
   arguments: string;
   /** Result from the tool execution, if any */
   result?: string;
-  /** Status of the tool call (for web search: 'in_progress', 'searching', 'completed') */
-  status?: 'in_progress' | 'searching' | 'completed';
+  /** Status of the tool call (for web search: 'in_progress', 'searching', 'completed'; for code interpreter: 'in_progress', 'interpreting', 'completed') */
+  status?: 'in_progress' | 'searching' | 'interpreting' | 'completed';
   /** Search query (for web search calls) */
   query?: string;
+  /** Python code being executed (for code interpreter calls) */
+  code?: string;
+  /** Execution output from code interpreter */
+  output?: string;
+  /** Container ID for code interpreter session */
+  containerId?: string;
 }
 
 /** Reasoning step from the model */

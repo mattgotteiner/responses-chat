@@ -88,9 +88,22 @@ export function useChat(): UseChatReturn {
         requestParams.verbosity = settings.verbosity;
       }
 
-      // Add web search tool if enabled
+      // Add tools if enabled
+      const tools: Array<Record<string, unknown>> = [];
+      const include: string[] = [];
       if (settings.webSearchEnabled) {
-        requestParams.tools = [{ type: 'web_search_preview' }];
+        tools.push({ type: 'web_search_preview' });
+      }
+      if (settings.codeInterpreterEnabled) {
+        tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
+        // Request code interpreter outputs to get execution results (logs/images)
+        include.push('code_interpreter_call.outputs');
+      }
+      if (tools.length > 0) {
+        requestParams.tools = tools;
+      }
+      if (include.length > 0) {
+        requestParams.include = include;
       }
 
       // Add user message with request JSON
