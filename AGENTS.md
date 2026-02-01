@@ -61,6 +61,7 @@ src/
 - Prefer `interface` for component props
 - Use explicit return types for exported functions
 - Never use `any` – prefer `unknown` for truly unknown types
+- **Never use `JSX.Element`** as a return type – use `ReactNode` from `'react'` or omit the return type and let TypeScript infer it
 
 ### React Patterns
 
