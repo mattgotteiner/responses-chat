@@ -1,6 +1,6 @@
 # Copilot Instructions
 
-This is a React + TypeScript SPA built with Vite.
+This is a React + TypeScript chat interface for Azure OpenAI's Responses API.
 
 ## Quick Reference
 
@@ -12,17 +12,20 @@ This is a React + TypeScript SPA built with Vite.
 ## Project Structure
 
 ```
-src/           - Application source (TSX/TS files)
-src/test/      - Test setup
-public/        - Static files
-dist/          - Build output (gitignored)
-.github/       - CI/CD workflows
+src/components/  - Chat UI components (ChatContainer, Message, etc.)
+src/context/     - Settings context provider
+src/hooks/       - useChat, useSettings hooks
+src/types/       - TypeScript type definitions
+src/utils/       - API client and localStorage helpers
+src/test/        - Test setup
+public/          - Static files
+dist/            - Build output (gitignored)
 ```
 
 ## Key Constraints
 
 - TypeScript strict mode enabled
-- React 19 + Vite 6 + Vitest 3
+- React 19 + Vite 7 + Vitest 4 + OpenAI SDK 6
 - Node 22 required (see `.node-version`)
 - All code must be TypeScript (no .js source files)
 - Tests required for new functionality
