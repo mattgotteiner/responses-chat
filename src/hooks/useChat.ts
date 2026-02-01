@@ -3,19 +3,15 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import type {
-  Message,
-  Settings,
-  ReasoningStep,
-  ToolCall,
-} from '../types';
-import {
-  createAzureClient,
-  generateMessageId,
-  generateReasoningId,
-  generateToolCallId,
-} from '../utils/api';
+import type { Message, Settings } from '../types';
+import { createAzureClient, generateMessageId } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
+import {
+  createInitialAccumulator,
+  processStreamEvent,
+  type StreamAccumulator,
+  type StreamEvent,
+} from '../utils/streamProcessor';
 
 /** Return type for the useChat hook */
 export interface UseChatReturn {
@@ -126,146 +122,42 @@ export function useChat(): UseChatReturn {
           stream: true,
         } as Parameters<typeof client.responses.create>[0]);
 
-        let accumulatedContent = '';
-        const accumulatedReasoning: ReasoningStep[] = [];
-        const accumulatedToolCalls: ToolCall[] = [];
+        let accumulator = createInitialAccumulator();
 
-        // Process the stream - cast to async iterable since we set stream: true
-        for await (const event of stream as AsyncIterable<{ type: string; [key: string]: unknown }>) {
+        // Helper to update message state from accumulator
+        const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                    ...msg,
+                    content: acc.content,
+                    reasoning: [...acc.reasoning],
+                    toolCalls: [...acc.toolCalls],
+                    ...(acc.responseJson && { responseJson: acc.responseJson }),
+                  }
+                : msg
+            )
+          );
+        };
+
+        // Process the stream using the stream processor
+        for await (const event of stream as AsyncIterable<StreamEvent>) {
           // Record event if recording is active
           recordingSession?.recordEvent(event);
-          // Handle different event types
-          if (event.type === 'response.output_text.delta') {
-            // Text content delta
-            const delta = (event as { delta?: string }).delta || '';
-            accumulatedContent += delta;
-            
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessage.id
-                  ? { ...msg, content: accumulatedContent }
-                  : msg
-              )
-            );
-          } else if (
-            event.type === 'response.output_item.added' ||
-            event.type === 'response.output_item.done'
-          ) {
-            // Handle reasoning output items
-            const itemEvent = event as {
-              item?: {
-                id?: string;
-                type?: string;
-                summary?: Array<{ type?: string; text?: string }>;
-              };
-            };
-            
-            if (itemEvent.item?.type === 'reasoning' && itemEvent.item.summary) {
-              // Extract summary text from the reasoning item
-              const summaryTexts = itemEvent.item.summary
-                .filter((s) => s.type === 'summary_text' && s.text)
-                .map((s) => s.text!);
-              
-              if (summaryTexts.length > 0) {
-                const itemId = itemEvent.item.id || generateReasoningId();
-                const content = summaryTexts.join('\n');
-                
-                // Find or update reasoning step
-                const existingIndex = accumulatedReasoning.findIndex(
-                  (r) => r.id === itemId
-                );
-                if (existingIndex >= 0) {
-                  accumulatedReasoning[existingIndex].content = content;
-                } else {
-                  accumulatedReasoning.push({ id: itemId, content });
-                }
-                
-                setMessages((prev) =>
-                  prev.map((msg) =>
-                    msg.id === assistantMessage.id
-                      ? { ...msg, reasoning: [...accumulatedReasoning] }
-                      : msg
-                  )
-                );
-              }
-            }
-          } else if (
-            event.type === 'response.reasoning.delta' ||
-            event.type === 'response.reasoning_summary_text.delta'
-          ) {
-            // Reasoning delta (includes both raw reasoning and reasoning summaries)
-            // Use item_id + summary_index as unique key since there can be multiple summary parts
-            const reasoningEvent = event as { delta?: string; item_id?: string; summary_index?: number };
-            const delta = reasoningEvent.delta || '';
-            const itemId = reasoningEvent.item_id || generateReasoningId();
-            const summaryIndex = reasoningEvent.summary_index ?? 0;
-            const uniqueId = `${itemId}_${summaryIndex}`;
 
-            // Find or create reasoning step
-            const existingIndex = accumulatedReasoning.findIndex(
-              (r) => r.id === uniqueId
-            );
-            if (existingIndex >= 0) {
-              accumulatedReasoning[existingIndex].content += delta;
-            } else {
-              accumulatedReasoning.push({ id: uniqueId, content: delta });
-            }
+          // Process the event through the pure stream processor
+          const newAccumulator = processStreamEvent(accumulator, event);
 
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessage.id
-                  ? { ...msg, reasoning: [...accumulatedReasoning] }
-                  : msg
-              )
-            );
-          } else if (event.type === 'response.function_call_arguments.delta') {
-            // Tool call delta
-            const toolEvent = event as {
-              delta?: string;
-              item_id?: string;
-              name?: string;
-            };
-            const delta = toolEvent.delta || '';
-            const itemId = toolEvent.item_id || generateToolCallId();
+          // Update React state if accumulator changed
+          if (newAccumulator !== accumulator) {
+            accumulator = newAccumulator;
+            updateMessageFromAccumulator(accumulator);
+          }
 
-            // Find or create tool call
-            const existingIndex = accumulatedToolCalls.findIndex(
-              (t) => t.id === itemId
-            );
-            if (existingIndex >= 0) {
-              accumulatedToolCalls[existingIndex].arguments += delta;
-            } else {
-              accumulatedToolCalls.push({
-                id: itemId,
-                name: toolEvent.name || 'unknown',
-                arguments: delta,
-              });
-            }
-
-            setMessages((prev) =>
-              prev.map((msg) =>
-                msg.id === assistantMessage.id
-                  ? { ...msg, toolCalls: [...accumulatedToolCalls] }
-                  : msg
-              )
-            );
-          } else if (event.type === 'response.completed') {
-            // Response completed - extract the response ID and store full response
-            const completedEvent = event as { response?: Record<string, unknown> };
-            if (completedEvent.response) {
-              const response = completedEvent.response;
-              if (typeof response.id === 'string') {
-                previousResponseIdRef.current = response.id;
-              }
-              // Store the full response JSON
-              setMessages((prev) =>
-                prev.map((msg) =>
-                  msg.id === assistantMessage.id
-                    ? { ...msg, responseJson: response }
-                    : msg
-                )
-              );
-            }
+          // Track response ID for conversation continuity
+          if (accumulator.responseId) {
+            previousResponseIdRef.current = accumulator.responseId;
           }
         }
 
