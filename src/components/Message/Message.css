@@ -106,12 +106,14 @@
   50% { opacity: 0; }
 }
 
-.message__stopped {
-  display: inline-block;
-  margin-left: 8px;
-  font-size: 12px;
+.message__cancelled {
+  font-size: 13px;
   color: #999;
   font-style: italic;
+}
+
+.message__cancelled--standalone {
+  padding: 4px 0;
 }
 
 .message__thinking {

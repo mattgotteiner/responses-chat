@@ -81,17 +81,23 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
             Thinking...
           </div>
         ) : (
-          <div className="message__content">{message.content}</div>
+          <div className="message__content">
+            {message.content}
+            {/* Cancelled indicator - inline when there's content */}
+            {message.isStopped && message.content && (
+              <span className="message__cancelled"> cancelled</span>
+            )}
+          </div>
+        )}
+
+        {/* Cancelled indicator - standalone when no content */}
+        {message.isStopped && !message.content && (
+          <div className="message__cancelled message__cancelled--standalone">cancelled</div>
         )}
 
         {/* Streaming cursor */}
         {message.isStreaming && message.content && (
           <span className="message__cursor">▌</span>
-        )}
-
-        {/* Stopped indicator */}
-        {message.isStopped && (
-          <span className="message__stopped">(stopped)</span>
         )}
       </div>
     </div>

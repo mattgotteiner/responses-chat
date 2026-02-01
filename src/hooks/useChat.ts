@@ -2,7 +2,7 @@
  * Hook for managing chat state and API interactions
  */
 
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { Message, Settings } from '../types';
 import { createAzureClient, generateMessageId } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
@@ -47,7 +47,6 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const previousResponseIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const streamingMessageIdRef = useRef<string | null>(null);
 
   const sendMessage = useCallback(
     async (content: string, settings: Settings) => {
@@ -118,7 +117,6 @@ export function useChat(): UseChatReturn {
       try {
         // Create abort controller for this request
         abortControllerRef.current = new AbortController();
-        streamingMessageIdRef.current = assistantMessage.id;
 
         // Record the request payload if recording is active
         recordingSession?.recordRequest(requestParams);
@@ -216,7 +214,6 @@ export function useChat(): UseChatReturn {
         recordingSession?.finalize();
         setIsStreaming(false);
         abortControllerRef.current = null;
-        streamingMessageIdRef.current = null;
       }
     },
     []
@@ -234,12 +231,12 @@ export function useChat(): UseChatReturn {
     setError(null);
   }, []);
 
-  return useMemo(() => ({
+  return {
     messages,
     isStreaming,
     sendMessage,
     stopStreaming,
     clearConversation,
     error,
-  }), [messages, isStreaming, sendMessage, stopStreaming, clearConversation, error]);
+  };
 }
