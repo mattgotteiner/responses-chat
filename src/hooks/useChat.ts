@@ -253,9 +253,6 @@ export function useChat(): UseChatReturn {
           }
         }
 
-        // Finalize recording if active
-        recordingSession?.finalize();
-
         // Mark message as no longer streaming
         setMessages((prev) =>
           prev.map((msg) =>
@@ -281,6 +278,8 @@ export function useChat(): UseChatReturn {
           )
         );
       } finally {
+        // Finalize recording if active (even on error for debugging)
+        recordingSession?.finalize();
         setIsStreaming(false);
       }
     },
