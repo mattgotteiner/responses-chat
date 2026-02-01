@@ -119,6 +119,9 @@ export function SettingsSidebar({
                 onChange={handleInputChange('apiKey')}
                 placeholder="Enter your API key"
               />
+              <span className="settings-field__hint settings-field__hint--warning">
+                ⚠️ Stored in browser localStorage (unencrypted). Use only on trusted devices.
+              </span>
             </div>
 
             <div className="settings-field">

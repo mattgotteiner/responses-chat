@@ -140,6 +140,10 @@
   color: #888;
 }
 
+.settings-field__hint--warning {
+  color: #b45309;
+}
+
 @media (prefers-color-scheme: dark) {
   .settings-overlay {
     background-color: rgba(0, 0, 0, 0.5);
@@ -197,6 +201,10 @@
 
   .settings-field__hint {
     color: #666;
+  }
+
+  .settings-field__hint--warning {
+    color: #fbbf24;
   }
 }
 

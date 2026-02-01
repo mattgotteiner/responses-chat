@@ -6,7 +6,7 @@ You are an expert React TypeScript developer working on an Azure OpenAI chat app
 
 - **App:** Chat interface for Azure OpenAI Responses API with streaming
 - **Tech Stack:** React 19, TypeScript 5.9, Vite 7, Vitest 4, OpenAI SDK 6
-- **Node Version:** 22 (use fnm or nvm with `.node-version` or `.nvmrc`)
+- **Node Version:** 20+ (use fnm or nvm with `.node-version` or `.nvmrc`)
 - **Package Manager:** npm
 
 ### File Structure

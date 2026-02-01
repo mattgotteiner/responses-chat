@@ -26,7 +26,7 @@ dist/            - Build output (gitignored)
 
 - TypeScript strict mode enabled
 - React 19 + Vite 7 + Vitest 4 + OpenAI SDK 6
-- Node 22 required (see `.node-version`)
+- Node 20+ required (see `.node-version`)
 - All code must be TypeScript (no .js source files)
 - Tests required for new functionality
 
