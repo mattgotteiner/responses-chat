@@ -11,6 +11,7 @@ import { MessageList } from '../MessageList';
 import { ChatInput } from '../ChatInput';
 import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import { calculateConversationUsage } from '../../utils/tokenUsage';
+import type { Attachment } from '../../types';
 import './ChatContainer.css';
 
 /**
@@ -39,8 +40,8 @@ export function ChatContainer() {
   }, []);
 
   const handleSendMessage = useCallback(
-    (content: string) => {
-      sendMessage(content, settings);
+    (content: string, attachments?: Attachment[]) => {
+      sendMessage(content, settings, attachments);
     },
     [sendMessage, settings]
   );

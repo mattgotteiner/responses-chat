@@ -3,12 +3,13 @@
  */
 
 import { useCallback, useState } from 'react';
-import type { Message as MessageType, MessageRenderMode } from '../../types';
+import type { Message as MessageType, MessageRenderMode, Attachment } from '../../types';
 import type { JsonPanelData } from '../JsonSidePanel';
 import { ReasoningBox } from '../ReasoningBox';
 import { ToolCallBox } from '../ToolCallBox';
 import { MessageContent } from './MessageContent';
 import { useSettingsContext } from '../../context/SettingsContext';
+import { isImageAttachment } from '../../utils/attachment';
 import './Message.css';
 
 interface MessageProps {
@@ -25,6 +26,43 @@ interface RenderModeToggleProps {
   onModeChange: (mode: MessageRenderMode | null) => void;
   /** Whether a per-message override is active */
   hasOverride: boolean;
+}
+
+/**
+ * Renders attachment thumbnails in a message
+ */
+function MessageAttachments({ attachments }: { attachments: Attachment[] }) {
+  return (
+    <div className="message__attachments">
+      {attachments.map((attachment) => (
+        <div key={attachment.id} className="message__attachment">
+          {isImageAttachment(attachment) && attachment.previewUrl ? (
+            <img
+              src={attachment.previewUrl}
+              alt={attachment.name}
+              className="message__attachment-image"
+            />
+          ) : (
+            <div className="message__attachment-file">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="message__attachment-file-icon"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+              </svg>
+              <span className="message__attachment-filename" title={attachment.name}>
+                {attachment.name}
+              </span>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
 }
 
 /**
@@ -76,6 +114,7 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
   const hasReasoning = message.reasoning && message.reasoning.length > 0;
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
   const hasCitations = message.citations && message.citations.length > 0;
+  const hasAttachments = message.attachments && message.attachments.length > 0;
   const showThinking = message.isStreaming && !message.content && !hasReasoning;
   
   // Effective render mode: per-message override > global setting > default
@@ -132,6 +171,9 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
         </div>
       </div>
       <div className="message__content-wrapper">
+        {/* Attachments (for user messages) */}
+        {hasAttachments && <MessageAttachments attachments={message.attachments!} />}
+
         {/* Reasoning box (before content) */}
         {hasReasoning && (
           <ReasoningBox

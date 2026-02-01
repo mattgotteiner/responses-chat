@@ -85,7 +85,7 @@ describe('ChatInput', () => {
     fireEvent.change(textarea, { target: { value: 'Hello' } });
     fireEvent.click(screen.getByLabelText('Send message'));
 
-    expect(mockOnSendMessage).toHaveBeenCalledWith('Hello');
+    expect(mockOnSendMessage).toHaveBeenCalledWith('Hello', undefined);
   });
 
   it('clears input after sending message', () => {
@@ -142,7 +142,7 @@ describe('ChatInput', () => {
     fireEvent.change(textarea, { target: { value: 'Hello' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
-    expect(mockOnSendMessage).toHaveBeenCalledWith('Hello');
+    expect(mockOnSendMessage).toHaveBeenCalledWith('Hello', undefined);
   });
 
   it('does not send message on Shift+Enter', () => {

@@ -144,6 +144,8 @@ export interface Message {
   isError?: boolean;
   /** Whether this message was stopped by the user */
   isStopped?: boolean;
+  /** Attachments included with the message */
+  attachments?: Attachment[];
   /** Timestamp of the message */
   timestamp: Date;
   /** Raw API request JSON (for user messages) */
@@ -172,6 +174,34 @@ export interface InputTokensDetails {
 export interface OutputTokensDetails {
   /** Number of reasoning tokens used */
   reasoning_tokens: number;
+}
+
+/** Attachment types supported */
+export type AttachmentType = 'image' | 'file';
+
+/** Supported image MIME types */
+export const SUPPORTED_IMAGE_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+
+/** Supported file MIME types */
+export const SUPPORTED_FILE_TYPES = ['application/pdf'] as const;
+
+/** All supported MIME types for attachments */
+export const SUPPORTED_ATTACHMENT_TYPES = [...SUPPORTED_IMAGE_TYPES, ...SUPPORTED_FILE_TYPES] as const;
+
+/** File attachment to be sent with a message */
+export interface Attachment {
+  /** Unique identifier */
+  id: string;
+  /** Original filename */
+  name: string;
+  /** Type of attachment: image or file */
+  type: AttachmentType;
+  /** MIME type of the file */
+  mimeType: string;
+  /** Base64-encoded file data (without data URL prefix) */
+  base64: string;
+  /** Preview URL for display (data URL for images) */
+  previewUrl?: string;
 }
 
 /** Token usage statistics from API response */

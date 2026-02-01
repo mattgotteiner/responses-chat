@@ -3,13 +3,15 @@
  */
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
-import type { TokenUsage } from '../../types';
+import type { Attachment, TokenUsage } from '../../types';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
+import { AttachmentButton } from '../AttachmentButton';
+import { AttachmentPreview } from '../AttachmentPreview';
 import './ChatInput.css';
 
 interface ChatInputProps {
   /** Handler called when user sends a message */
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, attachments?: Attachment[]) => void;
   /** Handler called when user wants to clear conversation */
   onClearConversation: () => void;
   /** Handler called when user wants to stop streaming */
@@ -37,17 +39,29 @@ export function ChatInput({
   tokenUsage,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
   }, []);
 
+  const handleAttach = useCallback((newAttachments: Attachment[]) => {
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  }, []);
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
+
+  const canSend = (value.trim() || attachments.length > 0) && !disabled;
+
   const handleSend = useCallback(() => {
-    if (value.trim() && !disabled) {
-      onSendMessage(value.trim());
+    if (canSend) {
+      onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
       setValue('');
+      setAttachments([]);
     }
-  }, [value, disabled, onSendMessage]);
+  }, [value, attachments, canSend, onSendMessage]);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -61,6 +75,12 @@ export function ChatInput({
 
   return (
     <div className="chat-input">
+      {/* Attachment preview */}
+      <AttachmentPreview
+        attachments={attachments}
+        onRemove={handleRemoveAttachment}
+        disabled={disabled}
+      />
       <div className="chat-input__container">
         <textarea
           className="chat-input__textarea"
@@ -72,6 +92,7 @@ export function ChatInput({
           rows={1}
           aria-label="Message input"
         />
+        <AttachmentButton onAttach={handleAttach} disabled={disabled} />
         {isStreaming ? (
           <button
             className="chat-input__stop"
@@ -90,7 +111,7 @@ export function ChatInput({
           <button
             className="chat-input__send"
             onClick={handleSend}
-            disabled={disabled || !value.trim()}
+            disabled={!canSend}
             aria-label="Send message"
             title="Send message"
           >
