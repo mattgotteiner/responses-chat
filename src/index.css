@@ -12,6 +12,12 @@
   color: #213547;
   background-color: #ffffff;
 
+  /* Theme color variables */
+  --color-surface: #f5f5f5;
+  --color-border: #e0e0e0;
+  --color-text-secondary: #666666;
+  --color-primary: #0066cc;
+
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -45,6 +51,12 @@ a:hover {
   :root {
     color: #e0e0e0;
     background-color: #1a1a1a;
+
+    /* Theme color variables (dark mode) */
+    --color-surface: #2a2a2a;
+    --color-border: #404040;
+    --color-text-secondary: #a0a0a0;
+    --color-primary: #4d9fff;
   }
 
   a {
