@@ -54,12 +54,47 @@ export function useChat(): UseChatReturn {
 
       setError(null);
 
-      // Add user message
+      const client = createAzureClient(settings);
+      const deployment = settings.deploymentName || settings.modelName;
+
+      // Build the request parameters
+      const requestParams: Record<string, unknown> = {
+        model: deployment,
+        input: content.trim(),
+      };
+
+      // Add previous response ID for conversation continuity
+      if (previousResponseIdRef.current) {
+        requestParams.previous_response_id = previousResponseIdRef.current;
+      }
+
+      // Add developer instructions if provided
+      if (settings.developerInstructions?.trim()) {
+        requestParams.instructions = settings.developerInstructions.trim();
+      }
+
+      // Add reasoning configuration if provided
+      if (settings.reasoningEffort) {
+        requestParams.reasoning = {
+          effort: settings.reasoningEffort,
+          ...(settings.reasoningSummary && {
+            summary: settings.reasoningSummary,
+          }),
+        };
+      }
+
+      // Add verbosity if provided
+      if (settings.verbosity) {
+        requestParams.verbosity = settings.verbosity;
+      }
+
+      // Add user message with request JSON
       const userMessage: Message = {
         id: generateMessageId(),
         role: 'user',
         content: content.trim(),
         timestamp: new Date(),
+        requestJson: { ...requestParams, stream: true },
       };
 
       // Create placeholder for assistant message
@@ -77,39 +112,6 @@ export function useChat(): UseChatReturn {
       setIsStreaming(true);
 
       try {
-        const client = createAzureClient(settings);
-        const deployment = settings.deploymentName || settings.modelName;
-
-        // Build the request parameters
-        const requestParams: Record<string, unknown> = {
-          model: deployment,
-          input: content.trim(),
-        };
-
-        // Add previous response ID for conversation continuity
-        if (previousResponseIdRef.current) {
-          requestParams.previous_response_id = previousResponseIdRef.current;
-        }
-
-        // Add developer instructions if provided
-        if (settings.developerInstructions?.trim()) {
-          requestParams.instructions = settings.developerInstructions.trim();
-        }
-
-        // Add reasoning configuration if provided
-        if (settings.reasoningEffort) {
-          requestParams.reasoning = {
-            effort: settings.reasoningEffort,
-            ...(settings.reasoningSummary && {
-              summary: settings.reasoningSummary,
-            }),
-          };
-        }
-
-        // Add verbosity if provided
-        if (settings.verbosity) {
-          requestParams.verbosity = settings.verbosity;
-        }
 
         // Use the responses API with streaming
         const stream = await client.responses.create({
@@ -239,10 +241,21 @@ export function useChat(): UseChatReturn {
               )
             );
           } else if (event.type === 'response.completed') {
-            // Response completed - extract the response ID
-            const completedEvent = event as { response?: { id?: string } };
-            if (completedEvent.response?.id) {
-              previousResponseIdRef.current = completedEvent.response.id;
+            // Response completed - extract the response ID and store full response
+            const completedEvent = event as { response?: Record<string, unknown> };
+            if (completedEvent.response) {
+              const response = completedEvent.response;
+              if (typeof response.id === 'string') {
+                previousResponseIdRef.current = response.id;
+              }
+              // Store the full response JSON
+              setMessages((prev) =>
+                prev.map((msg) =>
+                  msg.id === assistantMessage.id
+                    ? { ...msg, responseJson: response }
+                    : msg
+                )
+              );
             }
           }
         }

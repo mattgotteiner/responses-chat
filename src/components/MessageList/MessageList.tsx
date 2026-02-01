@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from 'react';
 import type { Message as MessageType } from '../../types';
+import type { JsonPanelData } from '../JsonSidePanel';
 import { Message } from '../Message';
 import './MessageList.css';
 
@@ -12,6 +13,8 @@ interface MessageListProps {
   messages: MessageType[];
   /** Whether settings are configured */
   isConfigured: boolean;
+  /** Handler to open JSON panel */
+  onOpenJsonPanel: (data: JsonPanelData) => void;
 }
 
 /**
@@ -20,6 +23,7 @@ interface MessageListProps {
 export function MessageList({
   messages,
   isConfigured,
+  onOpenJsonPanel,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -59,7 +63,11 @@ export function MessageList({
     <div className="message-list">
       <div className="message-list__content">
         {messages.map((message) => (
-          <Message key={message.id} message={message} />
+          <Message
+            key={message.id}
+            message={message}
+            onOpenJsonPanel={onOpenJsonPanel}
+          />
         ))}
         <div ref={bottomRef} />
       </div>

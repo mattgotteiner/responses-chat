@@ -1,0 +1,132 @@
+.json-panel-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+}
+
+.json-side-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 500px;
+  max-width: 100vw;
+  background-color: #fff;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  animation: jsonPanelSlideIn 0.2s ease-out;
+}
+
+@keyframes jsonPanelSlideIn {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.json-side-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.json-side-panel__title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.json-side-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.json-side-panel__copy,
+.json-side-panel__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  color: #666;
+  cursor: pointer;
+}
+
+.json-side-panel__copy:hover,
+.json-side-panel__close:hover {
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.json-side-panel__content {
+  flex: 1;
+  overflow: auto;
+  padding: 16px 20px;
+}
+
+.json-side-panel__json {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+  color: #333;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+@media (prefers-color-scheme: dark) {
+  .json-panel-overlay {
+    background-color: rgba(0, 0, 0, 0.5);
+  }
+
+  .json-side-panel {
+    background-color: #1a1a1a;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.4);
+  }
+
+  .json-side-panel__header {
+    border-bottom-color: #333;
+  }
+
+  .json-side-panel__title {
+    color: #fff;
+  }
+
+  .json-side-panel__copy,
+  .json-side-panel__close {
+    color: #888;
+  }
+
+  .json-side-panel__copy:hover,
+  .json-side-panel__close:hover {
+    background-color: #333;
+    color: #fff;
+  }
+
+  .json-side-panel__json {
+    color: #e0e0e0;
+  }
+}
+
+@media (max-width: 600px) {
+  .json-side-panel {
+    width: 100%;
+  }
+}
