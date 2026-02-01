@@ -277,6 +277,64 @@
   }
 }
 
+/* Citations styles */
+.message__citations {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.message__citations-header {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.message__citations-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.message__citation {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.message__citation-link {
+  color: #0066cc;
+  text-decoration: none;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.message__citation-link:hover {
+  text-decoration: underline;
+}
+
+@media (prefers-color-scheme: dark) {
+  .message__citations {
+    border-top-color: rgba(255, 255, 255, 0.1);
+  }
+
+  .message__citations-header {
+    color: #888;
+  }
+
+  .message__citation-link {
+    color: #4d9fff;
+  }
+}
+
 @media (max-width: 600px) {
   .message {
     max-width: 95%;

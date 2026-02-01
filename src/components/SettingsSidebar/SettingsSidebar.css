@@ -144,6 +144,27 @@
   color: #b45309;
 }
 
+.settings-field__checkbox-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.settings-field__checkbox {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #0066cc;
+}
+
+.settings-field__checkbox-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+}
+
 @media (prefers-color-scheme: dark) {
   .settings-overlay {
     background-color: rgba(0, 0, 0, 0.5);
@@ -205,6 +226,14 @@
 
   .settings-field__hint--warning {
     color: #fbbf24;
+  }
+
+  .settings-field__checkbox {
+    accent-color: #4d9fff;
+  }
+
+  .settings-field__checkbox-label {
+    color: #ddd;
   }
 }
 

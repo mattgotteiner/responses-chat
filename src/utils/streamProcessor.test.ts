@@ -3,6 +3,7 @@ import {
   createInitialAccumulator,
   processStreamEvent,
   processStream,
+  extractCitationsFromResponse,
   defaultIdGenerators,
   type StreamAccumulator,
   type StreamEvent,
@@ -16,6 +17,7 @@ describe('streamProcessor', () => {
       expect(acc.content).toBe('');
       expect(acc.reasoning).toEqual([]);
       expect(acc.toolCalls).toEqual([]);
+      expect(acc.citations).toEqual([]);
       expect(acc.responseId).toBeNull();
       expect(acc.responseJson).toBeNull();
     });
@@ -191,7 +193,7 @@ describe('streamProcessor', () => {
       it('appends to existing tool call arguments', () => {
         accumulator = {
           ...accumulator,
-          toolCalls: [{ id: 'tool_123', name: 'my_function', arguments: '{"key":' }],
+          toolCalls: [{ id: 'tool_123', name: 'my_function', type: 'function', arguments: '{"key":' }],
         };
         const event: StreamEvent = {
           type: 'response.function_call_arguments.delta',
@@ -216,7 +218,7 @@ describe('streamProcessor', () => {
       it('returns same accumulator for empty delta when tool call exists (to avoid rerenders)', () => {
         accumulator = {
           ...accumulator,
-          toolCalls: [{ id: 'tool_123', name: 'my_function', arguments: '{}' }],
+          toolCalls: [{ id: 'tool_123', name: 'my_function', type: 'function', arguments: '{}' }],
         };
         const event: StreamEvent = {
           type: 'response.function_call_arguments.delta',
@@ -298,9 +300,12 @@ describe('streamProcessor', () => {
           },
         };
         const result = processStreamEvent(accumulator, event);
-        expect(result.reasoning).toHaveLength(1);
-        expect(result.reasoning[0].id).toBe('rs_final');
-        expect(result.reasoning[0].content).toBe('First thought\nSecond thought');
+        // Each summary text gets its own ID with index suffix (to match delta event IDs)
+        expect(result.reasoning).toHaveLength(2);
+        expect(result.reasoning[0].id).toBe('rs_final_0');
+        expect(result.reasoning[0].content).toBe('First thought');
+        expect(result.reasoning[1].id).toBe('rs_final_1');
+        expect(result.reasoning[1].content).toBe('Second thought');
       });
 
       it('uses custom ID generator when item id is missing', () => {
@@ -318,7 +323,8 @@ describe('streamProcessor', () => {
           },
         };
         const result = processStreamEvent(accumulator, event, customGenerators);
-        expect(result.reasoning[0].id).toBe('custom_output_item_id');
+        // ID includes index suffix even for single summary
+        expect(result.reasoning[0].id).toBe('custom_output_item_id_0');
       });
 
       it('ignores non-reasoning output items', () => {
@@ -332,6 +338,111 @@ describe('streamProcessor', () => {
         };
         const result = processStreamEvent(accumulator, event);
         expect(result.reasoning).toEqual([]);
+      });
+
+      it('creates a web_search_call tool call from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'ws_123',
+            type: 'web_search_call',
+            status: 'in_progress',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ws_123');
+        expect(result.toolCalls[0].type).toBe('web_search');
+        expect(result.toolCalls[0].name).toBe('web_search');
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates web_search_call with query from output_item.done', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ws_123',
+            type: 'web_search_call',
+            status: 'completed',
+            action: { type: 'search', query: 'Paris overview' },
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].query).toBe('Paris overview');
+      });
+    });
+
+    describe('web_search_call status events', () => {
+      it('updates status to searching', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+          item_id: 'ws_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('searching');
+      });
+
+      it('updates status to completed', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'searching' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.web_search_call.completed',
+          item_id: 'ws_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('ignores status event for unknown item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+          item_id: 'unknown_id',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+
+      it('ignores status event without item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
       });
     });
 
@@ -414,12 +525,236 @@ describe('streamProcessor', () => {
         content: 'Starting with ',
         reasoning: [],
         toolCalls: [],
+        citations: [],
         responseId: null,
         responseJson: null,
       };
 
       const result = await processStream(events, initial);
       expect(result.content).toBe('Starting with more text');
+    });
+  });
+
+  describe('extractCitationsFromResponse', () => {
+    it('extracts citations from response with url_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Some content with citations',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/article',
+                    title: 'Example Article',
+                    start_index: 0,
+                    end_index: 10,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toHaveLength(1);
+      expect(citations[0]).toEqual({
+        url: 'https://example.com/article',
+        title: 'Example Article',
+        startIndex: 0,
+        endIndex: 10,
+      });
+    });
+
+    it('extracts multiple citations from multiple content items', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'First part',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/1',
+                    title: 'Article 1',
+                    start_index: 0,
+                    end_index: 5,
+                  },
+                ],
+              },
+              {
+                type: 'output_text',
+                text: 'Second part',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/2',
+                    title: 'Article 2',
+                    start_index: 10,
+                    end_index: 15,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toHaveLength(2);
+      expect(citations[0].url).toBe('https://example.com/1');
+      expect(citations[1].url).toBe('https://example.com/2');
+    });
+
+    it('deduplicates citations by URL', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/same',
+                    title: 'Same Article',
+                    start_index: 0,
+                    end_index: 5,
+                  },
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/same',
+                    title: 'Same Article Again',
+                    start_index: 10,
+                    end_index: 15,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toHaveLength(1);
+      expect(citations[0].url).toBe('https://example.com/same');
+    });
+
+    it('returns empty array when response has no output', () => {
+      const response = { id: 'resp_123' };
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toEqual([]);
+    });
+
+    it('returns empty array when output has no message items', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          { type: 'web_search_call', action: { type: 'search', query: 'test' } },
+        ],
+      };
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toEqual([]);
+    });
+
+    it('returns empty array when message has no annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'No citations here',
+              },
+            ],
+          },
+        ],
+      };
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toEqual([]);
+    });
+
+    it('ignores non-url_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content',
+                annotations: [
+                  {
+                    type: 'some_other_annotation',
+                    data: 'test',
+                  },
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/valid',
+                    title: 'Valid',
+                    start_index: 0,
+                    end_index: 5,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toHaveLength(1);
+      expect(citations[0].url).toBe('https://example.com/valid');
+    });
+
+    it('skips malformed annotations with missing fields', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/valid',
+                    title: 'Valid',
+                    start_index: 0,
+                    end_index: 5,
+                  },
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com/no-title',
+                    // missing title, start_index, end_index
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const citations = extractCitationsFromResponse(response);
+      expect(citations).toHaveLength(1);
+      expect(citations[0].url).toBe('https://example.com/valid');
     });
   });
 });

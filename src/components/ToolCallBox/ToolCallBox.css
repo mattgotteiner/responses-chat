@@ -6,6 +6,12 @@
   overflow: hidden;
 }
 
+/* Web search variant */
+.tool-call-box--web-search {
+  border-color: #7494d4;
+  background-color: #f0f5ff;
+}
+
 .tool-call-box__header {
   display: flex;
   align-items: center;
@@ -17,6 +23,11 @@
   font-weight: 500;
 }
 
+.tool-call-box--web-search .tool-call-box__header {
+  background-color: #ebf0fd;
+  border-bottom-color: #7494d4;
+}
+
 .tool-call-box__icon {
   font-size: 14px;
 }
@@ -24,6 +35,52 @@
 .tool-call-box__name {
   color: #8b5a2b;
   font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+}
+
+.tool-call-box--web-search .tool-call-box__name {
+  color: #2b5a8b;
+}
+
+.tool-call-box__status {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background-color: #e0e8f5;
+  color: #5577aa;
+}
+
+.tool-call-box__status--in_progress,
+.tool-call-box__status--searching {
+  background-color: #fff3cd;
+  color: #856404;
+}
+
+.tool-call-box__status--completed {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.tool-call-box__query {
+  padding: 10px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.tool-call-box__query-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #5577aa;
+  flex-shrink: 0;
+}
+
+.tool-call-box__query-text {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  color: #333;
 }
 
 .tool-call-box__arguments {
@@ -70,13 +127,51 @@
     background-color: #2a2518;
   }
 
+  .tool-call-box--web-search {
+    border-color: #4a6a9d;
+    background-color: #1a2230;
+  }
+
   .tool-call-box__header {
     background-color: #332d1f;
     border-bottom-color: #8b6914;
   }
 
+  .tool-call-box--web-search .tool-call-box__header {
+    background-color: #1f2a3d;
+    border-bottom-color: #4a6a9d;
+  }
+
   .tool-call-box__name {
     color: #d4a574;
+  }
+
+  .tool-call-box--web-search .tool-call-box__name {
+    color: #7494d4;
+  }
+
+  .tool-call-box__status {
+    background-color: #2a3a50;
+    color: #7494d4;
+  }
+
+  .tool-call-box__status--in_progress,
+  .tool-call-box__status--searching {
+    background-color: #3d3520;
+    color: #d4a574;
+  }
+
+  .tool-call-box__status--completed {
+    background-color: #1d3a2a;
+    color: #74d494;
+  }
+
+  .tool-call-box__query-label {
+    color: #7494d4;
+  }
+
+  .tool-call-box__query-text {
+    color: #bbb;
   }
 
   .tool-call-box__arguments pre,

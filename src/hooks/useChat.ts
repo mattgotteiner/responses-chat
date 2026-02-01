@@ -88,6 +88,11 @@ export function useChat(): UseChatReturn {
         requestParams.verbosity = settings.verbosity;
       }
 
+      // Add web search tool if enabled
+      if (settings.webSearchEnabled) {
+        requestParams.tools = [{ type: 'web_search_preview' }];
+      }
+
       // Add user message with request JSON
       const userMessage: Message = {
         id: generateMessageId(),
@@ -142,6 +147,7 @@ export function useChat(): UseChatReturn {
                     content: acc.content,
                     reasoning: [...acc.reasoning],
                     toolCalls: [...acc.toolCalls],
+                    ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg
