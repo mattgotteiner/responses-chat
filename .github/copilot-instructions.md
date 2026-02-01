@@ -7,6 +7,7 @@ This is a React + TypeScript chat interface for Azure OpenAI's Responses API.
 - **Build:** `npm run build` (TypeScript + Vite build to `dist/`)
 - **Test:** `npm run test:run` (Vitest in CI mode)
 - **Lint:** `npm run lint` (ESLint)
+- **Typecheck:** `npm run typecheck` (TypeScript without emitting)
 - **Dev:** `npm run dev` (Vite dev server)
 
 ## Project Structure
@@ -34,7 +35,7 @@ dist/            - Build output (gitignored)
 
 1. `npm run lint` - Fix any linting errors
 2. `npm run test:run` - All tests must pass
-3. `npx tsc --noEmit` - No type errors
+3. `npm run typecheck` - No type errors
 
 ## Deployment
 

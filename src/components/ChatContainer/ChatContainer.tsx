@@ -9,6 +9,7 @@ import { SettingsButton } from '../SettingsButton';
 import { SettingsSidebar } from '../SettingsSidebar';
 import { MessageList } from '../MessageList';
 import { ChatInput } from '../ChatInput';
+import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import './ChatContainer.css';
 
 /**
@@ -16,6 +17,7 @@ import './ChatContainer.css';
  */
 export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, isConfigured } = useSettingsContext();
   const { messages, isStreaming, sendMessage, clearConversation } = useChat();
 
@@ -25,6 +27,14 @@ export function ChatContainer() {
 
   const handleCloseSettings = useCallback(() => {
     setIsSettingsOpen(false);
+  }, []);
+
+  const handleOpenJsonPanel = useCallback((data: JsonPanelData) => {
+    setJsonPanelData(data);
+  }, []);
+
+  const handleCloseJsonPanel = useCallback(() => {
+    setJsonPanelData(null);
   }, []);
 
   const handleSendMessage = useCallback(
@@ -45,7 +55,11 @@ export function ChatContainer() {
         <SettingsButton onClick={handleOpenSettings} isConfigured={isConfigured} />
       </header>
 
-      <MessageList messages={messages} isConfigured={isConfigured} />
+      <MessageList
+        messages={messages}
+        isConfigured={isConfigured}
+        onOpenJsonPanel={handleOpenJsonPanel}
+      />
 
       <ChatInput
         onSendMessage={handleSendMessage}
@@ -59,6 +73,12 @@ export function ChatContainer() {
         onClose={handleCloseSettings}
         settings={settings}
         onUpdateSettings={updateSettings}
+      />
+
+      <JsonSidePanel
+        isOpen={jsonPanelData !== null}
+        onClose={handleCloseJsonPanel}
+        panelData={jsonPanelData}
       />
     </div>
   );

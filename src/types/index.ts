@@ -113,6 +113,10 @@ export interface Message {
   isError?: boolean;
   /** Timestamp of the message */
   timestamp: Date;
+  /** Raw API request JSON (for user messages) */
+  requestJson?: Record<string, unknown>;
+  /** Raw API response JSON (for assistant messages) */
+  responseJson?: Record<string, unknown>;
 }
 
 /** Chat state */

@@ -63,7 +63,7 @@ src/
 | `npm run test` | Run tests in watch mode |
 | `npm run test:run` | Run tests once (CI mode) |
 | `npm run lint` | Run ESLint |
-| `npx tsc --noEmit` | Type-check without emitting |
+| `npm run typecheck` | Type-check without emitting |
 
 ## Code Style
 
