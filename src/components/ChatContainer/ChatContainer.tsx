@@ -19,7 +19,7 @@ export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, isConfigured } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, clearConversation } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation } = useChat();
 
   const handleOpenSettings = useCallback(() => {
     setIsSettingsOpen(true);
@@ -64,6 +64,8 @@ export function ChatContainer() {
       <ChatInput
         onSendMessage={handleSendMessage}
         onClearConversation={clearConversation}
+        onStopStreaming={stopStreaming}
+        isStreaming={isStreaming}
         disabled={!isConfigured || isStreaming}
         placeholder={inputPlaceholder}
       />

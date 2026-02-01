@@ -137,4 +137,49 @@ describe('Message', () => {
       data: responseData,
     });
   });
+
+  it('shows cancelled indicator inline when message isStopped with content', () => {
+    const stoppedMessage: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      content: 'Partial response',
+      isStopped: true,
+    };
+    render(<Message message={stoppedMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.getByText('Partial response')).toBeInTheDocument();
+  });
+
+  it('shows cancelled indicator standalone when message isStopped with no content', () => {
+    const stoppedMessage: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      content: '',
+      isStopped: true,
+    };
+    const { container } = render(<Message message={stoppedMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(container.querySelector('.message__cancelled--standalone')).toBeInTheDocument();
+  });
+
+  it('does not show cancelled indicator when message isStopped is false', () => {
+    const normalMessage: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      content: 'Complete response',
+      isStopped: false,
+    };
+    render(<Message message={normalMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
+  });
+
+  it('does not show cancelled indicator when isStopped is undefined', () => {
+    const normalMessage: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      content: 'Complete response',
+    };
+    render(<Message message={normalMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
+  });
 });
