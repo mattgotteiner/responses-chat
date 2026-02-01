@@ -185,19 +185,28 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
           <div className="message__citations">
             <div className="message__citations-header">Sources</div>
             <ul className="message__citations-list">
-              {message.citations!.map((citation, index) => (
-                <li key={`${citation.url}-${index}`} className="message__citation">
-                  <a
-                    href={citation.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="message__citation-link"
-                    title={citation.url}
-                  >
-                    {citation.title || citation.url}
-                  </a>
-                </li>
-              ))}
+              {message.citations!.map((citation) => {
+                const isSafeUrl = /^https?:\/\//i.test(citation.url);
+                return (
+                  <li key={citation.url} className="message__citation">
+                    {isSafeUrl ? (
+                      <a
+                        href={citation.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="message__citation-link"
+                        title={citation.url}
+                      >
+                        {citation.title || citation.url}
+                      </a>
+                    ) : (
+                      <span className="message__citation-link" title={citation.url}>
+                        {citation.title || citation.url}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
         )}

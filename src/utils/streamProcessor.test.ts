@@ -300,9 +300,12 @@ describe('streamProcessor', () => {
           },
         };
         const result = processStreamEvent(accumulator, event);
-        expect(result.reasoning).toHaveLength(1);
-        expect(result.reasoning[0].id).toBe('rs_final');
-        expect(result.reasoning[0].content).toBe('First thought\nSecond thought');
+        // Each summary text gets its own ID with index suffix (to match delta event IDs)
+        expect(result.reasoning).toHaveLength(2);
+        expect(result.reasoning[0].id).toBe('rs_final_0');
+        expect(result.reasoning[0].content).toBe('First thought');
+        expect(result.reasoning[1].id).toBe('rs_final_1');
+        expect(result.reasoning[1].content).toBe('Second thought');
       });
 
       it('uses custom ID generator when item id is missing', () => {
@@ -320,7 +323,8 @@ describe('streamProcessor', () => {
           },
         };
         const result = processStreamEvent(accumulator, event, customGenerators);
-        expect(result.reasoning[0].id).toBe('custom_output_item_id');
+        // ID includes index suffix even for single summary
+        expect(result.reasoning[0].id).toBe('custom_output_item_id_0');
       });
 
       it('ignores non-reasoning output items', () => {
@@ -334,6 +338,111 @@ describe('streamProcessor', () => {
         };
         const result = processStreamEvent(accumulator, event);
         expect(result.reasoning).toEqual([]);
+      });
+
+      it('creates a web_search_call tool call from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'ws_123',
+            type: 'web_search_call',
+            status: 'in_progress',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ws_123');
+        expect(result.toolCalls[0].type).toBe('web_search');
+        expect(result.toolCalls[0].name).toBe('web_search');
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates web_search_call with query from output_item.done', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ws_123',
+            type: 'web_search_call',
+            status: 'completed',
+            action: { type: 'search', query: 'Paris overview' },
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].query).toBe('Paris overview');
+      });
+    });
+
+    describe('web_search_call status events', () => {
+      it('updates status to searching', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+          item_id: 'ws_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('searching');
+      });
+
+      it('updates status to completed', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'searching' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.web_search_call.completed',
+          item_id: 'ws_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('ignores status event for unknown item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+          item_id: 'unknown_id',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+
+      it('ignores status event without item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.web_search_call.searching',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
       });
     });
 
@@ -613,7 +722,7 @@ describe('streamProcessor', () => {
       expect(citations[0].url).toBe('https://example.com/valid');
     });
 
-    it('skips mal-formed annotations with missing fields', () => {
+    it('skips malformed annotations with missing fields', () => {
       const response = {
         id: 'resp_123',
         output: [

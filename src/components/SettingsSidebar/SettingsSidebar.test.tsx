@@ -53,25 +53,25 @@ describe('SettingsSidebar', () => {
       render(<SettingsSidebar {...defaultProps} />);
       expect(screen.getByText('Tools')).toBeInTheDocument();
       expect(screen.getByText('Web Search')).toBeInTheDocument();
-      expect(screen.getByRole('checkbox')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /web search/i })).toBeInTheDocument();
     });
 
     it('checkbox is unchecked by default', () => {
       render(<SettingsSidebar {...defaultProps} />);
-      const checkbox = screen.getByRole('checkbox');
+      const checkbox = screen.getByRole('checkbox', { name: /web search/i });
       expect(checkbox).not.toBeChecked();
     });
 
     it('checkbox is checked when webSearchEnabled is true', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      const checkbox = screen.getByRole('checkbox');
+      const checkbox = screen.getByRole('checkbox', { name: /web search/i });
       expect(checkbox).toBeChecked();
     });
 
     it('calls onUpdateSettings with webSearchEnabled: true when checkbox is checked', () => {
       render(<SettingsSidebar {...defaultProps} />);
-      const checkbox = screen.getByRole('checkbox');
+      const checkbox = screen.getByRole('checkbox', { name: /web search/i });
       fireEvent.click(checkbox);
       expect(mockOnUpdateSettings).toHaveBeenCalledWith({ webSearchEnabled: true });
     });
@@ -79,7 +79,7 @@ describe('SettingsSidebar', () => {
     it('calls onUpdateSettings with webSearchEnabled: false when checkbox is unchecked', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      const checkbox = screen.getByRole('checkbox');
+      const checkbox = screen.getByRole('checkbox', { name: /web search/i });
       fireEvent.click(checkbox);
       expect(mockOnUpdateSettings).toHaveBeenCalledWith({ webSearchEnabled: false });
     });
