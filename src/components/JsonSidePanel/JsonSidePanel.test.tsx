@@ -74,4 +74,22 @@ describe('JsonSidePanel', () => {
     );
     expect(screen.getByLabelText('Copy JSON')).toBeInTheDocument();
   });
+
+  it('copies JSON to clipboard when copy button clicked', async () => {
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, {
+      clipboard: { writeText: writeTextMock },
+    });
+
+    render(
+      <JsonSidePanel isOpen={true} onClose={mockOnClose} panelData={sampleData} />
+    );
+    fireEvent.click(screen.getByLabelText('Copy JSON'));
+
+    await vi.waitFor(() => {
+      expect(writeTextMock).toHaveBeenCalledWith(
+        JSON.stringify(sampleData.data, null, 2)
+      );
+    });
+  });
 });

@@ -5,7 +5,7 @@
   right: 0;
   bottom: 0;
   background-color: rgba(0, 0, 0, 0.3);
-  z-index: 1000;
+  z-index: 1100; /* Higher than SettingsSidebar (1000) to stack on top */
 }
 
 .json-side-panel {
@@ -83,7 +83,7 @@
 
 .json-side-panel__json {
   margin: 0;
-  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
   font-size: 13px;
   line-height: 1.5;
   color: #333;
