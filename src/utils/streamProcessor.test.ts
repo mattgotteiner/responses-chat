@@ -193,7 +193,7 @@ describe('streamProcessor', () => {
       it('appends to existing tool call arguments', () => {
         accumulator = {
           ...accumulator,
-          toolCalls: [{ id: 'tool_123', name: 'my_function', arguments: '{"key":' }],
+          toolCalls: [{ id: 'tool_123', name: 'my_function', type: 'function', arguments: '{"key":' }],
         };
         const event: StreamEvent = {
           type: 'response.function_call_arguments.delta',
@@ -218,7 +218,7 @@ describe('streamProcessor', () => {
       it('returns same accumulator for empty delta when tool call exists (to avoid rerenders)', () => {
         accumulator = {
           ...accumulator,
-          toolCalls: [{ id: 'tool_123', name: 'my_function', arguments: '{}' }],
+          toolCalls: [{ id: 'tool_123', name: 'my_function', type: 'function', arguments: '{}' }],
         };
         const event: StreamEvent = {
           type: 'response.function_call_arguments.delta',

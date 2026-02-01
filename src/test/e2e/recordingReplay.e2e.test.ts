@@ -227,13 +227,13 @@ describe('Recording Replay E2E', () => {
       expect(result.responseJson).toBeDefined();
       expect(result.responseJson!.output).toBeDefined();
       
-      const webSearchCalls = result.responseJson!.output.filter(
-        (item: { type: string }) => item.type === 'web_search_call'
+      const webSearchCalls = (result.responseJson!.output as Array<{ type: string; status?: string }>).filter(
+        (item) => item.type === 'web_search_call'
       );
       expect(webSearchCalls.length).toBeGreaterThan(0);
       
       // Verify web search calls have completed status
-      webSearchCalls.forEach((call: { status: string }) => {
+      webSearchCalls.forEach((call) => {
         expect(call.status).toBe('completed');
       });
     });
