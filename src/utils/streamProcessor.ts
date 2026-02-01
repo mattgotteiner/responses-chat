@@ -104,7 +104,8 @@ export function processStreamEvent(
 
       if (itemEvent.item?.type === 'reasoning' && itemEvent.item.summary) {
         const itemId = itemEvent.item.id || idGenerators.generateReasoningId();
-        const newReasoning = [...accumulator.reasoning];
+        let newReasoning: typeof accumulator.reasoning | null = null;
+        let didChange = false;
 
         // Process each summary entry with its own index-based ID
         // This matches the IDs used by delta events: `${item_id}_${summary_index}`
@@ -112,18 +113,24 @@ export function processStreamEvent(
           if (s.type !== 'summary_text' || !s.text) return;
 
           const uniqueId = `${itemId}_${summaryIndex}`;
+          // Lazily clone the array only when we find the first change
+          if (!newReasoning) {
+            newReasoning = [...accumulator.reasoning];
+          }
           const existingIndex = newReasoning.findIndex((r) => r.id === uniqueId);
 
           if (existingIndex >= 0) {
             // Update existing entry with final content
             newReasoning[existingIndex] = { ...newReasoning[existingIndex], content: s.text };
+            didChange = true;
           } else {
             // Add new entry (shouldn't happen if deltas came first, but handle it)
             newReasoning.push({ id: uniqueId, content: s.text });
+            didChange = true;
           }
         });
 
-        if (newReasoning !== accumulator.reasoning) {
+        if (didChange && newReasoning) {
           return {
             ...accumulator,
             reasoning: newReasoning,

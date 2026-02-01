@@ -225,10 +225,14 @@ describe('Recording Replay E2E', () => {
       
       // The response should contain web_search_call items in output
       expect(result.responseJson).toBeDefined();
-      expect(result.responseJson!.output).toBeDefined();
+      const output = result.responseJson?.output;
+      if (!Array.isArray(output)) {
+        throw new Error('Expected responseJson.output to be an array');
+      }
       
-      const webSearchCalls = (result.responseJson!.output as Array<{ type: string; status?: string }>).filter(
-        (item) => item.type === 'web_search_call'
+      const webSearchCalls = output.filter(
+        (item): item is { type: string; status?: string } =>
+          typeof item === 'object' && item !== null && (item as { type?: unknown }).type === 'web_search_call'
       );
       expect(webSearchCalls.length).toBeGreaterThan(0);
       
