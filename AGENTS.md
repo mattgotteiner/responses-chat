@@ -130,7 +130,7 @@ Follow the existing structure in `src/`. See examples:
 
 ```tsx
 // ✅ Good test pattern
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { Button } from './Button'
 
@@ -141,6 +141,8 @@ describe('Button', () => {
   })
 })
 ```
+
+> **Note:** Always import all test utilities you use (`describe`, `it`, `expect`, `beforeEach`, `afterEach`, `vi`, etc.) explicitly from `'vitest'`. Unlike Jest, Vitest does not expose these as globals by default, so missing imports cause TypeScript errors.
 
 ## Build and Deploy
 

@@ -36,6 +36,3 @@ coverage
 .env
 .env.local
 .env.*.local
-
-# Recordings (generated in RECORD mode for e2e testing)
-recordings/
