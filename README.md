@@ -15,7 +15,7 @@ A React + TypeScript chat interface for Azure OpenAI's Responses API with stream
 
 ## Prerequisites
 
-- **Node.js 22+** - Use [fnm](https://github.com/Schniz/fnm) or [nvm](https://github.com/nvm-sh/nvm)
+- **Node.js 20+** - Use [fnm](https://github.com/Schniz/fnm) or [nvm](https://github.com/nvm-sh/nvm)
 - **Azure OpenAI Resource** - With a deployed model supporting the Responses API
 
 ## Quick Start
@@ -125,6 +125,13 @@ The repository is configured for automatic deployment to GitHub Pages.
 2. Under **Build and deployment**, set **Source** to **GitHub Actions**
 
 Once enabled, every push to `main` will automatically build and deploy your site.
+
+## Security Considerations
+
+This is a client-side application designed for local development and testing:
+
+- **API Key Storage** – Keys are stored in browser localStorage (unencrypted). Only use on trusted devices. Clear browser data when finished on shared machines.
+- **Browser SDK Usage** – The OpenAI SDK runs with `dangerouslyAllowBrowser: true`, which is required for browser-based API calls. This means credentials are accessible in client-side code.
 
 ## Tech Stack
 
