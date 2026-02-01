@@ -61,6 +61,8 @@ export interface Settings {
   verbosity?: Verbosity;
   /** Optional developer/system instructions */
   developerInstructions?: string;
+  /** Enable web search tool for grounding responses with real-time web data */
+  webSearchEnabled?: boolean;
 }
 
 /** Default settings values */
@@ -95,6 +97,18 @@ export interface ReasoningStep {
   content: string;
 }
 
+/** URL citation from web search results */
+export interface Citation {
+  /** Citation URL */
+  url: string;
+  /** Citation title */
+  title: string;
+  /** Start index in the content where this citation applies */
+  startIndex: number;
+  /** End index in the content where this citation applies */
+  endIndex: number;
+}
+
 /** A message in the conversation */
 export interface Message {
   /** Unique message identifier */
@@ -107,6 +121,8 @@ export interface Message {
   reasoning?: ReasoningStep[];
   /** Tool calls made by the assistant */
   toolCalls?: ToolCall[];
+  /** URL citations from web search */
+  citations?: Citation[];
   /** Whether this message is currently streaming */
   isStreaming?: boolean;
   /** Whether this message represents an error */

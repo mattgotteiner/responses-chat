@@ -23,6 +23,7 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
   const isUser = message.role === 'user';
   const hasReasoning = message.reasoning && message.reasoning.length > 0;
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
+  const hasCitations = message.citations && message.citations.length > 0;
   const showThinking = message.isStreaming && !message.content && !hasReasoning;
   
   // Determine if JSON data is available
@@ -98,6 +99,28 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
         {/* Streaming cursor */}
         {message.isStreaming && message.content && (
           <span className="message__cursor">▌</span>
+        )}
+
+        {/* Citations from web search */}
+        {hasCitations && !message.isStreaming && (
+          <div className="message__citations">
+            <div className="message__citations-header">Sources</div>
+            <ul className="message__citations-list">
+              {message.citations!.map((citation, index) => (
+                <li key={`${citation.url}-${index}`} className="message__citation">
+                  <a
+                    href={citation.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="message__citation-link"
+                    title={citation.url}
+                  >
+                    {citation.title || citation.url}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     </div>

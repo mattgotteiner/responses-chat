@@ -5,7 +5,7 @@
  * enabling both real-time UI updates and offline replay of recorded sessions.
  */
 
-import type { ReasoningStep, ToolCall } from '../types';
+import type { ReasoningStep, ToolCall, Citation } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
 /** ID generator functions for customizable ID generation */
@@ -36,6 +36,8 @@ export interface StreamAccumulator {
   reasoning: ReasoningStep[];
   /** Accumulated tool calls from function_call events */
   toolCalls: ToolCall[];
+  /** URL citations from web search annotations */
+  citations: Citation[];
   /** Response ID from response.completed event (for conversation continuity) */
   responseId: string | null;
   /** Full response JSON from response.completed event */
@@ -48,6 +50,7 @@ export function createInitialAccumulator(): StreamAccumulator {
     content: '',
     reasoning: [],
     toolCalls: [],
+    citations: [],
     responseId: null,
     responseJson: null,
   };
@@ -220,15 +223,20 @@ export function processStreamEvent(
     }
 
     case 'response.completed': {
-      // Response completed - extract response ID and full response
+      // Response completed - extract response ID, full response, and citations
       const completedEvent = event as { response?: Record<string, unknown> };
       if (completedEvent.response) {
         const response = completedEvent.response;
         const responseId = typeof response.id === 'string' ? response.id : null;
+        
+        // Extract citations from output items
+        const citations = extractCitationsFromResponse(response);
+        
         return {
           ...accumulator,
           responseId,
           responseJson: response,
+          citations: citations.length > 0 ? citations : accumulator.citations,
         };
       }
       return accumulator;
@@ -258,4 +266,73 @@ export async function processStream(
   }
 
   return accumulator;
+}
+
+/**
+ * Extract citations from a completed response
+ * Citations are found in output items with type "message" that have annotations
+ * 
+ * @param response - The completed response object
+ * @returns Array of extracted citations
+ */
+export function extractCitationsFromResponse(
+  response: Record<string, unknown>
+): Citation[] {
+  const citations: Citation[] = [];
+  
+  const output = response.output;
+  if (!Array.isArray(output)) {
+    return citations;
+  }
+  
+  for (const item of output) {
+    if (!item || typeof item !== 'object') continue;
+    
+    const outputItem = item as Record<string, unknown>;
+    
+    // Look for message items with content that has annotations
+    if (outputItem.type === 'message') {
+      const content = outputItem.content;
+      if (!Array.isArray(content)) continue;
+      
+      for (const contentItem of content) {
+        if (!contentItem || typeof contentItem !== 'object') continue;
+        
+        const c = contentItem as Record<string, unknown>;
+        if (c.type !== 'output_text') continue;
+        
+        const annotations = c.annotations;
+        if (!Array.isArray(annotations)) continue;
+        
+        for (const annotation of annotations) {
+          if (!annotation || typeof annotation !== 'object') continue;
+          
+          const a = annotation as Record<string, unknown>;
+          if (a.type !== 'url_citation') continue;
+          
+          if (
+            typeof a.url === 'string' &&
+            typeof a.title === 'string' &&
+            typeof a.start_index === 'number' &&
+            typeof a.end_index === 'number'
+          ) {
+            citations.push({
+              url: a.url,
+              title: a.title,
+              startIndex: a.start_index,
+              endIndex: a.end_index,
+            });
+          }
+        }
+      }
+    }
+  }
+  
+  // Deduplicate by URL
+  const seen = new Set<string>();
+  return citations.filter((c) => {
+    if (seen.has(c.url)) return false;
+    seen.add(c.url);
+    return true;
+  });
 }

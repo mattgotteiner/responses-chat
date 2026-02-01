@@ -182,4 +182,101 @@ describe('Message', () => {
     render(<Message message={normalMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
   });
+
+  describe('citations', () => {
+    it('renders citations when present and not streaming', () => {
+      const messageWithCitations: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Here is some information from the web.',
+        citations: [
+          {
+            url: 'https://example.com/article1',
+            title: 'Example Article 1',
+            startIndex: 0,
+            endIndex: 10,
+          },
+          {
+            url: 'https://example.com/article2',
+            title: 'Example Article 2',
+            startIndex: 11,
+            endIndex: 20,
+          },
+        ],
+      };
+      render(<Message message={messageWithCitations} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.getByText('Sources')).toBeInTheDocument();
+      expect(screen.getByText('Example Article 1')).toBeInTheDocument();
+      expect(screen.getByText('Example Article 2')).toBeInTheDocument();
+    });
+
+    it('renders citation links with correct href', () => {
+      const messageWithCitations: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Web content',
+        citations: [
+          {
+            url: 'https://example.com/test',
+            title: 'Test Link',
+            startIndex: 0,
+            endIndex: 5,
+          },
+        ],
+      };
+      render(<Message message={messageWithCitations} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      const link = screen.getByRole('link', { name: 'Test Link' });
+      expect(link).toHaveAttribute('href', 'https://example.com/test');
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('does not render citations while streaming', () => {
+      const streamingWithCitations: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Partial content',
+        isStreaming: true,
+        citations: [
+          {
+            url: 'https://example.com/test',
+            title: 'Test Link',
+            startIndex: 0,
+            endIndex: 5,
+          },
+        ],
+      };
+      render(<Message message={streamingWithCitations} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.queryByText('Sources')).not.toBeInTheDocument();
+    });
+
+    it('does not render citations section when citations array is empty', () => {
+      const messageWithEmptyCitations: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Response without citations',
+        citations: [],
+      };
+      render(<Message message={messageWithEmptyCitations} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.queryByText('Sources')).not.toBeInTheDocument();
+    });
+
+    it('uses URL as link text when title is empty', () => {
+      const messageWithNoTitle: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Content',
+        citations: [
+          {
+            url: 'https://example.com/no-title',
+            title: '',
+            startIndex: 0,
+            endIndex: 5,
+          },
+        ],
+      };
+      render(<Message message={messageWithNoTitle} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.getByText('https://example.com/no-title')).toBeInTheDocument();
+    });
+  });
 });
