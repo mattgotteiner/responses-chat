@@ -26,12 +26,18 @@
   color: #c00;
 }
 
+.message__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
 .message__role {
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  margin-bottom: 6px;
   opacity: 0.7;
 }
 
@@ -41,6 +47,42 @@
 
 .message--assistant .message__role {
   color: #666;
+}
+
+.message__json-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 6px;
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s, background-color 0.15s;
+}
+
+.message--user .message__json-button {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.message--user .message__json-button:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  opacity: 1;
+}
+
+.message--assistant .message__json-button {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #555;
+}
+
+.message--assistant .message__json-button:hover {
+  background-color: rgba(0, 0, 0, 0.15);
+  opacity: 1;
 }
 
 .message__content-wrapper {
@@ -107,6 +149,15 @@
 
   .message--assistant .message__role {
     color: #888;
+  }
+
+  .message--assistant .message__json-button {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #aaa;
+  }
+
+  .message--assistant .message__json-button:hover {
+    background-color: rgba(255, 255, 255, 0.15);
   }
 
   .message--error {

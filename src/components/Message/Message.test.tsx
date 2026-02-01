@@ -1,9 +1,11 @@
-import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { Message } from './Message';
 import type { Message as MessageType } from '../../types';
 
 describe('Message', () => {
+  const mockOnOpenJsonPanel = vi.fn();
+  
   const baseMessage: MessageType = {
     id: 'msg-1',
     role: 'user',
@@ -11,8 +13,12 @@ describe('Message', () => {
     timestamp: new Date(),
   };
 
+  beforeEach(() => {
+    mockOnOpenJsonPanel.mockClear();
+  });
+
   it('renders user message with You label', () => {
-    render(<Message message={baseMessage} />);
+    render(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(screen.getByText('You')).toBeInTheDocument();
     expect(screen.getByText('Hello world')).toBeInTheDocument();
   });
@@ -23,13 +29,13 @@ describe('Message', () => {
       role: 'assistant',
       content: 'Hi there!',
     };
-    render(<Message message={assistantMessage} />);
+    render(<Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(screen.getByText('Assistant')).toBeInTheDocument();
     expect(screen.getByText('Hi there!')).toBeInTheDocument();
   });
 
   it('applies user class for user messages', () => {
-    const { container } = render(<Message message={baseMessage} />);
+    const { container } = render(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(container.querySelector('.message--user')).toBeInTheDocument();
   });
 
@@ -38,7 +44,7 @@ describe('Message', () => {
       ...baseMessage,
       role: 'assistant',
     };
-    const { container } = render(<Message message={assistantMessage} />);
+    const { container } = render(<Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(container.querySelector('.message--assistant')).toBeInTheDocument();
   });
 
@@ -49,7 +55,7 @@ describe('Message', () => {
       isError: true,
       content: 'Error occurred',
     };
-    const { container } = render(<Message message={errorMessage} />);
+    const { container } = render(<Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(container.querySelector('.message--error')).toBeInTheDocument();
   });
 
@@ -60,7 +66,7 @@ describe('Message', () => {
       content: '',
       isStreaming: true,
     };
-    render(<Message message={streamingMessage} />);
+    render(<Message message={streamingMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(screen.getByText('Thinking...')).toBeInTheDocument();
   });
 
@@ -71,7 +77,64 @@ describe('Message', () => {
       content: 'Partial response',
       isStreaming: true,
     };
-    const { container } = render(<Message message={streamingMessage} />);
+    const { container } = render(<Message message={streamingMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(container.querySelector('.message__cursor')).toBeInTheDocument();
+  });
+
+  it('shows JSON button when user message has requestJson', () => {
+    const messageWithJson: MessageType = {
+      ...baseMessage,
+      requestJson: { model: 'gpt-5', input: 'Hello' },
+    };
+    render(<Message message={messageWithJson} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.getByLabelText('View JSON')).toBeInTheDocument();
+  });
+
+  it('shows JSON button when assistant message has responseJson', () => {
+    const messageWithJson: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      responseJson: { id: 'resp-1', output: [{ text: 'Hi' }] },
+    };
+    render(<Message message={messageWithJson} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.getByLabelText('View JSON')).toBeInTheDocument();
+  });
+
+  it('does not show JSON button when no JSON data', () => {
+    render(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    expect(screen.queryByLabelText('View JSON')).not.toBeInTheDocument();
+  });
+
+  it('calls onOpenJsonPanel with request data when user message button clicked', () => {
+    const requestData = { model: 'gpt-5', input: 'Hello' };
+    const messageWithJson: MessageType = {
+      ...baseMessage,
+      requestJson: requestData,
+    };
+    render(<Message message={messageWithJson} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    
+    fireEvent.click(screen.getByLabelText('View JSON'));
+    
+    expect(mockOnOpenJsonPanel).toHaveBeenCalledWith({
+      title: 'Request JSON',
+      data: requestData,
+    });
+  });
+
+  it('calls onOpenJsonPanel with response data when assistant message button clicked', () => {
+    const responseData = { id: 'resp-1', output: [{ text: 'Hi' }] };
+    const messageWithJson: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      responseJson: responseData,
+    };
+    render(<Message message={messageWithJson} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+    
+    fireEvent.click(screen.getByLabelText('View JSON'));
+    
+    expect(mockOnOpenJsonPanel).toHaveBeenCalledWith({
+      title: 'Response JSON',
+      data: responseData,
+    });
   });
 });
