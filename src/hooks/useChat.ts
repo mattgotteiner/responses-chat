@@ -3,9 +3,10 @@
  */
 
 import { useState, useCallback, useRef } from 'react';
-import type { Message, Settings } from '../types';
+import type { Message, Settings, Attachment } from '../types';
 import { createAzureClient, generateMessageId } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
+import { isImageAttachment } from '../utils/attachment';
 import {
   createInitialAccumulator,
   processStreamEvent,
@@ -20,7 +21,7 @@ export interface UseChatReturn {
   /** Whether a response is currently streaming */
   isStreaming: boolean;
   /** Send a message and get a streaming response */
-  sendMessage: (content: string, settings: Settings) => Promise<void>;
+  sendMessage: (content: string, settings: Settings, attachments?: Attachment[]) => Promise<void>;
   /** Stop the current streaming response */
   stopStreaming: () => void;
   /** Clear all messages and reset conversation */
@@ -38,6 +39,9 @@ export interface UseChatReturn {
  * // Send a message
  * await sendMessage('Hello!', settings);
  *
+ * // Send a message with attachments
+ * await sendMessage('What is in this image?', settings, [imageAttachment]);
+ *
  * // Clear conversation
  * clearConversation();
  */
@@ -49,18 +53,53 @@ export function useChat(): UseChatReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
-    async (content: string, settings: Settings) => {
-      if (!content.trim()) return;
+    async (content: string, settings: Settings, attachments?: Attachment[]) => {
+      if (!content.trim() && (!attachments || attachments.length === 0)) return;
 
       setError(null);
 
       const client = createAzureClient(settings);
       const deployment = settings.deploymentName || settings.modelName;
 
+      // Build input: either simple string or structured content with attachments
+      let input: string | Record<string, unknown>[];
+      if (attachments && attachments.length > 0) {
+        // Build content array with text and attachments
+        const contentParts: Record<string, unknown>[] = [];
+        
+        // Add text content if present
+        if (content.trim()) {
+          contentParts.push({ type: 'input_text', text: content.trim() });
+        }
+        
+        // Add attachments
+        for (const attachment of attachments) {
+          if (isImageAttachment(attachment)) {
+            // Image attachment
+            contentParts.push({
+              type: 'input_image',
+              image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
+            });
+          } else {
+            // File attachment (PDF)
+            contentParts.push({
+              type: 'input_file',
+              filename: attachment.name,
+              file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
+            });
+          }
+        }
+        
+        // Wrap in message format
+        input = [{ role: 'user', content: contentParts }];
+      } else {
+        input = content.trim();
+      }
+
       // Build the request parameters
       const requestParams: Record<string, unknown> = {
         model: deployment,
-        input: content.trim(),
+        input,
       };
 
       // Add previous response ID for conversation continuity
@@ -98,6 +137,7 @@ export function useChat(): UseChatReturn {
         id: generateMessageId(),
         role: 'user',
         content: content.trim(),
+        attachments: attachments && attachments.length > 0 ? attachments : undefined,
         timestamp: new Date(),
         requestJson: { ...requestParams, stream: true },
       };

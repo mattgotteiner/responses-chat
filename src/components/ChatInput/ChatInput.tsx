@@ -3,13 +3,15 @@
  */
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
-import type { Message, TokenUsage } from '../../types';
+import type { Attachment, Message, TokenUsage } from '../../types';
+import { AttachmentButton } from '../AttachmentButton';
+import { AttachmentPreview } from '../AttachmentPreview';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
 import './ChatInput.css';
 
 interface ChatInputProps {
   /** Handler called when user sends a message */
-  onSendMessage: (content: string) => void;
+  onSendMessage: (content: string, attachments?: Attachment[]) => void;
   /** Handler called when user wants to clear conversation */
   onClearConversation: () => void;
   /** Handler called when user wants to stop streaming */
@@ -40,6 +42,7 @@ export function ChatInput({
   messages = [],
 }: ChatInputProps) {
   const [value, setValue] = useState('');
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
@@ -47,10 +50,19 @@ export function ChatInput({
 
   const handleSend = useCallback(() => {
     if (value.trim() && !disabled) {
-      onSendMessage(value.trim());
+      onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
       setValue('');
+      setAttachments([]);
     }
-  }, [value, disabled, onSendMessage]);
+  }, [value, disabled, onSendMessage, attachments]);
+
+  const handleAttach = useCallback((newAttachments: Attachment[]) => {
+    setAttachments((prev) => [...prev, ...newAttachments]);
+  }, []);
+
+  const handleRemoveAttachment = useCallback((id: string) => {
+    setAttachments((prev) => prev.filter((a) => a.id !== id));
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -85,6 +97,12 @@ export function ChatInput({
 
   return (
     <div className="chat-input">
+      {attachments.length > 0 && (
+        <AttachmentPreview
+          attachments={attachments}
+          onRemove={handleRemoveAttachment}
+        />
+      )}
       <div className="chat-input__container">
         <textarea
           className="chat-input__textarea"
@@ -131,6 +149,7 @@ export function ChatInput({
             </svg>
           </button>
         )}
+        <AttachmentButton onAttach={handleAttach} disabled={disabled} />
       </div>
       <div className="chat-input__actions">
         <div className="chat-input__actions-left">
