@@ -3,6 +3,8 @@
  */
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
+import type { TokenUsage } from '../../types';
+import { TokenUsageDisplay } from '../TokenUsageDisplay';
 import './ChatInput.css';
 
 interface ChatInputProps {
@@ -18,6 +20,8 @@ interface ChatInputProps {
   disabled?: boolean;
   /** Placeholder text */
   placeholder?: string;
+  /** Token usage for the conversation */
+  tokenUsage?: TokenUsage;
 }
 
 /**
@@ -30,6 +34,7 @@ export function ChatInput({
   isStreaming = false,
   disabled = false,
   placeholder = 'Type a message...',
+  tokenUsage,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
 
@@ -104,14 +109,17 @@ export function ChatInput({
         )}
       </div>
       <div className="chat-input__actions">
-        <button
-          className="chat-input__clear"
-          onClick={onClearConversation}
-          disabled={disabled}
-          title="Clear conversation"
-        >
-          Clear conversation
-        </button>
+        <div className="chat-input__actions-left">
+          <button
+            className="chat-input__clear"
+            onClick={onClearConversation}
+            disabled={disabled}
+            title="Clear conversation"
+          >
+            Clear conversation
+          </button>
+          <TokenUsageDisplay usage={tokenUsage} mode="compact" />
+        </div>
         <span className="chat-input__hint">
           Press Enter to send, Shift+Enter for new line
         </span>

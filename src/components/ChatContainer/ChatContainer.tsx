@@ -2,7 +2,7 @@
  * Main chat container component
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useSettingsContext } from '../../context/SettingsContext';
 import { useChat } from '../../hooks/useChat';
 import { SettingsButton } from '../SettingsButton';
@@ -10,6 +10,7 @@ import { SettingsSidebar } from '../SettingsSidebar';
 import { MessageList } from '../MessageList';
 import { ChatInput } from '../ChatInput';
 import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
+import { calculateConversationUsage } from '../../utils/tokenUsage';
 import './ChatContainer.css';
 
 /**
@@ -48,6 +49,12 @@ export function ChatContainer() {
     ? 'Type a message...'
     : 'Configure settings to start chatting...';
 
+  // Calculate total token usage across all messages
+  const conversationUsage = useMemo(
+    () => calculateConversationUsage(messages),
+    [messages]
+  );
+
   return (
     <div className="chat-container">
       <header className="chat-container__header">
@@ -68,6 +75,7 @@ export function ChatContainer() {
         isStreaming={isStreaming}
         disabled={!isConfigured || isStreaming}
         placeholder={inputPlaceholder}
+        tokenUsage={conversationUsage}
       />
 
       <SettingsSidebar

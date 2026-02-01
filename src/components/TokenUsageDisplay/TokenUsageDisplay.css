@@ -1,0 +1,162 @@
+/* Token Usage Display - Compact Mode */
+.token-usage--compact {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #666;
+}
+
+.token-usage__label {
+  font-weight: 500;
+}
+
+.token-usage__value {
+  font-weight: 600;
+  color: #333;
+}
+
+.token-usage__breakdown {
+  color: #888;
+  font-size: 12px;
+}
+
+.token-usage--empty .token-usage__value--empty {
+  color: #999;
+  font-weight: 400;
+}
+
+/* Token Usage Display - Detailed Mode */
+.token-usage--detailed {
+  background-color: #f8f9fa;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+
+.token-usage__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.token-usage__icon {
+  font-size: 16px;
+}
+
+.token-usage__title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #333;
+}
+
+.token-usage__grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.token-usage__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+
+.token-usage__row-label {
+  color: #555;
+}
+
+.token-usage__row-value {
+  font-weight: 500;
+  color: #333;
+  font-variant-numeric: tabular-nums;
+}
+
+.token-usage__row--sub {
+  padding-left: 12px;
+  font-size: 12px;
+}
+
+.token-usage__row--sub .token-usage__row-label {
+  color: #888;
+}
+
+.token-usage__row--sub .token-usage__row-value {
+  color: #666;
+  font-weight: 400;
+}
+
+.token-usage__row--total {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #e0e0e0;
+  font-weight: 600;
+}
+
+.token-usage__row--total .token-usage__row-label,
+.token-usage__row--total .token-usage__row-value {
+  color: #1976d2;
+  font-weight: 600;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .token-usage--compact {
+    color: #888;
+  }
+
+  .token-usage--compact .token-usage__value {
+    color: #e0e0e0;
+  }
+
+  .token-usage--compact .token-usage__breakdown {
+    color: #666;
+  }
+
+  .token-usage--empty .token-usage__value--empty {
+    color: #666;
+  }
+
+  .token-usage--detailed {
+    background-color: #252525;
+    border-color: #333;
+  }
+
+  .token-usage__header {
+    border-bottom-color: #333;
+  }
+
+  .token-usage__title {
+    color: #e0e0e0;
+  }
+
+  .token-usage__row-label {
+    color: #aaa;
+  }
+
+  .token-usage__row-value {
+    color: #e0e0e0;
+  }
+
+  .token-usage__row--sub .token-usage__row-label {
+    color: #777;
+  }
+
+  .token-usage__row--sub .token-usage__row-value {
+    color: #999;
+  }
+
+  .token-usage__row--total {
+    border-top-color: #333;
+  }
+
+  .token-usage__row--total .token-usage__row-label,
+  .token-usage__row--total .token-usage__row-value {
+    color: #64b5f6;
+  }
+}
