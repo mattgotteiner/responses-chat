@@ -56,7 +56,8 @@
   color: #666;
 }
 
-.message__json-button {
+.message__json-button,
+.message__copy-button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -72,22 +73,36 @@
   transition: opacity 0.15s, background-color 0.15s;
 }
 
-.message--user .message__json-button {
+.message__copy-button {
+  font-size: 12px;
+}
+
+.message__json-button--hidden,
+.message__copy-button--hidden {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.message--user .message__json-button,
+.message--user .message__copy-button {
   background-color: rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.9);
 }
 
-.message--user .message__json-button:hover {
+.message--user .message__json-button:hover,
+.message--user .message__copy-button:hover {
   background-color: rgba(255, 255, 255, 0.3);
   opacity: 1;
 }
 
-.message--assistant .message__json-button {
+.message--assistant .message__json-button,
+.message--assistant .message__copy-button {
   background-color: rgba(0, 0, 0, 0.1);
   color: #555;
 }
 
-.message--assistant .message__json-button:hover {
+.message--assistant .message__json-button:hover,
+.message--assistant .message__copy-button:hover {
   background-color: rgba(0, 0, 0, 0.15);
   opacity: 1;
 }
@@ -219,12 +234,14 @@
     color: #888;
   }
 
-  .message--assistant .message__json-button {
+  .message--assistant .message__json-button,
+  .message--assistant .message__copy-button {
     background-color: rgba(255, 255, 255, 0.1);
     color: #aaa;
   }
 
-  .message--assistant .message__json-button:hover {
+  .message--assistant .message__json-button:hover,
+  .message--assistant .message__copy-button:hover {
     background-color: rgba(255, 255, 255, 0.15);
   }
 

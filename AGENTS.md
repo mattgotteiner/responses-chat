@@ -65,7 +65,7 @@ src/
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Type-check without emitting |
 
-> **Note:** Always use `npm run test` or `npm run test:run` instead of `npx vitest`. The npm scripts ensure consistent configuration and avoid potential version mismatches.
+> **Important:** Always use `npm run` scripts instead of `npx` for dev tools. Use `npm run lint` (not `npx eslint`), `npm run typecheck` (not `npx tsc`), and `npm run test:run` (not `npx vitest`). The npm scripts ensure consistent configuration and avoid PATH/version issues.
 
 ## Code Style
 
