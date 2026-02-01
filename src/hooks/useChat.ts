@@ -2,7 +2,7 @@
  * Hook for managing chat state and API interactions
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useMemo } from 'react';
 import type { Message, Settings } from '../types';
 import { createAzureClient, generateMessageId } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
@@ -21,6 +21,8 @@ export interface UseChatReturn {
   isStreaming: boolean;
   /** Send a message and get a streaming response */
   sendMessage: (content: string, settings: Settings) => Promise<void>;
+  /** Stop the current streaming response */
+  stopStreaming: () => void;
   /** Clear all messages and reset conversation */
   clearConversation: () => void;
   /** Any error that occurred */
@@ -44,6 +46,8 @@ export function useChat(): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const previousResponseIdRef = useRef<string | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const streamingMessageIdRef = useRef<string | null>(null);
 
   const sendMessage = useCallback(
     async (content: string, settings: Settings) => {
@@ -112,15 +116,21 @@ export function useChat(): UseChatReturn {
       const recordingSession = createRecordingSession();
 
       try {
+        // Create abort controller for this request
+        abortControllerRef.current = new AbortController();
+        streamingMessageIdRef.current = assistantMessage.id;
 
         // Record the request payload if recording is active
         recordingSession?.recordRequest(requestParams);
 
         // Use the responses API with streaming
-        const stream = await client.responses.create({
-          ...requestParams,
-          stream: true,
-        } as Parameters<typeof client.responses.create>[0]);
+        const stream = await client.responses.create(
+          {
+            ...requestParams,
+            stream: true,
+          } as Parameters<typeof client.responses.create>[0],
+          { signal: abortControllerRef.current.signal }
+        );
 
         let accumulator = createInitialAccumulator();
 
@@ -168,31 +178,55 @@ export function useChat(): UseChatReturn {
           )
         );
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : 'An unknown error occurred';
-        setError(errorMessage);
+        // Handle user-initiated abort differently from errors
+        if (err instanceof Error && err.name === 'AbortError') {
+          // User stopped the stream - mark as stopped, preserve partial content
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                    ...msg,
+                    isStreaming: false,
+                    isStopped: true,
+                  }
+                : msg
+            )
+          );
+        } else {
+          const errorMessage =
+            err instanceof Error ? err.message : 'An unknown error occurred';
+          setError(errorMessage);
 
-        // Update assistant message to show error
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id
-              ? {
-                  ...msg,
-                  content: `Error: ${errorMessage}`,
-                  isStreaming: false,
-                  isError: true,
-                }
-              : msg
-          )
-        );
+          // Update assistant message to show error
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                    ...msg,
+                    content: `Error: ${errorMessage}`,
+                    isStreaming: false,
+                    isError: true,
+                  }
+                : msg
+            )
+          );
+        }
       } finally {
         // Finalize recording if active (even on error for debugging)
         recordingSession?.finalize();
         setIsStreaming(false);
+        abortControllerRef.current = null;
+        streamingMessageIdRef.current = null;
       }
     },
     []
   );
+
+  const stopStreaming = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+  }, []);
 
   const clearConversation = useCallback(() => {
     setMessages([]);
@@ -200,11 +234,12 @@ export function useChat(): UseChatReturn {
     setError(null);
   }, []);
 
-  return {
+  return useMemo(() => ({
     messages,
     isStreaming,
     sendMessage,
+    stopStreaming,
     clearConversation,
     error,
-  };
+  }), [messages, isStreaming, sendMessage, stopStreaming, clearConversation, error]);
 }

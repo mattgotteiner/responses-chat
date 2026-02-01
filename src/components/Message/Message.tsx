@@ -88,6 +88,11 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
         {message.isStreaming && message.content && (
           <span className="message__cursor">▌</span>
         )}
+
+        {/* Stopped indicator */}
+        {message.isStopped && (
+          <span className="message__stopped">(stopped)</span>
+        )}
       </div>
     </div>
   );

@@ -111,6 +111,8 @@ export interface Message {
   isStreaming?: boolean;
   /** Whether this message represents an error */
   isError?: boolean;
+  /** Whether this message was stopped by the user */
+  isStopped?: boolean;
   /** Timestamp of the message */
   timestamp: Date;
   /** Raw API request JSON (for user messages) */

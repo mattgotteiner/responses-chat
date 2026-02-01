@@ -106,6 +106,14 @@
   50% { opacity: 0; }
 }
 
+.message__stopped {
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 12px;
+  color: #999;
+  font-style: italic;
+}
+
 .message__thinking {
   display: flex;
   align-items: center;

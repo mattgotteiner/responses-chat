@@ -72,6 +72,34 @@
   height: 20px;
 }
 
+.chat-input__stop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background-color: #dc3545;
+  border: none;
+  border-radius: 50%;
+  color: #fff;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.chat-input__stop:hover {
+  background-color: #c82333;
+}
+
+.chat-input__stop:active {
+  transform: scale(0.95);
+}
+
+.chat-input__stop svg {
+  width: 16px;
+  height: 16px;
+}
+
 .chat-input__actions {
   display: flex;
   justify-content: space-between;
