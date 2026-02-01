@@ -13,6 +13,9 @@ import {
 } from '../../types';
 import './SettingsSidebar.css';
 
+/** Handler type for checkbox change events */
+type CheckboxChangeHandler = (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => void;
+
 interface SettingsSidebarProps {
   /** Whether the sidebar is open */
   isOpen: boolean;
@@ -39,6 +42,13 @@ export function SettingsSidebar({
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
       const value = e.target.value;
       onUpdateSettings({ [field]: value || undefined });
+    },
+    [onUpdateSettings]
+  );
+
+  const handleCheckboxChange: CheckboxChangeHandler = useCallback(
+    (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => {
+      onUpdateSettings({ [field]: e.target.checked });
     },
     [onUpdateSettings]
   );
@@ -157,6 +167,27 @@ export function SettingsSidebar({
               />
               <span className="settings-field__hint">
                 Defaults to model name if empty
+              </span>
+            </div>
+          </section>
+
+          {/* Tools Settings */}
+          <section className="settings-section">
+            <h3 className="settings-section__title">Tools</h3>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="webSearchEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.webSearchEnabled || false}
+                  onChange={handleCheckboxChange('webSearchEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Web Search</span>
+              </label>
+              <span className="settings-field__hint">
+                Ground responses with real-time web data via Bing. Incurs additional costs.
               </span>
             </div>
           </section>

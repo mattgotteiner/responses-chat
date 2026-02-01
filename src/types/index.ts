@@ -67,6 +67,8 @@ export interface Settings {
   verbosity?: Verbosity;
   /** Optional developer/system instructions */
   developerInstructions?: string;
+  /** Enable web search tool for grounding responses with real-time web data */
+  webSearchEnabled?: boolean;
   /** Message render mode for assistant messages */
   messageRenderMode: MessageRenderMode;
 }
@@ -88,12 +90,18 @@ export const DEFAULT_SETTINGS: Settings = {
 export interface ToolCall {
   /** Unique identifier for the tool call */
   id: string;
-  /** Name of the tool being called */
+  /** Name of the tool being called (e.g., 'web_search', function name) */
   name: string;
-  /** JSON arguments passed to the tool */
+  /** Type of tool call: 'function' for function calls, 'web_search' for web search */
+  type: 'function' | 'web_search';
+  /** JSON arguments passed to the tool (for function calls) */
   arguments: string;
   /** Result from the tool execution, if any */
   result?: string;
+  /** Status of the tool call (for web search: 'in_progress', 'searching', 'completed') */
+  status?: 'in_progress' | 'searching' | 'completed';
+  /** Search query (for web search calls) */
+  query?: string;
 }
 
 /** Reasoning step from the model */
@@ -102,6 +110,18 @@ export interface ReasoningStep {
   id: string;
   /** Reasoning content */
   content: string;
+}
+
+/** URL citation from web search results */
+export interface Citation {
+  /** Citation URL */
+  url: string;
+  /** Citation title */
+  title: string;
+  /** Start index in the content where this citation applies */
+  startIndex: number;
+  /** End index in the content where this citation applies */
+  endIndex: number;
 }
 
 /** A message in the conversation */
@@ -116,6 +136,8 @@ export interface Message {
   reasoning?: ReasoningStep[];
   /** Tool calls made by the assistant */
   toolCalls?: ToolCall[];
+  /** URL citations from web search */
+  citations?: Citation[];
   /** Whether this message is currently streaming */
   isStreaming?: boolean;
   /** Whether this message represents an error */
