@@ -25,15 +25,43 @@ export interface RecordingEvent {
   data: unknown;
 }
 
+/** Request payload recorded at the start of a session */
+export interface RecordingRequest {
+  /** Marker type for the request line */
+  type: 'request';
+  /** Timestamp of the request */
+  timestamp: number;
+  /** Request payload sent to the API */
+  data: Record<string, unknown>;
+}
+
+/** Parsed recording file contents */
+export interface Recording {
+  /** The request payload from the first line */
+  request: RecordingRequest;
+  /** All streaming events */
+  events: RecordingEvent[];
+}
+
 /** Recording session that captures all events for a single conversation turn */
 export class RecordingSession {
   private readonly id: string;
   private readonly events: RecordingEvent[] = [];
   private readonly startTime: number;
+  private request: RecordingRequest | null = null;
 
   constructor() {
     this.id = generateRecordingId();
     this.startTime = Date.now();
+  }
+
+  /** Record the request payload (should be called first) */
+  recordRequest(payload: Record<string, unknown>): void {
+    this.request = {
+      type: 'request',
+      timestamp: 0,
+      data: payload,
+    };
   }
 
   /** Get the recording session ID */
@@ -52,9 +80,19 @@ export class RecordingSession {
 
   /** Finalize and download the recording as a text file */
   finalize(): void {
-    const content = this.events
-      .map((e) => JSON.stringify(e))
-      .join('\n');
+    const lines: string[] = [];
+    
+    // First line is the request payload
+    if (this.request) {
+      lines.push(JSON.stringify(this.request));
+    }
+    
+    // Remaining lines are the events
+    for (const event of this.events) {
+      lines.push(JSON.stringify(event));
+    }
+    
+    const content = lines.join('\n');
 
     // Create and trigger download of the recording file
     const blob = new Blob([content], { type: 'application/jsonl' });
@@ -78,4 +116,42 @@ export function createRecordingSession(): RecordingSession | null {
   }
   console.log('[RECORD] Recording mode enabled, starting new session');
   return new RecordingSession();
+}
+
+/**
+ * Parse a recording file content (JSON Lines format) into a Recording object
+ * 
+ * @param content - The raw text content of a .jsonl recording file
+ * @returns Parsed recording with request and events
+ * @throws Error if the content is invalid or missing required fields
+ */
+export function loadRecording(content: string): Recording {
+  const lines = content.trim().split('\n').filter((line) => line.length > 0);
+  
+  if (lines.length === 0) {
+    throw new Error('Recording file is empty');
+  }
+  
+  const firstLine = JSON.parse(lines[0]) as { type: string; timestamp: number; data: unknown };
+  
+  if (firstLine.type !== 'request') {
+    throw new Error('Recording file must start with a request line');
+  }
+  
+  const request: RecordingRequest = {
+    type: 'request',
+    timestamp: firstLine.timestamp,
+    data: firstLine.data as Record<string, unknown>,
+  };
+  
+  const events: RecordingEvent[] = lines.slice(1).map((line) => {
+    const parsed = JSON.parse(line) as RecordingEvent;
+    return {
+      type: parsed.type,
+      timestamp: parsed.timestamp,
+      data: parsed.data,
+    };
+  });
+  
+  return { request, events };
 }

@@ -4,6 +4,7 @@ import {
   generateRecordingId,
   RecordingSession,
   createRecordingSession,
+  loadRecording,
 } from './recording';
 
 describe('recording utilities', () => {
@@ -72,6 +73,13 @@ describe('recording utilities', () => {
       session.recordEvent({ type: 'event2', data: 'second' });
       session.recordEvent({ type: 'event3', data: 'third' });
       // Verify session still works after multiple events
+      expect(session.getId()).toBeDefined();
+    });
+
+    it('records request payload', () => {
+      const payload = { model: 'gpt-4', input: 'Hello' };
+      session.recordRequest(payload);
+      // Verify session still works after recording request
       expect(session.getId()).toBeDefined();
     });
 
@@ -157,6 +165,54 @@ describe('recording utilities', () => {
       const session = createRecordingSession();
       expect(session).toBeInstanceOf(RecordingSession);
       vi.restoreAllMocks();
+    });
+  });
+
+  describe('loadRecording', () => {
+    it('parses a valid recording with request and events', () => {
+      const content = [
+        '{"type":"request","timestamp":0,"data":{"model":"gpt-4","input":"Hello"}}',
+        '{"type":"response.output_text.delta","timestamp":100,"data":{"type":"response.output_text.delta","delta":"Hi"}}',
+        '{"type":"response.completed","timestamp":200,"data":{"type":"response.completed"}}',
+      ].join('\n');
+
+      const recording = loadRecording(content);
+
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data).toEqual({ model: 'gpt-4', input: 'Hello' });
+      expect(recording.events).toHaveLength(2);
+      expect(recording.events[0].type).toBe('response.output_text.delta');
+      expect(recording.events[1].type).toBe('response.completed');
+    });
+
+    it('throws error for empty content', () => {
+      expect(() => loadRecording('')).toThrow('Recording file is empty');
+      expect(() => loadRecording('   \n  ')).toThrow('Recording file is empty');
+    });
+
+    it('throws error when first line is not a request', () => {
+      const content = '{"type":"response.output_text.delta","timestamp":100,"data":{}}';
+      expect(() => loadRecording(content)).toThrow('Recording file must start with a request line');
+    });
+
+    it('handles recording with only request and no events', () => {
+      const content = '{"type":"request","timestamp":0,"data":{"model":"gpt-4"}}';
+      const recording = loadRecording(content);
+
+      expect(recording.request.type).toBe('request');
+      expect(recording.events).toHaveLength(0);
+    });
+
+    it('handles content with extra blank lines', () => {
+      const content = [
+        '{"type":"request","timestamp":0,"data":{}}',
+        '',
+        '{"type":"event1","timestamp":10,"data":{}}',
+        '',
+      ].join('\n');
+
+      const recording = loadRecording(content);
+      expect(recording.events).toHaveLength(1);
     });
   });
 });

@@ -77,6 +77,9 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
 
+      // Start recording session if RECORD mode is enabled (declared here for finally block access)
+      const recordingSession = createRecordingSession();
+
       try {
         const client = createAzureClient(settings);
         const deployment = settings.deploymentName || settings.modelName;
@@ -112,6 +115,9 @@ export function useChat(): UseChatReturn {
           requestParams.verbosity = settings.verbosity;
         }
 
+        // Record the request payload if recording is active
+        recordingSession?.recordRequest(requestParams);
+
         // Use the responses API with streaming
         const stream = await client.responses.create({
           ...requestParams,
@@ -121,9 +127,6 @@ export function useChat(): UseChatReturn {
         let accumulatedContent = '';
         const accumulatedReasoning: ReasoningStep[] = [];
         const accumulatedToolCalls: ToolCall[] = [];
-
-        // Start recording session if RECORD mode is enabled
-        const recordingSession = createRecordingSession();
 
         // Process the stream - cast to async iterable since we set stream: true
         for await (const event of stream as AsyncIterable<{ type: string; [key: string]: unknown }>) {
