@@ -5,6 +5,7 @@ import {
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   DEFAULT_SETTINGS,
+  extractTokenUsage,
 } from './index';
 
 describe('types constants', () => {
@@ -62,6 +63,77 @@ describe('types constants', () => {
 
     it('has a valid default model', () => {
       expect(AVAILABLE_MODELS).toContain(DEFAULT_SETTINGS.modelName);
+    });
+  });
+
+  describe('extractTokenUsage', () => {
+    it('extracts valid token usage from response JSON', () => {
+      const responseJson = {
+        usage: {
+          input_tokens: 100,
+          output_tokens: 200,
+          total_tokens: 300,
+        },
+      };
+
+      const result = extractTokenUsage(responseJson);
+
+      expect(result).toEqual({
+        input_tokens: 100,
+        output_tokens: 200,
+        total_tokens: 300,
+        input_tokens_details: undefined,
+        output_tokens_details: undefined,
+      });
+    });
+
+    it('extracts token details when present', () => {
+      const responseJson = {
+        usage: {
+          input_tokens: 100,
+          input_tokens_details: { cached_tokens: 50 },
+          output_tokens: 200,
+          output_tokens_details: { reasoning_tokens: 150 },
+          total_tokens: 300,
+        },
+      };
+
+      const result = extractTokenUsage(responseJson);
+
+      expect(result?.input_tokens_details?.cached_tokens).toBe(50);
+      expect(result?.output_tokens_details?.reasoning_tokens).toBe(150);
+    });
+
+    it('returns undefined for undefined input', () => {
+      expect(extractTokenUsage(undefined)).toBeUndefined();
+    });
+
+    it('returns undefined for null input', () => {
+      expect(extractTokenUsage(null as unknown as Record<string, unknown>)).toBeUndefined();
+    });
+
+    it('returns undefined when usage is missing', () => {
+      expect(extractTokenUsage({})).toBeUndefined();
+    });
+
+    it('returns undefined when usage has wrong type', () => {
+      expect(extractTokenUsage({ usage: 'invalid' })).toBeUndefined();
+    });
+
+    it('returns undefined when required fields are missing', () => {
+      expect(extractTokenUsage({ usage: { input_tokens: 100 } })).toBeUndefined();
+    });
+
+    it('returns undefined when fields have wrong types', () => {
+      expect(
+        extractTokenUsage({
+          usage: {
+            input_tokens: '100',
+            output_tokens: 200,
+            total_tokens: 300,
+          },
+        })
+      ).toBeUndefined();
     });
   });
 });

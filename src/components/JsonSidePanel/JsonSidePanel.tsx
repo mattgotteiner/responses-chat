@@ -2,7 +2,9 @@
  * Side panel for displaying raw JSON data
  */
 
-import { useCallback } from 'react';
+import { useCallback, useMemo } from 'react';
+import { extractTokenUsage } from '../../types';
+import { TokenUsageDisplay } from '../TokenUsageDisplay';
 import './JsonSidePanel.css';
 
 /** Data to display in the JSON side panel */
@@ -51,6 +53,12 @@ export function JsonSidePanel({
     }
   }, [panelData]);
 
+  // Extract token usage from response JSON if present
+  const tokenUsage = useMemo(() => {
+    if (!panelData) return undefined;
+    return extractTokenUsage(panelData.data);
+  }, [panelData]);
+
   if (!isOpen || !panelData) {
     return null;
   }
@@ -80,6 +88,9 @@ export function JsonSidePanel({
         </div>
 
         <div className="json-side-panel__content">
+          {tokenUsage && (
+            <TokenUsageDisplay usage={tokenUsage} mode="detailed" />
+          )}
           <pre className="json-side-panel__json">
             {JSON.stringify(panelData.data, null, 2)}
           </pre>

@@ -108,6 +108,12 @@
   padding: 0 4px;
 }
 
+.chat-input__actions-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .chat-input__clear {
   padding: 4px 8px;
   background: none;
