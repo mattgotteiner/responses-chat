@@ -1,16 +1,36 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatInput } from './ChatInput';
+import type { Message } from '../../types';
 
 describe('ChatInput', () => {
   const mockOnSendMessage = vi.fn();
   const mockOnClearConversation = vi.fn();
   const mockOnStopStreaming = vi.fn();
+  const mockClipboardWriteText = vi.fn();
+  let originalClipboard: Clipboard | undefined;
 
   beforeEach(() => {
     mockOnSendMessage.mockClear();
     mockOnClearConversation.mockClear();
     mockOnStopStreaming.mockClear();
+    mockClipboardWriteText.mockClear().mockResolvedValue(undefined);
+    originalClipboard = navigator.clipboard;
+    Object.defineProperty(navigator, 'clipboard', {
+      value: { writeText: mockClipboardWriteText },
+      writable: true,
+      configurable: true,
+    });
+  });
+
+  afterEach(() => {
+    if (originalClipboard) {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: originalClipboard,
+        writable: true,
+        configurable: true,
+      });
+    }
   });
 
   it('renders textarea with default placeholder', () => {
@@ -230,5 +250,83 @@ describe('ChatInput', () => {
     );
 
     expect(screen.getByText('Press Enter to send, Shift+Enter for new line')).toBeInTheDocument();
+  });
+
+  describe('copy conversation JSON button', () => {
+    const sampleMessages: Message[] = [
+      {
+        id: 'msg-1',
+        role: 'user',
+        content: 'Hello',
+        timestamp: new Date('2026-01-15T10:00:00Z'),
+        requestJson: { model: 'gpt-5', input: 'Hello' },
+      },
+      {
+        id: 'msg-2',
+        role: 'assistant',
+        content: 'Hi there!',
+        timestamp: new Date('2026-01-15T10:00:01Z'),
+        responseJson: { id: 'resp-1', output: [{ text: 'Hi there!' }] },
+      },
+    ];
+
+    it('does not show copy JSON button when no messages', () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+          messages={[]}
+        />
+      );
+
+      expect(screen.queryByTitle('Copy conversation as JSON')).not.toBeInTheDocument();
+    });
+
+    it('shows copy JSON button when messages exist', () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+          messages={sampleMessages}
+        />
+      );
+
+      expect(screen.getByTitle('Copy conversation as JSON')).toBeInTheDocument();
+      expect(screen.getByText('📋 Copy JSON')).toBeInTheDocument();
+    });
+
+    it('copies conversation JSON when button clicked', async () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+          messages={sampleMessages}
+        />
+      );
+
+      const copyButton = screen.getByTitle('Copy conversation as JSON');
+      expect(copyButton).toHaveTextContent('📋 Copy JSON');
+
+      fireEvent.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith(
+          JSON.stringify([
+            {
+              role: 'user',
+              content: 'Hello',
+              timestamp: '2026-01-15T10:00:00.000Z',
+              requestJson: { model: 'gpt-5', input: 'Hello' },
+            },
+            {
+              role: 'assistant',
+              content: 'Hi there!',
+              timestamp: '2026-01-15T10:00:01.000Z',
+              responseJson: { id: 'resp-1', output: [{ text: 'Hi there!' }] },
+            },
+          ], null, 2)
+        );
+      });
+    });
   });
 });

@@ -134,6 +134,20 @@
   text-decoration: none;
 }
 
+.chat-input__copy-json {
+  padding: 4px 8px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.chat-input__copy-json:hover {
+  color: #333;
+}
+
 .chat-input__hint {
   font-size: 11px;
   color: #999;
@@ -173,6 +187,14 @@
   }
 
   .chat-input__clear:hover:not(:disabled) {
+    color: #ddd;
+  }
+
+  .chat-input__copy-json {
+    color: #888;
+  }
+
+  .chat-input__copy-json:hover {
     color: #ddd;
   }
 
