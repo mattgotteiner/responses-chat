@@ -2,7 +2,7 @@
  * Recording utilities for capturing API responses for e2e testing
  * 
  * When VITE_RECORD_MODE=true, all streaming events from the OpenAI SDK
- * are recorded to plain text files in the recordings/ directory.
+ * are serialized as plain text (JSON Lines) and downloaded via the browser.
  */
 
 /** Check if record mode is enabled via environment variable */
