@@ -1,0 +1,134 @@
+.message {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  max-width: 85%;
+}
+
+.message--user {
+  margin-left: auto;
+  background-color: #0066cc;
+  color: #fff;
+}
+
+.message--assistant {
+  margin-right: auto;
+  background-color: #f0f0f0;
+  color: #333;
+}
+
+.message--error {
+  background-color: #fee;
+  border: 1px solid #fcc;
+}
+
+.message--error .message__content {
+  color: #c00;
+}
+
+.message__role {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+  opacity: 0.7;
+}
+
+.message--user .message__role {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.message--assistant .message__role {
+  color: #666;
+}
+
+.message__content-wrapper {
+  position: relative;
+}
+
+.message__content {
+  font-size: 15px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.message__cursor {
+  animation: blink-cursor 0.8s infinite;
+  color: #0066cc;
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.message__thinking {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #666;
+  font-style: italic;
+}
+
+.message__thinking-dot {
+  font-size: 8px;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
+
+.message__thinking-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+
+.message__thinking-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+
+.message__thinking-dot:nth-child(3) {
+  animation-delay: 0s;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-4px);
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .message--assistant {
+    background-color: #2a2a2a;
+    color: #e0e0e0;
+  }
+
+  .message--assistant .message__role {
+    color: #888;
+  }
+
+  .message--error {
+    background-color: #3a1a1a;
+    border-color: #5a2a2a;
+  }
+
+  .message--error .message__content {
+    color: #f88;
+  }
+
+  .message__thinking {
+    color: #888;
+  }
+
+  .message__cursor {
+    color: #4d9fff;
+  }
+}
+
+@media (max-width: 600px) {
+  .message {
+    max-width: 95%;
+  }
+}

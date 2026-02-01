@@ -1,44 +1,56 @@
 # AGENTS.md
 
-You are an expert React TypeScript developer working on a Vite-based SPA.
+You are an expert React TypeScript developer working on an Azure OpenAI chat application.
 
 ## Project Knowledge
 
-- **Tech Stack:** React 19, TypeScript 5.7, Vite 6, Vitest 3
-- **Node Version:** 22 (use fnm or nvm with `.node-version` or `.nvmrc`)
+- **App:** Chat interface for Azure OpenAI Responses API with streaming
+- **Tech Stack:** React 19, TypeScript 5.9, Vite 7, Vitest 4, OpenAI SDK 6
+- **Node Version:** 20+ (use fnm or nvm with `.node-version` or `.nvmrc`)
 - **Package Manager:** npm
 
 ### File Structure
 
 ```
 src/
-├── assets/                  # Static assets (SVGs, images)
-│   └── react.svg
-├── components/              # Reusable UI components
-│   └── Button/
-│       ├── Button.css
-│       ├── Button.test.tsx
-│       ├── Button.tsx
-│       └── index.ts
-├── hooks/                   # Custom React hooks
-│   ├── useCounter.test.ts
-│   └── useCounter.ts
-├── test/                    # Test setup
-│   └── setup.ts
-├── utils/                   # Utility functions
-│   ├── formatDate.test.ts
-│   └── formatDate.ts
-├── App.css
-├── App.test.tsx
-├── App.tsx                  # Root component
-├── index.css                # Global styles
+├── components/              # React UI components
+│   ├── Button/              # Reusable button
+│   ├── ChatContainer/       # Main chat layout with header
+│   ├── ChatInput/           # Message input and send button
+│   ├── Message/             # Individual message display
+│   ├── MessageList/         # Scrollable message container
+│   ├── ReasoningBox/        # Collapsible reasoning display
+│   ├── SettingsButton/      # Header settings trigger
+│   ├── SettingsSidebar/     # Configuration panel
+│   └── ToolCallBox/         # Function call display
+├── context/
+│   └── SettingsContext.tsx  # Global settings provider
+├── hooks/
+│   ├── useChat.ts           # Chat state and streaming API
+│   └── useSettings.ts       # Settings with localStorage
+├── types/
+│   └── index.ts             # Shared TypeScript types
+├── utils/
+│   ├── api.ts               # Azure OpenAI client utilities
+│   └── localStorage.ts      # Storage helpers
+├── test/
+│   └── setup.ts             # Vitest setup
+├── App.tsx                  # Root component (SettingsProvider + ChatContainer)
 ├── main.tsx                 # Entry point
-└── vite-env.d.ts
+└── index.css                # Global styles
 ```
 
-- `public/` – Public static files served as-is
+- `public/` – Static files served as-is
 - `dist/` – Build output (gitignored)
 - `.github/workflows/` – CI/CD configurations
+
+## Key Architecture
+
+- **Settings Context** - Global settings via React context, persisted to localStorage
+- **useChat Hook** - Manages messages array, streaming state, and API calls
+- **Responses API** - Uses OpenAI SDK with `client.responses.create({ stream: true })`
+- **Conversation Continuity** - Tracks `previous_response_id` for multi-turn conversations
+- **Streaming Events** - Handles `response.output_text.delta`, `response.reasoning_summary_text.delta`, `response.function_call_arguments.delta`, etc.
 
 ## Commands You Can Use
 
@@ -61,6 +73,7 @@ src/
 - Prefer `interface` for component props
 - Use explicit return types for exported functions
 - Never use `any` – prefer `unknown` for truly unknown types
+- **Never use `JSX.Element`** as a return type – use `ReactNode` from `'react'` or omit the return type and let TypeScript infer it
 
 ### React Patterns
 
@@ -101,9 +114,11 @@ function Button({ label, onClick }: any) {
 
 Follow the existing structure in `src/`. See examples:
 
-- **Components:** `src/components/Button/` – React component with styles and tests
-- **Hooks:** `src/hooks/useCounter.ts` – Custom hook with tests
-- **Utilities:** `src/utils/formatDate.ts` – Helper functions with tests
+- **Components:** `src/components/ChatContainer/` – Main layout with sub-components
+- **Hooks:** `src/hooks/useChat.ts` – State management with API integration
+- **Context:** `src/context/SettingsContext.tsx` – Global state providers
+- **Types:** `src/types/index.ts` – Shared type definitions
+- **Utilities:** `src/utils/api.ts` – Azure OpenAI client helpers
 
 ## Testing Instructions
 
