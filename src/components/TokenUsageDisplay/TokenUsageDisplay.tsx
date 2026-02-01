@@ -19,9 +19,10 @@ interface TokenUsageDisplayProps {
 
 /**
  * Formats a number with comma separators for readability
+ * Uses en-US locale for consistent formatting across environments
  */
 function formatNumber(num: number): string {
-  return num.toLocaleString();
+  return num.toLocaleString('en-US');
 }
 
 /**

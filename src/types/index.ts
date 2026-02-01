@@ -160,6 +160,38 @@ export interface TokenUsage {
  * @param responseJson - The raw response JSON from the API
  * @returns TokenUsage object if valid, undefined otherwise
  */
+/**
+ * Validates and extracts InputTokensDetails from raw API data
+ */
+function extractInputTokensDetails(
+  details: unknown
+): InputTokensDetails | undefined {
+  if (!details || typeof details !== 'object') {
+    return undefined;
+  }
+  const d = details as Record<string, unknown>;
+  if (typeof d['cached_tokens'] !== 'number') {
+    return undefined;
+  }
+  return { cached_tokens: d['cached_tokens'] };
+}
+
+/**
+ * Validates and extracts OutputTokensDetails from raw API data
+ */
+function extractOutputTokensDetails(
+  details: unknown
+): OutputTokensDetails | undefined {
+  if (!details || typeof details !== 'object') {
+    return undefined;
+  }
+  const d = details as Record<string, unknown>;
+  if (typeof d['reasoning_tokens'] !== 'number') {
+    return undefined;
+  }
+  return { reasoning_tokens: d['reasoning_tokens'] };
+}
+
 export function extractTokenUsage(
   responseJson: Record<string, unknown> | undefined
 ): TokenUsage | undefined {
@@ -167,25 +199,29 @@ export function extractTokenUsage(
     return undefined;
   }
 
-  const usage = responseJson.usage;
+  if (!('usage' in responseJson)) {
+    return undefined;
+  }
+
+  const usage = responseJson['usage'];
   if (!usage || typeof usage !== 'object') {
     return undefined;
   }
 
   const u = usage as Record<string, unknown>;
   if (
-    typeof u.input_tokens !== 'number' ||
-    typeof u.output_tokens !== 'number' ||
-    typeof u.total_tokens !== 'number'
+    typeof u['input_tokens'] !== 'number' ||
+    typeof u['output_tokens'] !== 'number' ||
+    typeof u['total_tokens'] !== 'number'
   ) {
     return undefined;
   }
 
   return {
-    input_tokens: u.input_tokens,
-    output_tokens: u.output_tokens,
-    total_tokens: u.total_tokens,
-    input_tokens_details: u.input_tokens_details as InputTokensDetails | undefined,
-    output_tokens_details: u.output_tokens_details as OutputTokensDetails | undefined,
+    input_tokens: u['input_tokens'],
+    output_tokens: u['output_tokens'],
+    total_tokens: u['total_tokens'],
+    input_tokens_details: extractInputTokensDetails(u['input_tokens_details']),
+    output_tokens_details: extractOutputTokensDetails(u['output_tokens_details']),
   };
 }
