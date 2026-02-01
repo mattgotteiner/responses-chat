@@ -2,7 +2,7 @@
  * Scrollable message list component
  */
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import type { Message as MessageType } from '../../types';
 import type { JsonPanelData } from '../JsonSidePanel';
 import { Message } from '../Message';
@@ -17,19 +17,38 @@ interface MessageListProps {
   onOpenJsonPanel: (data: JsonPanelData) => void;
 }
 
+/** Threshold in pixels for considering user "at bottom" */
+const SCROLL_THRESHOLD = 100;
+
 /**
  * Scrollable container that displays all messages and auto-scrolls to bottom
+ * only when user is already near the bottom (respects manual scrolling)
  */
 export function MessageList({
   messages,
   isConfigured,
   onOpenJsonPanel,
 }: MessageListProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const isNearBottomRef = useRef(true);
 
-  // Auto-scroll to bottom when messages change
+  const checkIfNearBottom = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return true;
+    const { scrollTop, scrollHeight, clientHeight } = container;
+    return scrollHeight - scrollTop - clientHeight <= SCROLL_THRESHOLD;
+  }, []);
+
+  const handleScroll = useCallback(() => {
+    isNearBottomRef.current = checkIfNearBottom();
+  }, [checkIfNearBottom]);
+
+  // Auto-scroll to bottom only when user is near bottom
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isNearBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   if (messages.length === 0) {
@@ -60,7 +79,7 @@ export function MessageList({
   }
 
   return (
-    <div className="message-list">
+    <div className="message-list" ref={containerRef} onScroll={handleScroll}>
       <div className="message-list__content">
         {messages.map((message) => (
           <Message

@@ -10,6 +10,10 @@ interface ChatInputProps {
   onSendMessage: (content: string) => void;
   /** Handler called when user wants to clear conversation */
   onClearConversation: () => void;
+  /** Handler called when user wants to stop streaming */
+  onStopStreaming?: () => void;
+  /** Whether a response is currently streaming */
+  isStreaming?: boolean;
   /** Whether input should be disabled */
   disabled?: boolean;
   /** Placeholder text */
@@ -22,6 +26,8 @@ interface ChatInputProps {
 export function ChatInput({
   onSendMessage,
   onClearConversation,
+  onStopStreaming,
+  isStreaming = false,
   disabled = false,
   placeholder = 'Type a message...',
 }: ChatInputProps) {
@@ -61,25 +67,41 @@ export function ChatInput({
           rows={1}
           aria-label="Message input"
         />
-        <button
-          className="chat-input__send"
-          onClick={handleSend}
-          disabled={disabled || !value.trim()}
-          aria-label="Send message"
-          title="Send message"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
+        {isStreaming ? (
+          <button
+            className="chat-input__stop"
+            onClick={onStopStreaming}
+            aria-label="Stop generation"
+            title="Stop generation"
           >
-            <line x1="22" y1="2" x2="11" y2="13" />
-            <polygon points="22 2 15 22 11 13 2 9 22 2" />
-          </svg>
-        </button>
+            <svg
+              viewBox="0 0 24 24"
+              fill="currentColor"
+            >
+              <rect x="6" y="6" width="12" height="12" rx="2" />
+            </svg>
+          </button>
+        ) : (
+          <button
+            className="chat-input__send"
+            onClick={handleSend}
+            disabled={disabled || !value.trim()}
+            aria-label="Send message"
+            title="Send message"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="22" y1="2" x2="11" y2="13" />
+              <polygon points="22 2 15 22 11 13 2 9 22 2" />
+            </svg>
+          </button>
+        )}
       </div>
       <div className="chat-input__actions">
         <button
