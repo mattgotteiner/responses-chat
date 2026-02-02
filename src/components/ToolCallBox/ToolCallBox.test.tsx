@@ -208,4 +208,158 @@ describe('ToolCallBox', () => {
       expect(screen.queryByText('Python')).not.toBeInTheDocument();
     });
   });
+
+  describe('MCP calls', () => {
+    const mcpCall: ToolCall = {
+      id: 'mcp-1',
+      name: 'mslearn/microsoft_docs_search',
+      type: 'mcp',
+      arguments: '{"query": "What is Azure?"}',
+      status: 'completed',
+    };
+
+    it('renders MCP tool name', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      expect(screen.getByText('mslearn/microsoft_docs_search')).toBeInTheDocument();
+    });
+
+    it('renders MCP icon', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      expect(screen.getByText('🔌')).toBeInTheDocument();
+    });
+
+    it('renders completed status', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      expect(screen.getByText('Complete')).toBeInTheDocument();
+    });
+
+    it('renders in_progress status', () => {
+      const inProgressCall: ToolCall = {
+        ...mcpCall,
+        status: 'in_progress',
+      };
+      render(<ToolCallBox toolCall={inProgressCall} />);
+      expect(screen.getByText('Calling...')).toBeInTheDocument();
+    });
+
+    it('is collapsed by default', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      expect(screen.queryByText('Arguments')).not.toBeInTheDocument();
+    });
+
+    it('renders arguments label when expanded', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('Arguments')).toBeInTheDocument();
+    });
+
+    it('formats JSON arguments when expanded', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      // Should be formatted with proper indentation
+      expect(screen.getByText(/"query": "What is Azure\?"/)).toBeInTheDocument();
+    });
+
+    it('renders non-JSON arguments as-is when expanded', () => {
+      const mcpCallWithBadJson: ToolCall = {
+        ...mcpCall,
+        arguments: 'not valid json',
+      };
+      render(<ToolCallBox toolCall={mcpCallWithBadJson} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('not valid json')).toBeInTheDocument();
+    });
+
+    it('renders result when present and expanded', () => {
+      const mcpCallWithResult: ToolCall = {
+        ...mcpCall,
+        result: 'Azure is a cloud computing platform...',
+      };
+      render(<ToolCallBox toolCall={mcpCallWithResult} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('Result:')).toBeInTheDocument();
+      expect(screen.getByText('Azure is a cloud computing platform...')).toBeInTheDocument();
+    });
+
+    it('renders chevron indicator', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      expect(screen.getByText('▶')).toBeInTheDocument();
+    });
+
+    it('applies MCP CSS class', () => {
+      const { container } = render(<ToolCallBox toolCall={mcpCall} />);
+      expect(container.querySelector('.tool-call-box--mcp')).toBeInTheDocument();
+    });
+
+    it('does not render result section when result is absent', () => {
+      render(<ToolCallBox toolCall={mcpCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.queryByText('Result:')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('aborted status', () => {
+    it('renders aborted status for web search', () => {
+      const abortedWebSearch: ToolCall = {
+        id: 'ws-aborted',
+        name: 'web_search',
+        type: 'web_search',
+        arguments: '',
+        status: 'aborted',
+      };
+      render(<ToolCallBox toolCall={abortedWebSearch} />);
+      expect(screen.getByText('Aborted')).toBeInTheDocument();
+    });
+
+    it('renders aborted status for code interpreter', () => {
+      const abortedCodeInterpreter: ToolCall = {
+        id: 'ci-aborted',
+        name: 'code_interpreter',
+        type: 'code_interpreter',
+        arguments: '',
+        status: 'aborted',
+        code: 'print("test")',
+      };
+      render(<ToolCallBox toolCall={abortedCodeInterpreter} />);
+      expect(screen.getByText('Aborted')).toBeInTheDocument();
+    });
+
+    it('renders aborted status for MCP', () => {
+      const abortedMcp: ToolCall = {
+        id: 'mcp-aborted',
+        name: 'mslearn/tool',
+        type: 'mcp',
+        arguments: '{}',
+        status: 'aborted',
+      };
+      render(<ToolCallBox toolCall={abortedMcp} />);
+      expect(screen.getByText('Aborted')).toBeInTheDocument();
+    });
+
+    it('applies aborted CSS class', () => {
+      const abortedCall: ToolCall = {
+        id: 'mcp-aborted',
+        name: 'mslearn/tool',
+        type: 'mcp',
+        arguments: '{}',
+        status: 'aborted',
+      };
+      const { container } = render(<ToolCallBox toolCall={abortedCall} />);
+      expect(container.querySelector('.tool-call-box--aborted')).toBeInTheDocument();
+    });
+
+    it('applies aborted class instead of type-specific class when aborted', () => {
+      const abortedWebSearch: ToolCall = {
+        id: 'ws-aborted',
+        name: 'web_search',
+        type: 'web_search',
+        arguments: '',
+        status: 'aborted',
+      };
+      const { container } = render(<ToolCallBox toolCall={abortedWebSearch} />);
+      // Should have aborted class, not web-search class
+      expect(container.querySelector('.tool-call-box--aborted')).toBeInTheDocument();
+      expect(container.querySelector('.tool-call-box--web-search')).not.toBeInTheDocument();
+    });
+  });
 });
