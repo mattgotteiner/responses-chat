@@ -240,7 +240,7 @@ export function processStreamEvent(
 
         const newToolCalls = [...accumulator.toolCalls];
         newToolCalls.push({
-          id: idGenerators.generateToolCallId(),
+          id: itemId,
           name: displayName,
           type: 'mcp_approval',
           arguments: args,

@@ -932,10 +932,6 @@ describe('streamProcessor', () => {
 
     describe('mcp_approval_request events', () => {
       it('creates mcp_approval tool call from output_item.added with mcp_approval_request', () => {
-        const customGenerators: IdGenerators = {
-          generateReasoningId: () => 'test_reasoning_id',
-          generateToolCallId: () => 'test_tool_id',
-        };
         const event: StreamEvent = {
           type: 'response.output_item.added',
           item: {
@@ -946,13 +942,15 @@ describe('streamProcessor', () => {
             arguments: '{"query": "Azure AI Foundry"}',
           },
         };
-        const result = processStreamEvent(accumulator, event, customGenerators);
+        const result = processStreamEvent(accumulator, event);
         expect(result.toolCalls).toHaveLength(1);
-        expect(result.toolCalls[0].id).toBe('test_tool_id');
+        // The tool call ID should match the item ID (consistent with other tool call handlers)
+        expect(result.toolCalls[0].id).toBe('mcpr_abc123');
         expect(result.toolCalls[0].type).toBe('mcp_approval');
         expect(result.toolCalls[0].name).toBe('mslearn/microsoft_docs_search');
         expect(result.toolCalls[0].status).toBe('pending_approval');
         expect(result.toolCalls[0].serverLabel).toBe('mslearn');
+        // approvalRequestId is the same as the tool call ID
         expect(result.toolCalls[0].approvalRequestId).toBe('mcpr_abc123');
         expect(result.toolCalls[0].arguments).toBe('{"query": "Azure AI Foundry"}');
       });

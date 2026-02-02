@@ -14,6 +14,55 @@ import {
   type StreamEvent,
 } from '../utils/streamProcessor';
 
+/**
+ * Build tools array and include list from settings
+ * Extracted to avoid duplication between sendMessage and handleMcpApproval
+ */
+function buildToolsConfiguration(settings: Settings): {
+  tools: Array<Record<string, unknown>>;
+  include: string[];
+} {
+  const tools: Array<Record<string, unknown>> = [];
+  const include: string[] = [];
+
+  if (settings.webSearchEnabled) {
+    tools.push({ type: 'web_search_preview' });
+  }
+  if (settings.codeInterpreterEnabled) {
+    tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
+    // Request code interpreter outputs to get execution results (logs)
+    include.push('code_interpreter_call.outputs');
+  }
+  // Add enabled MCP servers as tools
+  if (settings.mcpServers && settings.mcpServers.length > 0) {
+    for (const server of settings.mcpServers) {
+      if (server.enabled) {
+        const mcpTool: Record<string, unknown> = {
+          type: 'mcp',
+          server_label: server.serverLabel,
+          server_url: server.serverUrl,
+          require_approval: server.requireApproval,
+        };
+        // Add headers if any are configured
+        if (server.headers.length > 0) {
+          const headers: Record<string, string> = {};
+          for (const header of server.headers) {
+            if (header.key.trim() && header.value.trim()) {
+              headers[header.key.trim()] = header.value.trim();
+            }
+          }
+          if (Object.keys(headers).length > 0) {
+            mcpTool.headers = headers;
+          }
+        }
+        tools.push(mcpTool);
+      }
+    }
+  }
+
+  return { tools, include };
+}
+
 /** Return type for the useChat hook */
 export interface UseChatReturn {
   /** All messages in the conversation */
@@ -129,43 +178,8 @@ export function useChat(): UseChatReturn {
         requestParams.verbosity = settings.verbosity;
       }
 
-      // Add tools if enabled
-      const tools: Array<Record<string, unknown>> = [];
-      const include: string[] = [];
-      if (settings.webSearchEnabled) {
-        tools.push({ type: 'web_search_preview' });
-      }
-      if (settings.codeInterpreterEnabled) {
-        tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
-        // Request code interpreter outputs to get execution results (logs)
-        include.push('code_interpreter_call.outputs');
-      }
-      // Add enabled MCP servers as tools
-      if (settings.mcpServers && settings.mcpServers.length > 0) {
-        for (const server of settings.mcpServers) {
-          if (server.enabled) {
-            const mcpTool: Record<string, unknown> = {
-              type: 'mcp',
-              server_label: server.serverLabel,
-              server_url: server.serverUrl,
-              require_approval: server.requireApproval,
-            };
-            // Add headers if any are configured
-            if (server.headers.length > 0) {
-              const headers: Record<string, string> = {};
-              for (const header of server.headers) {
-                if (header.key.trim() && header.value.trim()) {
-                  headers[header.key.trim()] = header.value.trim();
-                }
-              }
-              if (Object.keys(headers).length > 0) {
-                mcpTool.headers = headers;
-              }
-            }
-            tools.push(mcpTool);
-          }
-        }
-      }
+      // Add tools configuration
+      const { tools, include } = buildToolsConfiguration(settings);
       if (tools.length > 0) {
         requestParams.tools = tools;
       }
@@ -398,40 +412,28 @@ export function useChat(): UseChatReturn {
         previous_response_id: previousResponseIdRef.current,
       };
 
+      // Add developer instructions if provided (same as sendMessage)
+      if (settings.developerInstructions?.trim()) {
+        requestParams.instructions = settings.developerInstructions.trim();
+      }
+
+      // Add reasoning configuration if provided (same as sendMessage)
+      if (settings.reasoningEffort) {
+        requestParams.reasoning = {
+          effort: settings.reasoningEffort,
+          ...(settings.reasoningSummary && {
+            summary: settings.reasoningSummary,
+          }),
+        };
+      }
+
+      // Add verbosity if provided (same as sendMessage)
+      if (settings.verbosity) {
+        requestParams.verbosity = settings.verbosity;
+      }
+
       // Re-add tools configuration (required for continuing MCP calls)
-      const tools: Array<Record<string, unknown>> = [];
-      const include: string[] = [];
-      if (settings.webSearchEnabled) {
-        tools.push({ type: 'web_search_preview' });
-      }
-      if (settings.codeInterpreterEnabled) {
-        tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
-        include.push('code_interpreter_call.outputs');
-      }
-      if (settings.mcpServers && settings.mcpServers.length > 0) {
-        for (const server of settings.mcpServers) {
-          if (server.enabled) {
-            const mcpTool: Record<string, unknown> = {
-              type: 'mcp',
-              server_label: server.serverLabel,
-              server_url: server.serverUrl,
-              require_approval: server.requireApproval,
-            };
-            if (server.headers.length > 0) {
-              const headers: Record<string, string> = {};
-              for (const header of server.headers) {
-                if (header.key.trim() && header.value.trim()) {
-                  headers[header.key.trim()] = header.value.trim();
-                }
-              }
-              if (Object.keys(headers).length > 0) {
-                mcpTool.headers = headers;
-              }
-            }
-            tools.push(mcpTool);
-          }
-        }
-      }
+      const { tools, include } = buildToolsConfiguration(settings);
       if (tools.length > 0) {
         requestParams.tools = tools;
       }
