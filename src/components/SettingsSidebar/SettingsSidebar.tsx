@@ -3,13 +3,14 @@
  */
 
 import { useCallback, type ChangeEvent } from 'react';
-import type { Settings, ModelName } from '../../types';
+import type { Settings, ModelName, Theme } from '../../types';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
+  THEME_OPTIONS,
 } from '../../types';
 import './SettingsSidebar.css';
 
@@ -100,6 +101,32 @@ export function SettingsSidebar({
         </div>
 
         <div className="settings-sidebar__content">
+          {/* Appearance Settings */}
+          <section className="settings-section">
+            <h3 className="settings-section__title">Appearance</h3>
+
+            <div className="settings-field">
+              <span className="settings-field__label">Theme</span>
+              <div className="settings-field__radio-group">
+                {THEME_OPTIONS.map((theme) => (
+                  <label key={theme} className="settings-field__radio-wrapper">
+                    <input
+                      type="radio"
+                      name="theme"
+                      className="settings-field__radio"
+                      value={theme}
+                      checked={settings.theme === theme}
+                      onChange={() => onUpdateSettings({ theme: theme as Theme })}
+                    />
+                    <span className="settings-field__radio-label">
+                      {theme.charAt(0).toUpperCase() + theme.slice(1)}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          </section>
+
           {/* Required Settings */}
           <section className="settings-section">
             <h3 className="settings-section__title">Required</h3>

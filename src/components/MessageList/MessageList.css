@@ -27,22 +27,12 @@
 
 .message-list__empty-text {
   font-size: 16px;
-  color: #666;
+  color: var(--color-text-secondary);
   margin: 0 0 8px 0;
 }
 
 .message-list__empty-hint {
   font-size: 14px;
-  color: #999;
+  color: var(--color-text-hint);
   margin: 0;
-}
-
-@media (prefers-color-scheme: dark) {
-  .message-list__empty-text {
-    color: #aaa;
-  }
-
-  .message-list__empty-hint {
-    color: #666;
-  }
 }

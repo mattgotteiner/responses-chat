@@ -14,43 +14,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
-  background: none;
+  background-color: var(--color-surface-elevated);
   border: none;
-  border-radius: 4px;
-  color: #666;
+  border-radius: var(--radius-round);
+  color: var(--color-text);
   cursor: pointer;
   transition: color 0.2s, background-color 0.2s;
 }
 
 .attachment-button:hover:not(:disabled) {
-  color: #0066cc;
-  background-color: rgba(0, 102, 204, 0.1);
+  color: var(--color-primary);
+  background-color: var(--color-border);
 }
 
 .attachment-button:disabled {
-  color: #999;
+  color: var(--color-text-hint);
+  background-color: var(--color-surface);
   cursor: not-allowed;
 }
 
 .attachment-button svg {
-  width: 18px;
-  height: 18px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .attachment-button {
-    color: #888;
-  }
-
-  .attachment-button:hover:not(:disabled) {
-    color: #4d9fff;
-    background-color: rgba(77, 159, 255, 0.15);
-  }
-
-  .attachment-button:disabled {
-    color: #555;
-  }
+  width: 20px;
+  height: 20px;
 }

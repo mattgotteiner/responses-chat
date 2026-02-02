@@ -1,7 +1,7 @@
 .chat-input {
   padding: 16px;
-  border-top: 1px solid #e0e0e0;
-  background-color: #fff;
+  border-top: 1px solid var(--color-border);
+  background-color: var(--color-bg);
 }
 
 .chat-input__container {
@@ -15,28 +15,40 @@
   min-height: 44px;
   max-height: 200px;
   padding: 12px 16px;
-  border: 1px solid #e0e0e0;
-  border-radius: 24px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   font-family: inherit;
   font-size: 15px;
   line-height: 1.4;
   resize: none;
   outline: none;
+  color: var(--color-text);
+  background-color: var(--color-surface);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .chat-input__textarea:focus {
-  border-color: #0066cc;
+  border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
 }
 
+.theme-dark .chat-input__textarea:focus {
+  box-shadow: 0 0 0 3px rgba(77, 159, 255, 0.2);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark) .chat-input__textarea:focus {
+    box-shadow: 0 0 0 3px rgba(77, 159, 255, 0.2);
+  }
+}
+
 .chat-input__textarea:disabled {
-  background-color: #f5f5f5;
+  background-color: var(--color-surface-elevated);
   cursor: not-allowed;
 }
 
 .chat-input__textarea::placeholder {
-  color: #999;
+  color: var(--color-text-hint);
 }
 
 .chat-input__send {
@@ -46,16 +58,16 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  background-color: #0066cc;
+  background-color: var(--color-primary);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: #fff;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
 }
 
 .chat-input__send:hover:not(:disabled) {
-  background-color: #0052a3;
+  background-color: var(--color-primary-hover);
 }
 
 .chat-input__send:active:not(:disabled) {
@@ -63,7 +75,7 @@
 }
 
 .chat-input__send:disabled {
-  background-color: #ccc;
+  background-color: var(--color-border);
   cursor: not-allowed;
 }
 
@@ -79,16 +91,16 @@
   width: 44px;
   height: 44px;
   padding: 0;
-  background-color: #dc3545;
+  background-color: var(--color-danger);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: #fff;
   cursor: pointer;
   transition: background-color 0.2s, transform 0.1s;
 }
 
 .chat-input__stop:hover {
-  background-color: #c82333;
+  background-color: var(--color-danger-hover);
 }
 
 .chat-input__stop:active {
@@ -119,86 +131,42 @@
   background: none;
   border: none;
   font-size: 12px;
-  color: #666;
+  color: var(--color-text-secondary);
   cursor: pointer;
   text-decoration: underline;
 }
 
 .chat-input__clear:hover:not(:disabled) {
-  color: #333;
+  color: var(--color-text);
 }
 
 .chat-input__clear:disabled {
-  color: #999;
+  color: var(--color-text-hint);
   cursor: not-allowed;
   text-decoration: none;
 }
 
 .chat-input__copy-json {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 4px 8px;
   background: none;
   border: none;
-  font-size: 12px;
-  color: #666;
+  font-size: 11px;
+  color: var(--color-text-hint);
   cursor: pointer;
-  text-decoration: underline;
 }
 
 .chat-input__copy-json:hover {
-  color: #333;
+  color: var(--color-text-secondary);
+}
+
+.chat-input__copy-json-icon {
+  font-size: 12px;
 }
 
 .chat-input__hint {
   font-size: 11px;
-  color: #999;
-}
-
-@media (prefers-color-scheme: dark) {
-  .chat-input {
-    border-top-color: #444;
-    background-color: #1a1a1a;
-  }
-
-  .chat-input__textarea {
-    border-color: #444;
-    background-color: #2a2a2a;
-    color: #fff;
-  }
-
-  .chat-input__textarea:focus {
-    border-color: #4d9fff;
-    box-shadow: 0 0 0 3px rgba(77, 159, 255, 0.2);
-  }
-
-  .chat-input__textarea:disabled {
-    background-color: #333;
-  }
-
-  .chat-input__textarea::placeholder {
-    color: #666;
-  }
-
-  .chat-input__send:disabled {
-    background-color: #444;
-  }
-
-  .chat-input__clear {
-    color: #888;
-  }
-
-  .chat-input__clear:hover:not(:disabled) {
-    color: #ddd;
-  }
-
-  .chat-input__copy-json {
-    color: #888;
-  }
-
-  .chat-input__copy-json:hover {
-    color: #ddd;
-  }
-
-  .chat-input__hint {
-    color: #666;
-  }
+  color: var(--color-text-hint);
 }
