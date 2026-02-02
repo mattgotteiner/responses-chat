@@ -58,7 +58,7 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
     <>
       <button
         className="tool-call-box__header tool-call-box__header--clickable"
-        onClick={() => setIsExpanded(!isExpanded)}
+        onClick={() => setIsExpanded(prev => !prev)}
         aria-expanded={isExpanded}
         disabled={!hasContent}
       >

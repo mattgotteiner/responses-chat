@@ -96,7 +96,7 @@ export function useChat(): UseChatReturn {
       }
       if (settings.codeInterpreterEnabled) {
         tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
-        // Request code interpreter outputs to get execution results (logs/images)
+        // Request code interpreter outputs to get execution results (logs)
         include.push('code_interpreter_call.outputs');
       }
       if (tools.length > 0) {

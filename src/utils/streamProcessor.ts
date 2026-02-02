@@ -294,13 +294,13 @@ export function processStreamEvent(
       const itemId = codeEvent.item_id;
       if (!itemId) return accumulator;
 
-      // Short-circuit on empty delta
-      if (delta === '') {
-        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
-        if (existingIndex >= 0) return accumulator;
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+
+      // Short-circuit on empty delta if the tool call already exists
+      if (delta === '' && existingIndex >= 0) {
+        return accumulator;
       }
 
-      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
       const newToolCalls = [...accumulator.toolCalls];
 
       if (existingIndex >= 0) {

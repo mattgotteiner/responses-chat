@@ -81,6 +81,7 @@
 .tool-call-box__header--clickable {
   width: 100%;
   border: none;
+  border-bottom: inherit;
   cursor: pointer;
   text-align: left;
 }
