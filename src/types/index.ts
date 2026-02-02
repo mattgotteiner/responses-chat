@@ -1,5 +1,5 @@
 /**
- * Shared types for Azure OpenAI Responses Chat
+ * Shared types for Responses Chat
  */
 
 /** Supported model names */

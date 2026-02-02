@@ -73,7 +73,7 @@ export function ChatContainer() {
   return (
     <div className="chat-container">
       <header className="chat-container__header">
-        <h1 className="chat-container__title">Azure OpenAI Chat</h1>
+        <h1 className="chat-container__title">Responses Chat</h1>
         <SettingsButton onClick={handleOpenSettings} isConfigured={isConfigured} />
       </header>
 
