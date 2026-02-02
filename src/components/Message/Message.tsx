@@ -219,7 +219,10 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
         {/* Tool calls */}
         {hasToolCalls &&
           message.toolCalls!.map((toolCall) => (
-            <ToolCallBox key={toolCall.id} toolCall={toolCall} />
+            <ToolCallBox
+              key={toolCall.id}
+              toolCall={toolCall}
+            />
           ))}
 
         {/* Main content or thinking indicator */}

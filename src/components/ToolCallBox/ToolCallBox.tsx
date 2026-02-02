@@ -19,6 +19,7 @@ function WebSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
     in_progress: 'Searching...',
     searching: 'Searching...',
     completed: 'Search complete',
+    aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Searching...';
 
@@ -50,6 +51,7 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
     in_progress: 'Running...',
     interpreting: 'Executing...',
     completed: 'Complete',
+    aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Running...';
   const hasContent = toolCall.code || toolCall.output;
@@ -126,17 +128,85 @@ function FunctionCallContent({ toolCall }: { toolCall: ToolCall }) {
 }
 
 /**
+ * Renders an MCP (Model Context Protocol) server call
+ */
+function McpCallContent({ toolCall }: { toolCall: ToolCall }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const statusLabels: Record<string, string> = {
+    in_progress: 'Calling...',
+    completed: 'Complete',
+    aborted: 'Aborted',
+  };
+  const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Calling...';
+
+  // Try to format JSON arguments
+  let formattedArgs = toolCall.arguments;
+  try {
+    const parsed = JSON.parse(toolCall.arguments);
+    formattedArgs = JSON.stringify(parsed, null, 2);
+  } catch {
+    // Keep original if not valid JSON
+  }
+
+  const hasContent = toolCall.arguments || toolCall.result;
+
+  return (
+    <>
+      <button
+        className="tool-call-box__header tool-call-box__header--clickable"
+        onClick={() => setIsExpanded(prev => !prev)}
+        aria-expanded={isExpanded}
+        disabled={!hasContent}
+      >
+        <span className="tool-call-box__icon">🔌</span>
+        <span className="tool-call-box__name">{toolCall.name}</span>
+        <span className={`tool-call-box__status tool-call-box__status--${toolCall.status || 'in_progress'}`}>
+          {statusLabel}
+        </span>
+        {hasContent && (
+          <span className={`tool-call-box__chevron ${isExpanded ? 'expanded' : ''}`}>
+            ▶
+          </span>
+        )}
+      </button>
+      {isExpanded && (
+        <>
+          {toolCall.arguments && (
+            <div className="tool-call-box__arguments">
+              <div className="tool-call-box__code-label">Arguments</div>
+              <pre>{formattedArgs}</pre>
+            </div>
+          )}
+          {toolCall.result && (
+            <div className="tool-call-box__result">
+              <div className="tool-call-box__result-label">Result:</div>
+              <pre>{toolCall.result}</pre>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
  * Box that displays a tool call with name and arguments
  */
 export function ToolCallBox({ toolCall }: ToolCallBoxProps) {
   const isWebSearch = toolCall.type === 'web_search';
   const isCodeInterpreter = toolCall.type === 'code_interpreter';
+  const isMcp = toolCall.type === 'mcp';
 
-  const variantClass = isWebSearch
-    ? 'tool-call-box--web-search'
-    : isCodeInterpreter
-      ? 'tool-call-box--code-interpreter'
-      : '';
+  const isAborted = toolCall.status === 'aborted';
+  const variantClass = isAborted
+    ? 'tool-call-box--aborted'
+    : isWebSearch
+      ? 'tool-call-box--web-search'
+      : isCodeInterpreter
+        ? 'tool-call-box--code-interpreter'
+        : isMcp
+          ? 'tool-call-box--mcp'
+          : '';
 
   return (
     <div className={`tool-call-box ${variantClass}`}>
@@ -144,6 +214,8 @@ export function ToolCallBox({ toolCall }: ToolCallBoxProps) {
         <WebSearchCallContent toolCall={toolCall} />
       ) : isCodeInterpreter ? (
         <CodeInterpreterCallContent toolCall={toolCall} />
+      ) : isMcp ? (
+        <McpCallContent toolCall={toolCall} />
       ) : (
         <FunctionCallContent toolCall={toolCall} />
       )}

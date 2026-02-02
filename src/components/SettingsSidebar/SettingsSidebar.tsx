@@ -3,7 +3,7 @@
  */
 
 import { useCallback, type ChangeEvent } from 'react';
-import type { Settings, ModelName } from '../../types';
+import type { Settings, ModelName, McpServerConfig } from '../../types';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
@@ -12,6 +12,7 @@ import {
   MESSAGE_RENDER_MODE_OPTIONS,
   THEME_OPTIONS,
 } from '../../types';
+import { McpServerSettings } from '../McpServerSettings';
 import './SettingsSidebar.css';
 
 /** Handler type for checkbox change events */
@@ -60,6 +61,13 @@ export function SettingsSidebar({
       if (!isNaN(parsed)) {
         onUpdateSettings({ [field]: parsed });
       }
+    },
+    [onUpdateSettings]
+  );
+
+  const handleMcpServersChange = useCallback(
+    (servers: McpServerConfig[]) => {
+      onUpdateSettings({ mcpServers: servers });
     },
     [onUpdateSettings]
   );
@@ -243,6 +251,18 @@ export function SettingsSidebar({
                 Execute Python code in a sandboxed environment. Incurs additional costs.
               </span>
             </div>
+          </section>
+
+          {/* MCP Servers */}
+          <section className="settings-section">
+            <h3 className="settings-section__title">MCP Servers</h3>
+            <span className="settings-field__hint" style={{ marginBottom: '12px', display: 'block' }}>
+              Connect to remote Model Context Protocol (MCP) servers to extend model capabilities.
+            </span>
+            <McpServerSettings
+              servers={settings.mcpServers || []}
+              onUpdateServers={handleMcpServersChange}
+            />
           </section>
 
           {/* Optional Settings */}

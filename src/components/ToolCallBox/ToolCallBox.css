@@ -18,6 +18,18 @@
   background-color: #f0fff5;
 }
 
+/* MCP server variant */
+.tool-call-box--mcp {
+  border-color: #9d4a9d;
+  background-color: #f8f0ff;
+}
+
+/* Aborted variant */
+.tool-call-box--aborted {
+  border-color: #d44a4a;
+  background-color: #fff0f0;
+}
+
 .tool-call-box__header {
   display: flex;
   align-items: center;
@@ -39,6 +51,16 @@
   border-bottom-color: #4a9d6a;
 }
 
+.tool-call-box--mcp .tool-call-box__header {
+  background-color: #f5ebfd;
+  border-bottom-color: #9d4a9d;
+}
+
+.tool-call-box--aborted .tool-call-box__header {
+  background-color: #fdebeb;
+  border-bottom-color: #d44a4a;
+}
+
 .tool-call-box__icon {
   font-size: 14px;
 }
@@ -54,6 +76,14 @@
 
 .tool-call-box--code-interpreter .tool-call-box__name {
   color: #2b6a4a;
+}
+
+.tool-call-box--mcp .tool-call-box__name {
+  color: #6a2b6a;
+}
+
+.tool-call-box--aborted .tool-call-box__name {
+  color: #8b2b2b;
 }
 
 .tool-call-box__status {
@@ -75,6 +105,11 @@
 .tool-call-box__status--completed {
   background-color: #d4edda;
   color: #155724;
+}
+
+.tool-call-box__status--aborted {
+  background-color: #f8d7da;
+  color: #721c24;
 }
 
 /* Clickable header styling */
@@ -242,6 +277,16 @@
     background-color: #1a2a20;
   }
 
+  .tool-call-box--mcp {
+    border-color: #8a3d8a;
+    background-color: #2a1a2a;
+  }
+
+  .tool-call-box--aborted {
+    border-color: #8a3d3d;
+    background-color: #2a1a1a;
+  }
+
   .tool-call-box__header {
     background-color: #332d1f;
     border-bottom-color: #8b6914;
@@ -257,6 +302,16 @@
     border-bottom-color: #3d8a5a;
   }
 
+  .tool-call-box--mcp .tool-call-box__header {
+    background-color: #3d1f3d;
+    border-bottom-color: #8a3d8a;
+  }
+
+  .tool-call-box--aborted .tool-call-box__header {
+    background-color: #3d1f1f;
+    border-bottom-color: #8a3d3d;
+  }
+
   .tool-call-box__name {
     color: #d4a574;
   }
@@ -267,6 +322,14 @@
 
   .tool-call-box--code-interpreter .tool-call-box__name {
     color: #74d494;
+  }
+
+  .tool-call-box--mcp .tool-call-box__name {
+    color: #d494d4;
+  }
+
+  .tool-call-box--aborted .tool-call-box__name {
+    color: #d49494;
   }
 
   .tool-call-box__status {
@@ -283,6 +346,11 @@
   .tool-call-box__status--completed {
     background-color: #1d3a2a;
     color: #74d494;
+  }
+
+  .tool-call-box__status--aborted {
+    background-color: #3a1d1d;
+    color: #d47474;
   }
 
   .tool-call-box__chevron {
