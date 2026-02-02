@@ -446,6 +446,191 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('code_interpreter_call events', () => {
+      it('creates a code_interpreter_call from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'ci_123',
+            type: 'code_interpreter_call',
+            status: 'in_progress',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ci_123');
+        expect(result.toolCalls[0].type).toBe('code_interpreter');
+        expect(result.toolCalls[0].name).toBe('code_interpreter');
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates code_interpreter_call with code and output from output_item.done', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ci_123',
+            type: 'code_interpreter_call',
+            status: 'completed',
+            code: 'print(2 + 2)',
+            container_id: 'container_abc',
+            outputs: [{ type: 'logs', logs: '4' }],
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].code).toBe('print(2 + 2)');
+        expect(result.toolCalls[0].containerId).toBe('container_abc');
+        expect(result.toolCalls[0].output).toBe('4');
+      });
+
+      it('updates status to interpreting', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.interpreting',
+          item_id: 'ci_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('interpreting');
+      });
+
+      it('updates status to completed', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.completed',
+          item_id: 'ci_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('accumulates code from code.delta events', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+              code: 'print(',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.code.delta',
+          item_id: 'ci_123',
+          delta: '2 + 2)',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].code).toBe('print(2 + 2)');
+      });
+
+      it('creates tool call entry from code.delta if not exists', () => {
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.code.delta',
+          item_id: 'ci_new',
+          delta: 'x = 1',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ci_new');
+        expect(result.toolCalls[0].code).toBe('x = 1');
+        expect(result.toolCalls[0].type).toBe('code_interpreter');
+      });
+
+      it('captures output from output event', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'print("hello")',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.output',
+          item_id: 'ci_123',
+          output: [
+            { type: 'logs', logs: 'hello' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].output).toBe('hello');
+      });
+
+      it('returns same accumulator for empty code delta when tool exists', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_123',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+              code: 'existing',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.code.delta',
+          item_id: 'ci_123',
+          delta: '',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result).toBe(initialAccumulator);
+      });
+
+      it('ignores status event for unknown item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.interpreting',
+          item_id: 'unknown_id',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+    });
+
     describe('unknown event types', () => {
       it('returns accumulator unchanged for unknown events', () => {
         const event: StreamEvent = {

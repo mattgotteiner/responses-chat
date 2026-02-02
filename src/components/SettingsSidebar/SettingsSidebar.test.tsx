@@ -92,6 +92,50 @@ describe('SettingsSidebar', () => {
     });
   });
 
+  describe('Code Interpreter Toggle', () => {
+    it('renders the code interpreter checkbox in the Tools section', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Tools')).toBeInTheDocument();
+      expect(screen.getByText('Code Interpreter')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /code interpreter/i })).toBeInTheDocument();
+    });
+
+    it('checkbox is unchecked by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /code interpreter/i });
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it('checkbox is checked when codeInterpreterEnabled is true', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, codeInterpreterEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /code interpreter/i });
+      expect(checkbox).toBeChecked();
+    });
+
+    it('calls onUpdateSettings with codeInterpreterEnabled: true when checkbox is checked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /code interpreter/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ codeInterpreterEnabled: true });
+    });
+
+    it('calls onUpdateSettings with codeInterpreterEnabled: false when checkbox is unchecked', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, codeInterpreterEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /code interpreter/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ codeInterpreterEnabled: false });
+    });
+
+    it('displays hint text about Python execution and costs', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByText(/execute python code in a sandboxed environment/i)
+      ).toBeInTheDocument();
+    });
+  });
+
   describe('Required Fields', () => {
     it('renders endpoint input', () => {
       render(<SettingsSidebar {...defaultProps} />);

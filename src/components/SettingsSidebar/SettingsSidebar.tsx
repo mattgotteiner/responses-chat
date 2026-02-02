@@ -190,6 +190,22 @@ export function SettingsSidebar({
                 Ground responses with real-time web data via Bing. Incurs additional costs.
               </span>
             </div>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="codeInterpreterEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.codeInterpreterEnabled || false}
+                  onChange={handleCheckboxChange('codeInterpreterEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Code Interpreter</span>
+              </label>
+              <span className="settings-field__hint">
+                Execute Python code in a sandboxed environment. Incurs additional costs.
+              </span>
+            </div>
           </section>
 
           {/* Optional Settings */}
