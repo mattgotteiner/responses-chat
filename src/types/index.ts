@@ -120,6 +120,10 @@ export interface Settings {
   mcpServers?: McpServerConfig[];
   /** Theme preference */
   theme: Theme;
+  /** Whether to enforce max output tokens limit */
+  maxOutputTokensEnabled?: boolean;
+  /** Maximum number of output tokens (1000-128000). Only used when maxOutputTokensEnabled is true */
+  maxOutputTokens?: number;
 }
 
 /** Default settings values */
@@ -135,6 +139,8 @@ export const DEFAULT_SETTINGS: Settings = {
   messageRenderMode: 'markdown',
   mcpServers: [],
   theme: 'system',
+  maxOutputTokensEnabled: false,
+  maxOutputTokens: 16000,
 };
 
 /** Tool call status types */
@@ -224,6 +230,10 @@ export interface Message {
   requestJson?: Record<string, unknown>;
   /** Raw API response JSON (for assistant messages) */
   responseJson?: Record<string, unknown>;
+  /** Whether the response was truncated due to token limits */
+  isTruncated?: boolean;
+  /** Reason for truncation (e.g., 'max_output_tokens') */
+  truncationReason?: string;
 }
 
 /** Chat state */

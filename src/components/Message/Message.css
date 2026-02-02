@@ -138,6 +138,29 @@
   padding: 4px 0;
 }
 
+/* Truncated response indicator */
+.message__truncated {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 12px;
+  padding: 8px 12px;
+  background-color: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--color-warning-text);
+}
+
+.message__truncated-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.message__truncated-text {
+  font-weight: 500;
+}
+
 .message__thinking {
   display: flex;
   align-items: center;

@@ -739,4 +739,109 @@ describe('Recording Replay E2E', () => {
       expect(stats.requestModel).toBe('gpt-5');
     });
   });
+
+  describe('single-turn-token-truncation.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-token-truncation.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with max_output_tokens', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5');
+      expect(recording.request.data.input).toBe('war and peace mega summary');
+      expect(recording.request.data.max_output_tokens).toBe(1000);
+      expect(recording.request.data.reasoning).toEqual({
+        effort: 'low',
+        summary: 'detailed',
+      });
+    });
+
+    it('contains expected event types including response.incomplete', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have response lifecycle events
+      expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
+      
+      // Should have response.incomplete instead of response.completed (truncated)
+      expect(stats.eventTypes['response.incomplete']).toBe(1);
+      expect(stats.eventTypes['response.completed']).toBeUndefined();
+      
+      // Should have output text deltas for the response content
+      expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce truncated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      
+      // Content should contain text about War and Peace
+      expect(result.content).toContain('War and Peace');
+      expect(result.content).toContain('Tolstoy');
+    });
+
+    it('detects truncation from incomplete_details', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should indicate truncation occurred
+      expect(result.isTruncated).toBe(true);
+      expect(result.truncationReason).toBe('max_output_tokens');
+    });
+
+    it('captures incomplete status in response JSON', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have the full response object with incomplete status
+      expect(result.responseJson).toBeDefined();
+      expect(result.responseJson).not.toBeNull();
+      expect(result.responseJson!.status).toBe('incomplete');
+      expect(result.responseJson!.incomplete_details).toEqual({ reason: 'max_output_tokens' });
+    });
+
+    it('extracts response ID even for truncated responses', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have captured the response ID from response.incomplete
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).not.toBeNull();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+      expect(result1.isTruncated).toBe(result2.isTruncated);
+      expect(result1.truncationReason).toBe(result2.truncationReason);
+    });
+
+    it('has reasonable recording duration', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording should be between 1 second and 60 seconds
+      expect(stats.durationMs).toBeGreaterThan(1000);
+      expect(stats.durationMs).toBeLessThan(60000);
+    });
+  });
 });

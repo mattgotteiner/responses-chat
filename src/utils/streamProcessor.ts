@@ -42,6 +42,10 @@ export interface StreamAccumulator {
   responseId: string | null;
   /** Full response JSON from response.completed event */
   responseJson: Record<string, unknown> | null;
+  /** Whether the response was truncated (incomplete due to token limits) */
+  isTruncated: boolean;
+  /** Reason for truncation (e.g., 'max_output_tokens') */
+  truncationReason: string | null;
 }
 
 /** Create a fresh accumulator for a new stream */
@@ -53,6 +57,8 @@ export function createInitialAccumulator(): StreamAccumulator {
     citations: [],
     responseId: null,
     responseJson: null,
+    isTruncated: false,
+    truncationReason: null,
   };
 }
 
@@ -671,12 +677,19 @@ export function processStreamEvent(
       };
     }
 
-    case 'response.completed': {
-      // Response completed - extract response ID, full response, and citations
+    case 'response.completed':
+    case 'response.incomplete': {
+      // Response completed or incomplete (e.g., truncated due to max_output_tokens)
+      // Both events have the same structure - extract response ID, full response, and citations
       const completedEvent = event as { response?: Record<string, unknown> };
       if (completedEvent.response) {
         const response = completedEvent.response;
         const responseId = typeof response.id === 'string' ? response.id : null;
+        
+        // Check if response was truncated (incomplete_details indicates truncation)
+        const incompleteDetails = response.incomplete_details as { reason?: string } | null | undefined;
+        const isTruncated = !!incompleteDetails?.reason;
+        const truncationReason = incompleteDetails?.reason || null;
         
         // Extract citations from output items
         const citations = extractCitationsFromResponse(response);
@@ -686,6 +699,8 @@ export function processStreamEvent(
           responseId,
           responseJson: response,
           citations: citations.length > 0 ? citations : accumulator.citations,
+          isTruncated,
+          truncationReason,
         };
       }
       return accumulator;
