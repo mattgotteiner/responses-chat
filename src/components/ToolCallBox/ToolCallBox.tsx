@@ -9,6 +9,10 @@ import './ToolCallBox.css';
 interface ToolCallBoxProps {
   /** Tool call to display */
   toolCall: ToolCall;
+  /** Handler when user approves an MCP tool call */
+  onApprove?: (approvalRequestId: string) => void;
+  /** Handler when user denies an MCP tool call */
+  onDeny?: (approvalRequestId: string) => void;
 }
 
 /**
@@ -173,7 +177,7 @@ function McpCallContent({ toolCall }: { toolCall: ToolCall }) {
         <>
           {toolCall.arguments && (
             <div className="tool-call-box__arguments">
-              <div className="tool-call-box__code-label">Arguments</div>
+              <div className="tool-call-box__arguments-label">Arguments</div>
               <pre>{formattedArgs}</pre>
             </div>
           )}
@@ -190,23 +194,130 @@ function McpCallContent({ toolCall }: { toolCall: ToolCall }) {
 }
 
 /**
+ * Renders an MCP approval request with approve/deny buttons
+ */
+function McpApprovalContent({
+  toolCall,
+  onApprove,
+  onDeny,
+}: {
+  toolCall: ToolCall;
+  onApprove?: (approvalRequestId: string) => void;
+  onDeny?: (approvalRequestId: string) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(true);
+  const isPending = toolCall.status === 'pending_approval';
+  const isApproved = toolCall.status === 'approved';
+  const isDenied = toolCall.status === 'denied';
+
+  const statusLabels: Record<string, string> = {
+    pending_approval: 'Approval Required',
+    approved: 'Approved',
+    denied: 'Denied',
+  };
+  const statusLabel = statusLabels[toolCall.status || 'pending_approval'] || 'Approval Required';
+
+  // Try to format JSON arguments
+  let formattedArgs = toolCall.arguments;
+  try {
+    const parsed = JSON.parse(toolCall.arguments);
+    formattedArgs = JSON.stringify(parsed, null, 2);
+  } catch {
+    // Keep original if not valid JSON
+  }
+
+  const handleApprove = () => {
+    if (onApprove && toolCall.approvalRequestId) {
+      onApprove(toolCall.approvalRequestId);
+    }
+  };
+
+  const handleDeny = () => {
+    if (onDeny && toolCall.approvalRequestId) {
+      onDeny(toolCall.approvalRequestId);
+    }
+  };
+
+  return (
+    <>
+      <button
+        className="tool-call-box__header tool-call-box__header--clickable"
+        onClick={() => setIsExpanded(prev => !prev)}
+        aria-expanded={isExpanded}
+      >
+        <span className="tool-call-box__icon">⚠️</span>
+        <span className="tool-call-box__name">{toolCall.name}</span>
+        <span className={`tool-call-box__status tool-call-box__status--${toolCall.status || 'pending_approval'}`}>
+          {statusLabel}
+        </span>
+        <span className={`tool-call-box__chevron ${isExpanded ? 'expanded' : ''}`}>
+          ▶
+        </span>
+      </button>
+      {isExpanded && (
+        <>
+          {toolCall.arguments && (
+            <div className="tool-call-box__arguments">
+              <div className="tool-call-box__arguments-label">Arguments</div>
+              <pre>{formattedArgs}</pre>
+            </div>
+          )}
+          {isPending && (
+            <div className="tool-call-box__approval-actions">
+              <button
+                type="button"
+                className="tool-call-box__approve-btn"
+                onClick={handleApprove}
+              >
+                ✓ Approve
+              </button>
+              <button
+                type="button"
+                className="tool-call-box__deny-btn"
+                onClick={handleDeny}
+              >
+                ✕ Deny
+              </button>
+            </div>
+          )}
+          {isApproved && (
+            <div className="tool-call-box__approval-result tool-call-box__approval-result--approved">
+              ✓ Tool call approved
+            </div>
+          )}
+          {isDenied && (
+            <div className="tool-call-box__approval-result tool-call-box__approval-result--denied">
+              ✕ Tool call denied by user
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
  * Box that displays a tool call with name and arguments
  */
-export function ToolCallBox({ toolCall }: ToolCallBoxProps) {
+export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
   const isWebSearch = toolCall.type === 'web_search';
   const isCodeInterpreter = toolCall.type === 'code_interpreter';
   const isMcp = toolCall.type === 'mcp';
+  const isMcpApproval = toolCall.type === 'mcp_approval';
 
   const isAborted = toolCall.status === 'aborted';
+  const isPendingApproval = toolCall.status === 'pending_approval';
   const variantClass = isAborted
     ? 'tool-call-box--aborted'
-    : isWebSearch
-      ? 'tool-call-box--web-search'
-      : isCodeInterpreter
-        ? 'tool-call-box--code-interpreter'
-        : isMcp
-          ? 'tool-call-box--mcp'
-          : '';
+    : isPendingApproval
+      ? 'tool-call-box--pending-approval'
+      : isWebSearch
+        ? 'tool-call-box--web-search'
+        : isCodeInterpreter
+          ? 'tool-call-box--code-interpreter'
+          : isMcp || isMcpApproval
+            ? 'tool-call-box--mcp'
+            : '';
 
   return (
     <div className={`tool-call-box ${variantClass}`}>
@@ -214,6 +325,8 @@ export function ToolCallBox({ toolCall }: ToolCallBoxProps) {
         <WebSearchCallContent toolCall={toolCall} />
       ) : isCodeInterpreter ? (
         <CodeInterpreterCallContent toolCall={toolCall} />
+      ) : isMcpApproval ? (
+        <McpApprovalContent toolCall={toolCall} onApprove={onApprove} onDeny={onDeny} />
       ) : isMcp ? (
         <McpCallContent toolCall={toolCall} />
       ) : (

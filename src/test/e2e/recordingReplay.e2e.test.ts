@@ -722,6 +722,276 @@ describe('Recording Replay E2E', () => {
     });
   });
 
+  describe('multi-turn-mcp-approval.jsonl', () => {
+    const FIXTURE_NAME = 'multi-turn-mcp-approval.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with MCP approval response', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5.2');
+      // This is a continuation request with approval response
+      expect(recording.request.data.previous_response_id).toBeDefined();
+      expect(recording.request.data.previous_response_id).toMatch(/^resp_/);
+      
+      // Verify MCP tool with require_approval: always
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        server_label?: string;
+        require_approval?: string;
+      }>;
+      const mcpTool = tools.find((t) => t.type === 'mcp');
+      expect(mcpTool).toBeDefined();
+      expect(mcpTool?.require_approval).toBe('always');
+      
+      // Verify input contains mcp_approval_response with approve: true
+      const input = recording.request.data.input as Array<{
+        type: string;
+        approval_request_id?: string;
+        approve?: boolean;
+      }>;
+      const approvalResponse = input.find((i) => i.type === 'mcp_approval_response');
+      expect(approvalResponse).toBeDefined();
+      expect(approvalResponse?.approve).toBe(true);
+      expect(approvalResponse?.approval_request_id).toMatch(/^mcpr_/);
+    });
+
+    it('contains MCP call events after approval', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // After approval, we should see MCP call events
+      expect(stats.eventTypes['response.mcp_call.in_progress']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.mcp_call.completed']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('replays to capture MCP tool calls with approval_request_id', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated MCP tool calls
+      expect(result.toolCalls).toBeDefined();
+      
+      // Find the MCP calls
+      const mcpCalls = result.toolCalls.filter((t) => t.type === 'mcp');
+      expect(mcpCalls.length).toBeGreaterThan(0);
+      
+      // Verify MCP calls have completed status after approval
+      mcpCalls.forEach((call) => {
+        expect(call.status).toBe('completed');
+      });
+    });
+
+    it('captures response.completed events for multi-turn approval flow', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording contains 2 API calls: initial request paused for approval, then approval response
+      expect(stats.eventTypes['response.completed']).toBe(2);
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+  });
+
+  describe('multi-turn-mcp-denied.jsonl', () => {
+    const FIXTURE_NAME = 'multi-turn-mcp-denied.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with MCP denial response', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5.2');
+      // This is a continuation request with denial response
+      expect(recording.request.data.previous_response_id).toBeDefined();
+      expect(recording.request.data.previous_response_id).toMatch(/^resp_/);
+      
+      // Verify MCP tool with require_approval: always
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        server_label?: string;
+        require_approval?: string;
+      }>;
+      const mcpTool = tools.find((t) => t.type === 'mcp');
+      expect(mcpTool).toBeDefined();
+      expect(mcpTool?.require_approval).toBe('always');
+      
+      // Verify input contains mcp_approval_response with approve: false
+      const input = recording.request.data.input as Array<{
+        type: string;
+        approval_request_id?: string;
+        approve?: boolean;
+      }>;
+      const approvalResponse = input.find((i) => i.type === 'mcp_approval_response');
+      expect(approvalResponse).toBeDefined();
+      expect(approvalResponse?.approve).toBe(false);
+      expect(approvalResponse?.approval_request_id).toMatch(/^mcpr_/);
+    });
+
+    it('does not contain MCP call completed events after denial', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // After denial, we should NOT see MCP call completed events
+      expect(stats.eventTypes['response.mcp_call.completed']).toBeUndefined();
+    });
+
+    it('replays to produce content explaining denial', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content (model explains it cannot proceed)
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('captures response.completed events for multi-turn denial flow', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording contains 2 API calls: initial request paused for approval, then denial response
+      expect(stats.eventTypes['response.completed']).toBe(2);
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+  });
+
+  describe('multi-turn-mcp-approve-deny.jsonl', () => {
+    const FIXTURE_NAME = 'multi-turn-mcp-approve-deny.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with MCP denial response', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5');
+      // This is a continuation request
+      expect(recording.request.data.previous_response_id).toBeDefined();
+      expect(recording.request.data.previous_response_id).toMatch(/^resp_/);
+      
+      // Verify MCP tool with require_approval: always
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        server_label?: string;
+        require_approval?: string;
+      }>;
+      const mcpTool = tools.find((t) => t.type === 'mcp');
+      expect(mcpTool).toBeDefined();
+      expect(mcpTool?.require_approval).toBe('always');
+      
+      // This recording shows denial of a second tool call (first was approved)
+      const input = recording.request.data.input as Array<{
+        type: string;
+        approval_request_id?: string;
+        approve?: boolean;
+      }>;
+      const approvalResponse = input.find((i) => i.type === 'mcp_approval_response');
+      expect(approvalResponse).toBeDefined();
+      expect(approvalResponse?.approve).toBe(false);
+    });
+
+    it('contains MCP approval request events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Should have mcp_approval_request output item events
+      expect(
+        (stats.eventTypes['response.output_item.added'] || 0) +
+        (stats.eventTypes['response.output_item.done'] || 0)
+      ).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('captures response.completed events for multi-turn approve-deny flow', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording contains 3 API calls: initial, approval, then denial of second tool
+      expect(stats.eventTypes['response.completed']).toBe(3);
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('has reasoning enabled', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.data.reasoning).toEqual({
+        effort: 'low',
+        summary: 'detailed',
+      });
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+    });
+  });
+
   describe('Recording stats utility', () => {
     it('provides accurate event counts', () => {
       const recording = loadRecordingFixture('single-turn-reasoning.jsonl');
