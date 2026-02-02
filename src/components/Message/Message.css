@@ -18,34 +18,12 @@
 }
 
 .message--error {
-  background-color: #fee;
-  border: 1px solid #fcc;
-}
-
-.theme-dark .message--error {
-  background-color: #3a1a1a;
-  border-color: #5a2a2a;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message--error {
-    background-color: #3a1a1a;
-    border-color: #5a2a2a;
-  }
+  background-color: var(--color-error-bg);
+  border: 1px solid var(--color-error-border);
 }
 
 .message--error .message__content {
-  color: #c00;
-}
-
-.theme-dark .message--error .message__content {
-  color: #f88;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message--error .message__content {
-    color: #f88;
-  }
+  color: var(--color-error-text);
 }
 
 .message__header {
@@ -119,40 +97,14 @@
 
 .message--assistant .message__json-button,
 .message--assistant .message__copy-button {
-  background-color: rgba(0, 0, 0, 0.12);
+  background-color: var(--color-btn-surface);
   color: var(--color-text);
-}
-
-.theme-dark .message--assistant .message__json-button,
-.theme-dark .message--assistant .message__copy-button {
-  background-color: rgba(255, 255, 255, 0.12);
-  color: var(--color-text);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message--assistant .message__json-button,
-  :root:not(.theme-light):not(.theme-dark) .message--assistant .message__copy-button {
-    background-color: rgba(255, 255, 255, 0.12);
-    color: var(--color-text);
-  }
 }
 
 .message--assistant .message__json-button:hover,
 .message--assistant .message__copy-button:hover {
-  background-color: rgba(0, 0, 0, 0.15);
+  background-color: var(--color-btn-surface-hover);
   opacity: 1;
-}
-
-.theme-dark .message--assistant .message__json-button:hover,
-.theme-dark .message--assistant .message__copy-button:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message--assistant .message__json-button:hover,
-  :root:not(.theme-light):not(.theme-dark) .message--assistant .message__copy-button:hover {
-    background-color: rgba(255, 255, 255, 0.2);
-  }
 }
 
 .message__content-wrapper {
@@ -226,19 +178,9 @@
   display: flex;
   align-items: center;
   gap: 2px;
-  background: rgba(0, 0, 0, 0.12);
+  background: var(--color-btn-surface);
   border-radius: var(--radius-sm);
   padding: 2px;
-}
-
-.theme-dark .message__render-toggle {
-  background: rgba(255, 255, 255, 0.12);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message__render-toggle {
-    background: rgba(255, 255, 255, 0.12);
-  }
 }
 
 .message__render-toggle-btn {
@@ -255,19 +197,9 @@
 }
 
 .message__render-toggle-btn:hover {
-  background: rgba(0, 0, 0, 0.15);
+  background: var(--color-btn-surface-hover);
   color: var(--color-text);
   opacity: 1;
-}
-
-.theme-dark .message__render-toggle-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message__render-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-  }
 }
 
 .message__render-toggle-btn--active {
@@ -298,17 +230,7 @@
 .message__citations {
   margin-top: 16px;
   padding-top: 12px;
-  border-top: 1px solid rgba(0, 0, 0, 0.1);
-}
-
-.theme-dark .message__citations {
-  border-top-color: rgba(255, 255, 255, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message__citations {
-    border-top-color: rgba(255, 255, 255, 0.1);
-  }
+  border-top: 1px solid var(--color-border-transparent);
 }
 
 /* Attachments styles */
@@ -322,17 +244,7 @@
 .message__attachment {
   border-radius: var(--radius-md);
   overflow: hidden;
-  background-color: rgba(255, 255, 255, 0.15);
-}
-
-.theme-dark .message__attachment {
-  background-color: rgba(255, 255, 255, 0.1);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .message__attachment {
-    background-color: rgba(255, 255, 255, 0.1);
-  }
+  background-color: var(--color-border-transparent);
 }
 
 .message__attachment-image {

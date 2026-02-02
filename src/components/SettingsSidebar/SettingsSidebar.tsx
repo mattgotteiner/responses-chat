@@ -3,7 +3,7 @@
  */
 
 import { useCallback, type ChangeEvent } from 'react';
-import type { Settings, ModelName, Theme } from '../../types';
+import type { Settings, ModelName } from '../../types';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
@@ -116,7 +116,7 @@ export function SettingsSidebar({
                       className="settings-field__radio"
                       value={theme}
                       checked={settings.theme === theme}
-                      onChange={() => onUpdateSettings({ theme: theme as Theme })}
+                      onChange={() => onUpdateSettings({ theme })}
                     />
                     <span className="settings-field__radio-label">
                       {theme.charAt(0).toUpperCase() + theme.slice(1)}

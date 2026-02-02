@@ -116,21 +116,7 @@
 .settings-field__textarea:focus {
   outline: none;
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
-}
-
-.theme-dark .settings-field__input:focus,
-.theme-dark .settings-field__select:focus,
-.theme-dark .settings-field__textarea:focus {
-  box-shadow: 0 0 0 3px rgba(77, 159, 255, 0.2);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .settings-field__input:focus,
-  :root:not(.theme-light):not(.theme-dark) .settings-field__select:focus,
-  :root:not(.theme-light):not(.theme-dark) .settings-field__textarea:focus {
-    box-shadow: 0 0 0 3px rgba(77, 159, 255, 0.2);
-  }
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
 }
 
 .settings-field__input::placeholder,
@@ -155,17 +141,7 @@
 }
 
 .settings-field__hint--warning {
-  color: #b45309;
-}
-
-.theme-dark .settings-field__hint--warning {
-  color: #fbbf24;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not(.theme-light):not(.theme-dark) .settings-field__hint--warning {
-    color: #fbbf24;
-  }
+  color: var(--color-warning);
 }
 
 .settings-field__checkbox-wrapper {

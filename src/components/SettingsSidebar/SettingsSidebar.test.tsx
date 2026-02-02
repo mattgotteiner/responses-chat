@@ -130,4 +130,43 @@ describe('SettingsSidebar', () => {
       expect(screen.getByLabelText('Developer Instructions')).toBeInTheDocument();
     });
   });
+
+  describe('Theme Settings', () => {
+    it('renders the theme options in the Appearance section', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Appearance')).toBeInTheDocument();
+      expect(screen.getByText('Theme')).toBeInTheDocument();
+      expect(screen.getByLabelText('Light')).toBeInTheDocument();
+      expect(screen.getByLabelText('Dark')).toBeInTheDocument();
+      expect(screen.getByLabelText('System')).toBeInTheDocument();
+    });
+
+    it('has correct option checked based on current theme setting', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, theme: 'dark' };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByLabelText('Dark')).toBeChecked();
+      expect(screen.getByLabelText('Light')).not.toBeChecked();
+      expect(screen.getByLabelText('System')).not.toBeChecked();
+    });
+
+    it('calls onUpdateSettings with theme: light when Light is selected', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, theme: 'dark' };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      fireEvent.click(screen.getByLabelText('Light'));
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ theme: 'light' });
+    });
+
+    it('calls onUpdateSettings with theme: dark when Dark is selected', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      fireEvent.click(screen.getByLabelText('Dark'));
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ theme: 'dark' });
+    });
+
+    it('calls onUpdateSettings with theme: system when System is selected', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, theme: 'dark' };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      fireEvent.click(screen.getByLabelText('System'));
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ theme: 'system' });
+    });
+  });
 });
