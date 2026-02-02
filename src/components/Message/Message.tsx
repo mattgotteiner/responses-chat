@@ -116,6 +116,7 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
   const hasCitations = message.citations && message.citations.length > 0;
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const showThinking = message.isStreaming && !message.content && !hasReasoning;
+  const isTruncated = message.isTruncated ?? false;
   
   // Effective render mode: per-message override > global setting > default
   const globalRenderMode = settings.messageRenderMode ?? 'markdown';
@@ -252,6 +253,16 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
         {/* Cancelled indicator - standalone when no content */}
         {message.isStopped && !message.content && (
           <div className="message__cancelled message__cancelled--standalone">cancelled</div>
+        )}
+
+        {/* Truncated indicator */}
+        {isTruncated && !message.isStreaming && (
+          <div className="message__truncated">
+            <span className="message__truncated-icon" aria-hidden="true">⚠️</span>
+            <span className="message__truncated-text">
+              Response truncated{message.truncationReason === 'max_output_tokens' ? ' (max tokens reached)' : ''}
+            </span>
+          </div>
         )}
 
         {/* Streaming cursor */}

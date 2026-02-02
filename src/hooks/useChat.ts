@@ -233,6 +233,8 @@ export function useChat(): UseChatReturn {
                     toolCalls: [...acc.toolCalls],
                     ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
+                    ...(acc.isTruncated && { isTruncated: true }),
+                    ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
                   }
                 : msg
             )

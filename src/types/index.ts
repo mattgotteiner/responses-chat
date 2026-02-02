@@ -218,6 +218,10 @@ export interface Message {
   requestJson?: Record<string, unknown>;
   /** Raw API response JSON (for assistant messages) */
   responseJson?: Record<string, unknown>;
+  /** Whether the response was truncated due to token limits */
+  isTruncated?: boolean;
+  /** Reason for truncation (e.g., 'max_output_tokens') */
+  truncationReason?: string;
 }
 
 /** Chat state */

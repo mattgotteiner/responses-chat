@@ -286,6 +286,74 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('response.incomplete', () => {
+      it('extracts response ID and full response from incomplete response (truncated by max_output_tokens)', () => {
+        const event: StreamEvent = {
+          type: 'response.incomplete',
+          response: {
+            id: 'resp_truncated',
+            status: 'incomplete',
+            incomplete_details: { reason: 'max_output_tokens' },
+            output: [
+              {
+                type: 'message',
+                status: 'incomplete',
+                content: [{ type: 'output_text', text: 'Truncated content...' }],
+              },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.responseId).toBe('resp_truncated');
+        expect(result.responseJson).toBeDefined();
+        expect(result.responseJson?.status).toBe('incomplete');
+        expect(result.responseJson?.incomplete_details).toEqual({ reason: 'max_output_tokens' });
+      });
+
+      it('handles missing response in incomplete event', () => {
+        const event: StreamEvent = {
+          type: 'response.incomplete',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.responseId).toBeNull();
+        expect(result.responseJson).toBeNull();
+      });
+
+      it('extracts citations from incomplete response', () => {
+        const event: StreamEvent = {
+          type: 'response.incomplete',
+          response: {
+            id: 'resp_partial',
+            status: 'incomplete',
+            incomplete_details: { reason: 'max_output_tokens' },
+            output: [
+              {
+                type: 'message',
+                content: [
+                  {
+                    type: 'output_text',
+                    text: 'Content with citations',
+                    annotations: [
+                      {
+                        type: 'url_citation',
+                        url: 'https://example.com/article',
+                        title: 'Example Article',
+                        start_index: 0,
+                        end_index: 10,
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.citations).toHaveLength(1);
+        expect(result.citations[0].url).toBe('https://example.com/article');
+      });
+    });
+
     describe('response.output_item events', () => {
       it('extracts reasoning from output_item.done with summary', () => {
         const event: StreamEvent = {
