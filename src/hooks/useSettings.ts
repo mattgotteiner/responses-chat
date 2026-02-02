@@ -8,6 +8,8 @@ import { DEFAULT_SETTINGS } from '../types';
 import {
   getStoredValue,
   setStoredValue,
+  removeStoredValue,
+  clearAllStoredValues,
   SETTINGS_STORAGE_KEY,
 } from '../utils/localStorage';
 
@@ -19,6 +21,8 @@ export interface UseSettingsReturn {
   updateSettings: (updates: Partial<Settings>) => void;
   /** Reset settings to defaults */
   resetSettings: () => void;
+  /** Clear all stored data and reset to defaults */
+  clearStoredData: () => void;
   /** Whether required settings are configured */
   isConfigured: boolean;
 }
@@ -41,12 +45,22 @@ export function useSettings(): UseSettingsReturn {
   const [settings, setSettings] = useState<Settings>(() => {
     const stored = getStoredValue(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
     // Merge with defaults to ensure new fields have default values
-    return { ...DEFAULT_SETTINGS, ...stored };
+    const merged = { ...DEFAULT_SETTINGS, ...stored };
+    // If noLocalStorage was enabled, don't use stored values (except noLocalStorage itself)
+    if (merged.noLocalStorage) {
+      return { ...DEFAULT_SETTINGS, noLocalStorage: true };
+    }
+    return merged;
   });
 
-  // Sync to localStorage whenever settings change
+  // Sync to localStorage whenever settings change (unless noLocalStorage is enabled)
   useEffect(() => {
-    setStoredValue(SETTINGS_STORAGE_KEY, settings);
+    if (settings.noLocalStorage) {
+      // Clear any existing stored data when noLocalStorage is enabled
+      removeStoredValue(SETTINGS_STORAGE_KEY);
+    } else {
+      setStoredValue(SETTINGS_STORAGE_KEY, settings);
+    }
   }, [settings]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
@@ -54,6 +68,11 @@ export function useSettings(): UseSettingsReturn {
   }, []);
 
   const resetSettings = useCallback(() => {
+    setSettings(DEFAULT_SETTINGS);
+  }, []);
+
+  const clearStoredData = useCallback(() => {
+    clearAllStoredValues();
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
@@ -65,6 +84,7 @@ export function useSettings(): UseSettingsReturn {
     settings,
     updateSettings,
     resetSettings,
+    clearStoredData,
     isConfigured,
   };
 }
