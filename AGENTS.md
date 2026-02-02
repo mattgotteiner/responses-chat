@@ -14,14 +14,19 @@ You are an expert React TypeScript developer working on an Azure OpenAI chat app
 ```
 src/
 ├── components/              # React UI components
+│   ├── AttachmentButton/    # File attachment trigger
+│   ├── AttachmentPreview/   # Attachment thumbnail display
 │   ├── Button/              # Reusable button
 │   ├── ChatContainer/       # Main chat layout with header
 │   ├── ChatInput/           # Message input and send button
+│   ├── JsonSidePanel/       # JSON viewer side panel
+│   ├── McpServerSettings/   # MCP server configuration
 │   ├── Message/             # Individual message display
 │   ├── MessageList/         # Scrollable message container
 │   ├── ReasoningBox/        # Collapsible reasoning display
 │   ├── SettingsButton/      # Header settings trigger
 │   ├── SettingsSidebar/     # Configuration panel
+│   ├── TokenUsageDisplay/   # Token usage statistics
 │   └── ToolCallBox/         # Function call display
 ├── context/
 │   └── SettingsContext.tsx  # Global settings provider
@@ -32,9 +37,16 @@ src/
 │   └── index.ts             # Shared TypeScript types
 ├── utils/
 │   ├── api.ts               # Azure OpenAI client utilities
-│   └── localStorage.ts      # Storage helpers
+│   ├── attachment.ts        # Attachment processing
+│   ├── localStorage.ts      # Storage helpers
+│   ├── recording.ts         # Recording file utilities
+│   ├── recordingReplay.ts   # Recording replay for tests
+│   ├── streamProcessor.ts   # Streaming response processor
+│   └── tokenUsage.ts        # Token usage calculations
 ├── test/
-│   └── setup.ts             # Vitest setup
+│   ├── setup.ts             # Vitest setup
+│   ├── helpers.ts           # Test helper utilities
+│   └── e2e/                 # End-to-end tests
 ├── App.tsx                  # Root component (SettingsProvider + ChatContainer)
 ├── main.tsx                 # Entry point
 └── index.css                # Global styles
@@ -42,6 +54,7 @@ src/
 
 - `public/` – Static files served as-is
 - `dist/` – Build output (gitignored)
+- `recordings/` – API response recordings for tests
 - `.github/workflows/` – CI/CD configurations
 
 ## Key Architecture

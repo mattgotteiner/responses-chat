@@ -17,7 +17,7 @@ describe('App', () => {
 
   it('renders the chat interface', () => {
     render(<App />)
-    expect(screen.getByText('Azure OpenAI Chat')).toBeInTheDocument()
+    expect(screen.getByText('Responses Chat')).toBeInTheDocument()
     expect(screen.getByLabelText('Open settings')).toBeInTheDocument()
     expect(screen.getByLabelText('Message input')).toBeInTheDocument()
   })
