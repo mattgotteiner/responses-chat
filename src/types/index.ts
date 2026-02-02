@@ -40,6 +40,12 @@ export const VERBOSITY_OPTIONS: Verbosity[] = ['low', 'medium', 'high'];
 /** Reasoning summary type */
 export type ReasoningSummary = 'auto' | 'concise' | 'detailed';
 
+/** Theme options */
+export type Theme = 'light' | 'dark' | 'system';
+
+/** All theme options */
+export const THEME_OPTIONS: Theme[] = ['light', 'dark', 'system'];
+
 /** All reasoning summary options */
 export const REASONING_SUMMARY_OPTIONS: ReasoningSummary[] = ['auto', 'concise', 'detailed'];
 
@@ -73,6 +79,8 @@ export interface Settings {
   codeInterpreterEnabled?: boolean;
   /** Message render mode for assistant messages */
   messageRenderMode: MessageRenderMode;
+  /** Theme preference */
+  theme: Theme;
 }
 
 /** Default settings values */
@@ -86,6 +94,7 @@ export const DEFAULT_SETTINGS: Settings = {
   verbosity: undefined,
   developerInstructions: undefined,
   messageRenderMode: 'markdown',
+  theme: 'system',
 };
 
 /** Tool call information */

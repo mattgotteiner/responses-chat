@@ -1,7 +1,7 @@
 .tool-call-box {
   margin: 8px 0;
   border: 1px solid #d4a574;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background-color: #fff8f0;
   overflow: hidden;
 }

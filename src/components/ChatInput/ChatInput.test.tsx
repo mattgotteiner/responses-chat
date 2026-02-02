@@ -292,7 +292,7 @@ describe('ChatInput', () => {
       );
 
       expect(screen.getByTitle('Copy conversation as JSON')).toBeInTheDocument();
-      expect(screen.getByText('📋 Copy JSON')).toBeInTheDocument();
+      expect(screen.getByText('Copy JSON')).toBeInTheDocument();
     });
 
     it('copies conversation JSON when button clicked', async () => {
@@ -305,7 +305,7 @@ describe('ChatInput', () => {
       );
 
       const copyButton = screen.getByTitle('Copy conversation as JSON');
-      expect(copyButton).toHaveTextContent('📋 Copy JSON');
+      expect(copyButton).toHaveTextContent('Copy JSON');
 
       fireEvent.click(copyButton);
 

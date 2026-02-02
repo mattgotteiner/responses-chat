@@ -5,7 +5,7 @@ import {
   generateToolCallId,
   createAzureClient,
 } from './api';
-import type { Settings } from '../types';
+import { DEFAULT_SETTINGS } from '../types';
 
 describe('API utilities', () => {
   describe('generateMessageId', () => {
@@ -48,12 +48,10 @@ describe('API utilities', () => {
   });
 
   describe('createAzureClient', () => {
-    const baseSettings: Settings = {
+    const baseSettings = {
+      ...DEFAULT_SETTINGS,
       endpoint: 'https://my-resource.openai.azure.com',
       apiKey: 'test-key',
-      modelName: 'gpt-5-mini',
-      deploymentName: '',
-      messageRenderMode: 'markdown',
     };
 
     it('creates a client with normalized endpoint', () => {
