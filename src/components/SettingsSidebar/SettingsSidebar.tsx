@@ -29,7 +29,7 @@ interface SettingsSidebarProps {
   /** Handler to update settings */
   onUpdateSettings: (updates: Partial<Settings>) => void;
   /** Handler to clear all stored data */
-  onClearStoredData?: () => void;
+  onClearStoredData: () => void;
 }
 
 /**

@@ -339,4 +339,24 @@ describe('SettingsSidebar', () => {
       ).toBeInTheDocument();
     });
   });
+
+  describe('API Key Hint Text', () => {
+    it('shows warning message when noLocalStorage is false', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, noLocalStorage: false };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(
+        screen.getByText(/stored in browser localStorage \(unencrypted\)/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/storage disabled/i)).not.toBeInTheDocument();
+    });
+
+    it('shows "Storage disabled" message when noLocalStorage is true', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, noLocalStorage: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(
+        screen.getByText(/storage disabled — credentials will not be saved/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/stored in browser localStorage/i)).not.toBeInTheDocument();
+    });
+  });
 });

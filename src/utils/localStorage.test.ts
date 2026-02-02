@@ -91,5 +91,18 @@ describe('localStorage utilities', () => {
     it('does not throw when keys do not exist', () => {
       expect(() => clearAllStoredValues()).not.toThrow();
     });
+
+    it('handles storage errors gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockRemoveItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+        throw new Error('Storage access denied');
+      });
+
+      clearAllStoredValues(); // Should not throw
+
+      expect(consoleSpy).toHaveBeenCalled();
+      mockRemoveItem.mockRestore();
+      consoleSpy.mockRestore();
+    });
   });
 });
