@@ -24,12 +24,12 @@
   --color-bg: #ffffff;
   --color-surface: #f5f5f5;
   --color-surface-elevated: #f0f0f0;
-  --color-border: #e0e0e0;
-  --color-border-muted: #ddd;
+  --color-border: #d0d0d0;
+  --color-border-muted: #ccc;
   --color-text: #333333;
-  --color-text-secondary: #666666;
-  --color-text-muted: #888888;
-  --color-text-hint: #999999;
+  --color-text-secondary: #555555;
+  --color-text-muted: #666666;
+  --color-text-hint: #767676;
   --color-primary: #0066cc;
   --color-primary-hover: #0052a3;
   --color-danger: #dc3545;
@@ -50,6 +50,7 @@
   --color-warning-bg: #fffbeb;
   --color-warning-border: #fed7aa;
   --color-warning-text: #92400e;
+  --color-warning-btn-text: #ffffff;
 
   /* Border colors (transparent variants) */
   --color-border-transparent: rgba(0, 0, 0, 0.1);
@@ -90,6 +91,7 @@
   --color-warning-bg: #422006;
   --color-warning-border: #78350f;
   --color-warning-text: #fcd34d;
+  --color-warning-btn-text: #422006;
 
   /* Border colors (transparent variants) */
   --color-border-transparent: rgba(255, 255, 255, 0.1);
@@ -131,6 +133,7 @@
     --color-warning-bg: #422006;
     --color-warning-border: #78350f;
     --color-warning-text: #fcd34d;
+    --color-warning-btn-text: #422006;
 
     /* Border colors (transparent variants) */
     --color-border-transparent: rgba(255, 255, 255, 0.1);
