@@ -138,6 +138,32 @@ export function useChat(): UseChatReturn {
         // Request code interpreter outputs to get execution results (logs)
         include.push('code_interpreter_call.outputs');
       }
+      // Add enabled MCP servers as tools
+      if (settings.mcpServers && settings.mcpServers.length > 0) {
+        for (const server of settings.mcpServers) {
+          if (server.enabled) {
+            const mcpTool: Record<string, unknown> = {
+              type: 'mcp',
+              server_label: server.serverLabel,
+              server_url: server.serverUrl,
+              require_approval: server.requireApproval,
+            };
+            // Add headers if any are configured
+            if (server.headers.length > 0) {
+              const headers: Record<string, string> = {};
+              for (const header of server.headers) {
+                if (header.key.trim() && header.value.trim()) {
+                  headers[header.key.trim()] = header.value.trim();
+                }
+              }
+              if (Object.keys(headers).length > 0) {
+                mcpTool.headers = headers;
+              }
+            }
+            tools.push(mcpTool);
+          }
+        }
+      }
       if (tools.length > 0) {
         requestParams.tools = tools;
       }
@@ -269,7 +295,7 @@ export function useChat(): UseChatReturn {
           );
         }
       } finally {
-        // Finalize recording if active (even on error for debugging)
+        // Finalize recording if active
         recordingSession?.finalize();
         setIsStreaming(false);
         abortControllerRef.current = null;
@@ -281,6 +307,22 @@ export function useChat(): UseChatReturn {
   const stopStreaming = useCallback(() => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
+      // Mark any in-progress tool calls as aborted
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.isStreaming && msg.toolCalls?.length) {
+            return {
+              ...msg,
+              toolCalls: msg.toolCalls.map((tc) =>
+                tc.status === 'in_progress' || tc.status === 'searching' || tc.status === 'interpreting'
+                  ? { ...tc, status: 'aborted' as const }
+                  : tc
+              ),
+            };
+          }
+          return msg;
+        })
+      );
     }
   }, []);
 

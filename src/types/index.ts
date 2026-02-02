@@ -49,6 +49,38 @@ export type MessageRenderMode = 'markdown' | 'plaintext' | 'code';
 /** All message render mode options */
 export const MESSAGE_RENDER_MODE_OPTIONS: MessageRenderMode[] = ['markdown', 'plaintext', 'code'];
 
+/** MCP server approval requirement options */
+export type McpApprovalMode = 'never';
+
+/** Custom header for MCP server authentication */
+export interface McpHeader {
+  /** Header key (e.g., 'Authorization', 'X-API-Key') */
+  key: string;
+  /** Header value (e.g., 'Bearer token123') */
+  value: string;
+}
+
+/** Configuration for a remote MCP server */
+export interface McpServerConfig {
+  /** Unique identifier */
+  id: string;
+  /** Display name for the server */
+  name: string;
+  /** Label used to identify the server in API requests */
+  serverLabel: string;
+  /** URL of the MCP server */
+  serverUrl: string;
+  /** When to require approval for MCP calls */
+  requireApproval: McpApprovalMode;
+  /** Custom headers for authentication */
+  headers: McpHeader[];
+  /** Whether this server is enabled */
+  enabled: boolean;
+}
+
+/** Maximum number of MCP servers allowed */
+export const MAX_MCP_SERVERS = 5;
+
 /** Application settings stored in localStorage */
 export interface Settings {
   /** Azure OpenAI endpoint URL */
@@ -73,6 +105,8 @@ export interface Settings {
   codeInterpreterEnabled?: boolean;
   /** Message render mode for assistant messages */
   messageRenderMode: MessageRenderMode;
+  /** Configured remote MCP servers */
+  mcpServers?: McpServerConfig[];
 }
 
 /** Default settings values */
@@ -86,22 +120,31 @@ export const DEFAULT_SETTINGS: Settings = {
   verbosity: undefined,
   developerInstructions: undefined,
   messageRenderMode: 'markdown',
+  mcpServers: [],
 };
+
+/** Tool call status types */
+export type ToolCallStatus =
+  | 'in_progress'
+  | 'searching'
+  | 'interpreting'
+  | 'completed'
+  | 'aborted';
 
 /** Tool call information */
 export interface ToolCall {
   /** Unique identifier for the tool call */
   id: string;
-  /** Name of the tool being called (e.g., 'web_search', function name, 'code_interpreter') */
+  /** Name of the tool being called (e.g., 'web_search', function name, 'code_interpreter', 'mcp') */
   name: string;
-  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution */
-  type: 'function' | 'web_search' | 'code_interpreter';
+  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution, 'mcp' for MCP server calls */
+  type: 'function' | 'web_search' | 'code_interpreter' | 'mcp';
   /** JSON arguments passed to the tool (for function calls) */
   arguments: string;
   /** Result from the tool execution, if any */
   result?: string;
-  /** Status of the tool call (for web search: 'in_progress', 'searching', 'completed'; for code interpreter: 'in_progress', 'interpreting', 'completed') */
-  status?: 'in_progress' | 'searching' | 'interpreting' | 'completed';
+  /** Status of the tool call */
+  status?: ToolCallStatus;
   /** Search query (for web search calls) */
   query?: string;
   /** Python code being executed (for code interpreter calls) */

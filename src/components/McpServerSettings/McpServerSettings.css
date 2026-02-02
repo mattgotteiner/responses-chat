@@ -1,0 +1,479 @@
+/* MCP Server Settings Styles */
+
+.mcp-servers {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-servers__empty {
+  padding: 16px;
+  text-align: center;
+  color: #888;
+  font-size: 13px;
+  background-color: #f5f5f5;
+  border-radius: 8px;
+  border: 1px dashed #ddd;
+}
+
+.mcp-servers__add-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background-color: #0066cc;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mcp-servers__add-button:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.mcp-servers__add-button:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.mcp-servers__limit-hint {
+  font-size: 12px;
+  color: #888;
+  text-align: center;
+}
+
+/* Server Card */
+.mcp-server-card {
+  background-color: #f9f9f9;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.mcp-server-card--expanded {
+  border-color: #0066cc;
+}
+
+.mcp-server-card__header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mcp-server-card__header:hover {
+  background-color: #f0f0f0;
+}
+
+.mcp-server-card__toggle {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  cursor: pointer;
+  accent-color: #0066cc;
+}
+
+.mcp-server-card__name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mcp-server-card__name--disabled {
+  color: #888;
+}
+
+.mcp-server-card__expand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #666;
+  cursor: pointer;
+  font-size: 12px;
+  transition: transform 0.2s, background-color 0.2s;
+}
+
+.mcp-server-card__expand:hover {
+  background-color: #e0e0e0;
+}
+
+.mcp-server-card__expand--expanded {
+  transform: rotate(180deg);
+}
+
+.mcp-server-card__delete {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: #cc3333;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.mcp-server-card__delete:hover {
+  background-color: #ffe0e0;
+}
+
+/* Server Form */
+.mcp-server-form {
+  padding: 12px;
+  border-top: 1px solid #e0e0e0;
+  background-color: #fff;
+}
+
+.mcp-server-form__field {
+  margin-bottom: 12px;
+}
+
+.mcp-server-form__field:last-child {
+  margin-bottom: 0;
+}
+
+.mcp-server-form__label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #555;
+}
+
+.mcp-server-form__input,
+.mcp-server-form__select {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #333;
+  background-color: #fff;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.mcp-server-form__input:focus,
+.mcp-server-form__select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.mcp-server-form__input::placeholder {
+  color: #999;
+}
+
+/* Headers Editor */
+.mcp-headers {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-headers__row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mcp-headers__key,
+.mcp-headers__value {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #333;
+  background-color: #fff;
+}
+
+.mcp-headers__key:focus,
+.mcp-headers__value:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.mcp-headers__remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: none;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  color: #cc3333;
+  cursor: pointer;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.mcp-headers__remove:hover {
+  background-color: #ffe0e0;
+  border-color: #cc3333;
+}
+
+.mcp-headers__add {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  background: none;
+  border: 1px dashed #ccc;
+  border-radius: 6px;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.mcp-headers__add:hover {
+  border-color: #0066cc;
+  color: #0066cc;
+}
+
+.mcp-headers__empty {
+  padding: 8px;
+  text-align: center;
+  color: #999;
+  font-size: 12px;
+}
+
+/* New Server Form Card */
+.mcp-server-new {
+  background-color: #f0f7ff;
+  border: 1px solid #0066cc;
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.mcp-server-new__title {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #0066cc;
+}
+
+.mcp-server-new__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mcp-server-new__save,
+.mcp-server-new__cancel {
+  flex: 1;
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mcp-server-new__save {
+  background-color: #0066cc;
+  color: #fff;
+  border: none;
+}
+
+.mcp-server-new__save:hover:not(:disabled) {
+  background-color: #0052a3;
+}
+
+.mcp-server-new__save:disabled {
+  background-color: #ccc;
+  cursor: not-allowed;
+}
+
+.mcp-server-new__cancel {
+  background-color: #fff;
+  color: #666;
+  border: 1px solid #ddd;
+}
+
+.mcp-server-new__cancel:hover {
+  background-color: #f5f5f5;
+}
+
+/* Dark mode */
+@media (prefers-color-scheme: dark) {
+  .mcp-servers__empty {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #888;
+  }
+
+  .mcp-servers__add-button {
+    background-color: #4d9fff;
+  }
+
+  .mcp-servers__add-button:hover:not(:disabled) {
+    background-color: #3385ff;
+  }
+
+  .mcp-servers__add-button:disabled {
+    background-color: #444;
+    color: #888;
+  }
+
+  .mcp-server-card {
+    background-color: #2a2a2a;
+    border-color: #444;
+  }
+
+  .mcp-server-card--expanded {
+    border-color: #4d9fff;
+  }
+
+  .mcp-server-card__header:hover {
+    background-color: #333;
+  }
+
+  .mcp-server-card__toggle {
+    accent-color: #4d9fff;
+  }
+
+  .mcp-server-card__name {
+    color: #ddd;
+  }
+
+  .mcp-server-card__name--disabled {
+    color: #666;
+  }
+
+  .mcp-server-card__expand {
+    color: #888;
+  }
+
+  .mcp-server-card__expand:hover {
+    background-color: #444;
+  }
+
+  .mcp-server-card__delete {
+    color: #ff6666;
+  }
+
+  .mcp-server-card__delete:hover {
+    background-color: #3a2a2a;
+  }
+
+  .mcp-server-form {
+    background-color: #1a1a1a;
+    border-top-color: #444;
+  }
+
+  .mcp-server-form__label {
+    color: #aaa;
+  }
+
+  .mcp-server-form__input,
+  .mcp-server-form__select {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .mcp-server-form__input:focus,
+  .mcp-server-form__select:focus {
+    border-color: #4d9fff;
+    box-shadow: 0 0 0 2px rgba(77, 159, 255, 0.2);
+  }
+
+  .mcp-server-form__input::placeholder {
+    color: #666;
+  }
+
+  .mcp-headers__key,
+  .mcp-headers__value {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .mcp-headers__key:focus,
+  .mcp-headers__value:focus {
+    border-color: #4d9fff;
+    box-shadow: 0 0 0 2px rgba(77, 159, 255, 0.2);
+  }
+
+  .mcp-headers__remove {
+    border-color: #444;
+    color: #ff6666;
+  }
+
+  .mcp-headers__remove:hover {
+    background-color: #3a2a2a;
+    border-color: #ff6666;
+  }
+
+  .mcp-headers__add {
+    border-color: #555;
+    color: #888;
+  }
+
+  .mcp-headers__add:hover {
+    border-color: #4d9fff;
+    color: #4d9fff;
+  }
+
+  .mcp-headers__empty {
+    color: #666;
+  }
+
+  .mcp-server-new {
+    background-color: #1a2a3a;
+    border-color: #4d9fff;
+  }
+
+  .mcp-server-new__title {
+    color: #4d9fff;
+  }
+
+  .mcp-server-new__save {
+    background-color: #4d9fff;
+  }
+
+  .mcp-server-new__save:hover:not(:disabled) {
+    background-color: #3385ff;
+  }
+
+  .mcp-server-new__save:disabled {
+    background-color: #444;
+    color: #888;
+  }
+
+  .mcp-server-new__cancel {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #aaa;
+  }
+
+  .mcp-server-new__cancel:hover {
+    background-color: #333;
+  }
+}

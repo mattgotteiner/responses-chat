@@ -481,6 +481,247 @@ describe('Recording Replay E2E', () => {
     });
   });
 
+  describe('single-turn-mcp.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-mcp.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with MCP tool', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5');
+      expect(recording.request.data.input).toBe('search ms learn MCP for foundry documentation');
+      expect(recording.request.data.reasoning).toEqual({
+        effort: 'low',
+        summary: 'detailed',
+      });
+      // Verify MCP tool is configured
+      expect(recording.request.data.tools).toBeDefined();
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        server_label?: string;
+        server_url?: string;
+        require_approval?: string;
+      }>;
+      const mcpTool = tools.find((t) => t.type === 'mcp');
+      expect(mcpTool).toBeDefined();
+      expect(mcpTool?.server_label).toBe('mslearn');
+      expect(mcpTool?.server_url).toBe('https://learn.microsoft.com/api/mcp');
+      expect(mcpTool?.require_approval).toBe('never');
+    });
+
+    it('contains MCP list tools events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have MCP list tools events
+      expect(stats.eventTypes['response.mcp_list_tools.in_progress']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.mcp_list_tools.completed']).toBeGreaterThan(0);
+    });
+
+    it('contains MCP call events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have MCP call events
+      expect(stats.eventTypes['response.mcp_call.in_progress']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.mcp_call.completed']).toBeGreaterThan(0);
+    });
+
+    it('contains MCP call arguments delta events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have MCP call arguments streaming events
+      expect(stats.eventTypes['response.mcp_call_arguments.delta']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.mcp_call_arguments.done']).toBeGreaterThan(0);
+    });
+
+    it('contains expected event types', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have response lifecycle events
+      expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.completed']).toBe(1);
+      
+      // Should have reasoning summary deltas (model was configured with reasoning)
+      expect(stats.eventTypes['response.reasoning_summary_text.delta']).toBeGreaterThan(0);
+      
+      // Should have output text deltas for the response content
+      expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      
+      // Content should contain information about Azure documentation
+      expect(result.content).toContain('Azure');
+      expect(result.content).toContain('Microsoft Learn');
+    });
+
+    it('replays to produce reasoning steps', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated reasoning steps
+      expect(result.reasoning).toBeDefined();
+      expect(result.reasoning.length).toBeGreaterThanOrEqual(1);
+      
+      // Reasoning should contain content about searching for Azure
+      const allReasoningText = result.reasoning.map((r) => r.content).join(' ');
+      expect(allReasoningText).toContain('Azure');
+    });
+
+    it('replays to capture MCP tool calls', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated MCP tool calls
+      expect(result.toolCalls).toBeDefined();
+      expect(result.toolCalls.length).toBeGreaterThan(0);
+      
+      // Find the MCP calls
+      const mcpCalls = result.toolCalls.filter((t) => t.type === 'mcp');
+      expect(mcpCalls.length).toBeGreaterThan(0);
+      
+      // Verify MCP calls have expected properties
+      mcpCalls.forEach((call) => {
+        expect(call.name).toContain('microsoft_docs_search');
+        expect(call.status).toBe('completed');
+      });
+    });
+
+    it('captures streamed MCP arguments from delta events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Find an MCP call
+      const mcpCall = result.toolCalls.find((t) => t.type === 'mcp');
+      expect(mcpCall).toBeDefined();
+      
+      // Arguments should contain the query
+      expect(mcpCall?.arguments).toContain('query');
+      expect(mcpCall?.arguments).toContain('Azure');
+    });
+
+    it('captures MCP call results', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Find an MCP call with results
+      const mcpCall = result.toolCalls.find(
+        (t) => t.type === 'mcp' && t.result
+      );
+      expect(mcpCall).toBeDefined();
+      
+      // Result should contain search results (the API returns JSON with results array)
+      expect(mcpCall?.result).toContain('results');
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have captured the response ID from response.completed
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).not.toBeNull();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('captures full response JSON', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have the full response object
+      expect(result.responseJson).toBeDefined();
+      expect(result.responseJson).not.toBeNull();
+      expect(result.responseJson!.id).toBe(result.responseId);
+      expect(result.responseJson!.status).toBe('completed');
+    });
+
+    it('captures MCP calls in response output', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // The response should contain mcp_call items in output
+      expect(result.responseJson).toBeDefined();
+      const output = result.responseJson?.output;
+      if (!Array.isArray(output)) {
+        throw new Error('Expected responseJson.output to be an array');
+      }
+      
+      const mcpCalls = output.filter(
+        (item): item is { type: string; status?: string; name?: string } =>
+          typeof item === 'object' && item !== null && (item as { type?: unknown }).type === 'mcp_call'
+      );
+      expect(mcpCalls.length).toBeGreaterThan(0);
+      
+      // Verify MCP calls have completed status
+      mcpCalls.forEach((call) => {
+        expect(call.status).toBe('completed');
+      });
+    });
+
+    it('captures mcp_list_tools in response output', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // The response should contain mcp_list_tools item in output
+      expect(result.responseJson).toBeDefined();
+      const output = result.responseJson?.output;
+      if (!Array.isArray(output)) {
+        throw new Error('Expected responseJson.output to be an array');
+      }
+      
+      const mcpListTools = output.filter(
+        (item): item is { type: string; server_label?: string; tools?: unknown[] } =>
+          typeof item === 'object' && item !== null && (item as { type?: unknown }).type === 'mcp_list_tools'
+      );
+      expect(mcpListTools.length).toBeGreaterThan(0);
+      
+      // Verify the tools were listed for the mslearn server
+      const mslearnList = mcpListTools.find((m) => m.server_label === 'mslearn');
+      expect(mslearnList).toBeDefined();
+      expect(mslearnList?.tools).toBeDefined();
+      expect(Array.isArray(mslearnList?.tools)).toBe(true);
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+      expect(result1.toolCalls.length).toBe(result2.toolCalls.length);
+      expect(result1.reasoning.length).toBe(result2.reasoning.length);
+    });
+
+    it('has reasonable recording duration', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording should be between 1 second and 60 seconds
+      expect(stats.durationMs).toBeGreaterThan(1000);
+      expect(stats.durationMs).toBeLessThan(60000);
+    });
+  });
+
   describe('Recording stats utility', () => {
     it('provides accurate event counts', () => {
       const recording = loadRecordingFixture('single-turn-reasoning.jsonl');

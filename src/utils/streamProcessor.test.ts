@@ -631,6 +631,141 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('mcp_call_arguments events', () => {
+      it('accumulates MCP call arguments from delta events', () => {
+        // First, add an MCP call
+        accumulator = {
+          ...accumulator,
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/microsoft_docs_search',
+              type: 'mcp' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.delta',
+          item_id: 'mcp_123',
+          delta: '{"query":"What is Azure"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].arguments).toBe('{"query":"What is Azure"}');
+      });
+
+      it('appends to existing MCP arguments', () => {
+        accumulator = {
+          ...accumulator,
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/microsoft_docs_search',
+              type: 'mcp' as const,
+              arguments: '{"query":',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.delta',
+          item_id: 'mcp_123',
+          delta: '"Azure"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].arguments).toBe('{"query":"Azure"}');
+      });
+
+      it('creates new tool call if delta arrives before output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.delta',
+          item_id: 'mcp_new',
+          delta: '{"test":"value"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('mcp_new');
+        expect(result.toolCalls[0].type).toBe('mcp');
+        expect(result.toolCalls[0].arguments).toBe('{"test":"value"}');
+      });
+
+      it('returns same accumulator for empty delta when tool exists', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/tool',
+              type: 'mcp' as const,
+              arguments: 'existing',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.delta',
+          item_id: 'mcp_123',
+          delta: '',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result).toBe(initialAccumulator);
+      });
+
+      it('sets final arguments from arguments.done event', () => {
+        accumulator = {
+          ...accumulator,
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/microsoft_docs_search',
+              type: 'mcp' as const,
+              arguments: '{"query":"partial',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.done',
+          item_id: 'mcp_123',
+          arguments: '{"query":"Azure overview"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].arguments).toBe('{"query":"Azure overview"}');
+      });
+
+      it('creates tool call from arguments.done if it does not exist', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.done',
+          item_id: 'mcp_new',
+          arguments: '{"query":"test"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('mcp_new');
+        expect(result.toolCalls[0].type).toBe('mcp');
+        expect(result.toolCalls[0].arguments).toBe('{"query":"test"}');
+      });
+
+      it('ignores delta event without item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.delta',
+          delta: '{"test":"value"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+
+      it('ignores done event without item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call_arguments.done',
+          arguments: '{"test":"value"}',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+    });
+
     describe('unknown event types', () => {
       it('returns accumulator unchanged for unknown events', () => {
         const event: StreamEvent = {
