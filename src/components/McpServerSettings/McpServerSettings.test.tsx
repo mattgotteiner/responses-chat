@@ -262,7 +262,7 @@ describe('McpServerSettings', () => {
 
     expect(mockOnUpdateServers).toHaveBeenCalledWith([
       expect.objectContaining({
-        headers: [{ key: 'Authorization', value: 'Bearer token123' }],
+        headers: [{ id: expect.any(String), key: 'Authorization', value: 'Bearer token123' }],
       }),
     ]);
   });

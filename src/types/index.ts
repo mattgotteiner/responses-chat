@@ -60,6 +60,8 @@ export type McpApprovalMode = 'never';
 
 /** Custom header for MCP server authentication */
 export interface McpHeader {
+  /** Unique identifier for stable React key */
+  id: string;
   /** Header key (e.g., 'Authorization', 'X-API-Key') */
   key: string;
   /** Header value (e.g., 'Bearer token123') */

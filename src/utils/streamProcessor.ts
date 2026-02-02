@@ -240,17 +240,22 @@ export function processStreamEvent(
         const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
         const newToolCalls = [...accumulator.toolCalls];
 
-        const status = mcpItem.status as 'in_progress' | 'completed' | undefined;
+        const status = mcpItem.status as 'in_progress' | 'completed' | 'aborted' | undefined;
         const toolName = mcpItem.name || 'mcp_tool';
         const serverLabel = mcpItem.server_label;
+        // Build the display name: server_label/toolName if both present
+        const displayName = serverLabel ? `${serverLabel}/${toolName}` : toolName;
         const args = mcpItem.arguments || '';
         const output = mcpItem.output;
         const error = mcpItem.error;
 
         if (existingIndex >= 0) {
-          // Update existing tool call
+          // Update existing tool call - also update name/type if they were placeholders
           newToolCalls[existingIndex] = {
             ...newToolCalls[existingIndex],
+            // Update name from placeholder to actual name when available
+            ...(displayName !== 'mcp_tool' && { name: displayName }),
+            type: 'mcp',
             ...(status && { status }),
             ...(args && { arguments: args }),
             ...(output && { result: output }),

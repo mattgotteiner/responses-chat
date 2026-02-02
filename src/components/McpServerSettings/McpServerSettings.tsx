@@ -41,7 +41,7 @@ interface HeaderEditorProps {
  */
 function HeaderEditor({ headers, onUpdateHeaders }: HeaderEditorProps) {
   const handleAddHeader = useCallback(() => {
-    onUpdateHeaders([...headers, { key: '', value: '' }]);
+    onUpdateHeaders([...headers, { id: generateId(), key: '', value: '' }]);
   }, [headers, onUpdateHeaders]);
 
   const handleRemoveHeader = useCallback(
@@ -68,9 +68,10 @@ function HeaderEditor({ headers, onUpdateHeaders }: HeaderEditorProps) {
         <div className="mcp-headers__empty">No custom headers configured</div>
       ) : (
         headers.map((header, index) => (
-          <div key={index} className="mcp-headers__row">
+          <div key={header.id} className="mcp-headers__row">
             <input
               type="text"
+              id={`header-key-${header.id}`}
               className="mcp-headers__key"
               value={header.key}
               onChange={(e) => handleHeaderChange(index, 'key', e.target.value)}
@@ -79,6 +80,7 @@ function HeaderEditor({ headers, onUpdateHeaders }: HeaderEditorProps) {
             />
             <input
               type="text"
+              id={`header-value-${header.id}`}
               className="mcp-headers__value"
               value={header.value}
               onChange={(e) => handleHeaderChange(index, 'value', e.target.value)}
@@ -110,12 +112,14 @@ function HeaderEditor({ headers, onUpdateHeaders }: HeaderEditorProps) {
 interface ServerFormProps {
   server: Omit<McpServerConfig, 'id'>;
   onUpdate: (updates: Partial<Omit<McpServerConfig, 'id'>>) => void;
+  /** Unique suffix for form element IDs (for accessibility) */
+  formIdSuffix: string;
 }
 
 /**
  * Form fields for editing an MCP server configuration
  */
-function ServerForm({ server, onUpdate }: ServerFormProps) {
+function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
   const handleInputChange = useCallback(
     (field: keyof Omit<McpServerConfig, 'id' | 'headers' | 'enabled'>) =>
       (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -131,12 +135,18 @@ function ServerForm({ server, onUpdate }: ServerFormProps) {
     [onUpdate]
   );
 
+  const nameId = `mcp-name-${formIdSuffix}`;
+  const labelId = `mcp-label-${formIdSuffix}`;
+  const urlId = `mcp-url-${formIdSuffix}`;
+  const headersId = `mcp-headers-${formIdSuffix}`;
+
   return (
     <div className="mcp-server-form">
       <div className="mcp-server-form__field">
-        <label className="mcp-server-form__label">Display Name</label>
+        <label className="mcp-server-form__label" htmlFor={nameId}>Display Name</label>
         <input
           type="text"
+          id={nameId}
           className="mcp-server-form__input"
           value={server.name}
           onChange={handleInputChange('name')}
@@ -145,9 +155,10 @@ function ServerForm({ server, onUpdate }: ServerFormProps) {
       </div>
 
       <div className="mcp-server-form__field">
-        <label className="mcp-server-form__label">Server Label</label>
+        <label className="mcp-server-form__label" htmlFor={labelId}>Server Label</label>
         <input
           type="text"
+          id={labelId}
           className="mcp-server-form__input"
           value={server.serverLabel}
           onChange={handleInputChange('serverLabel')}
@@ -156,9 +167,10 @@ function ServerForm({ server, onUpdate }: ServerFormProps) {
       </div>
 
       <div className="mcp-server-form__field">
-        <label className="mcp-server-form__label">Server URL</label>
+        <label className="mcp-server-form__label" htmlFor={urlId}>Server URL</label>
         <input
           type="url"
+          id={urlId}
           className="mcp-server-form__input"
           value={server.serverUrl}
           onChange={handleInputChange('serverUrl')}
@@ -167,7 +179,7 @@ function ServerForm({ server, onUpdate }: ServerFormProps) {
       </div>
 
       <div className="mcp-server-form__field">
-        <label className="mcp-server-form__label">Custom Headers</label>
+        <label className="mcp-server-form__label" id={headersId}>Custom Headers</label>
         <HeaderEditor
           headers={server.headers}
           onUpdateHeaders={handleHeadersChange}
@@ -253,7 +265,7 @@ function ServerCard({
         </button>
       </div>
       {isExpanded && (
-        <ServerForm server={server} onUpdate={handleFormUpdate} />
+        <ServerForm server={server} onUpdate={handleFormUpdate} formIdSuffix={server.id} />
       )}
     </div>
   );
@@ -352,7 +364,7 @@ export function McpServerSettings({
       {isAddingNew && (
         <div className="mcp-server-new">
           <h4 className="mcp-server-new__title">Add New MCP Server</h4>
-          <ServerForm server={newServer} onUpdate={handleUpdateNewServer} />
+          <ServerForm server={newServer} onUpdate={handleUpdateNewServer} formIdSuffix="new" />
           <div className="mcp-server-new__actions">
             <button
               type="button"

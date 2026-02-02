@@ -766,6 +766,170 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('mcp_call output item events', () => {
+      it('creates mcp_call from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcp_123',
+            type: 'mcp_call',
+            status: 'in_progress',
+            name: 'microsoft_docs_search',
+            server_label: 'mslearn',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('mcp_123');
+        expect(result.toolCalls[0].type).toBe('mcp');
+        expect(result.toolCalls[0].name).toBe('mslearn/microsoft_docs_search');
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates existing mcp_call name from placeholder when output_item.done arrives', () => {
+        // Simulate scenario where delta event created placeholder entry first
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mcp_tool', // Placeholder name
+              type: 'mcp' as const,
+              arguments: '{"query":"Azure"}',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'mcp_123',
+            type: 'mcp_call',
+            status: 'completed',
+            name: 'microsoft_docs_search',
+            server_label: 'mslearn',
+            arguments: '{"query":"Azure overview"}',
+            output: 'Some search results...',
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].name).toBe('mslearn/microsoft_docs_search');
+        expect(result.toolCalls[0].type).toBe('mcp');
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].arguments).toBe('{"query":"Azure overview"}');
+        expect(result.toolCalls[0].result).toBe('Some search results...');
+      });
+
+      it('handles mcp_call with error', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'mcp_err',
+            type: 'mcp_call',
+            status: 'completed',
+            name: 'failing_tool',
+            server_label: 'test',
+            error: 'Connection failed',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].result).toBe('Error: Connection failed');
+      });
+
+      it('creates mcp_call without server_label', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcp_no_label',
+            type: 'mcp_call',
+            status: 'in_progress',
+            name: 'some_tool',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].name).toBe('some_tool');
+      });
+
+      it('uses custom ID generator when item id is missing', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'custom_reason_id',
+          generateToolCallId: () => 'custom_mcp_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            type: 'mcp_call',
+            status: 'in_progress',
+            name: 'tool',
+            server_label: 'server',
+          },
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.toolCalls[0].id).toBe('custom_mcp_id');
+      });
+    });
+
+    describe('mcp_call status events', () => {
+      it('updates status to in_progress', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/tool',
+              type: 'mcp' as const,
+              arguments: '',
+              status: undefined,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call.in_progress',
+          item_id: 'mcp_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates status to completed', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'mcp_123',
+              name: 'mslearn/tool',
+              type: 'mcp' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.mcp_call.completed',
+          item_id: 'mcp_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('ignores status event for unknown item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call.completed',
+          item_id: 'unknown_id',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+
+      it('ignores status event without item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.mcp_call.in_progress',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+    });
+
     describe('unknown event types', () => {
       it('returns accumulator unchanged for unknown events', () => {
         const event: StreamEvent = {
