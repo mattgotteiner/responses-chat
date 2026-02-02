@@ -81,6 +81,10 @@ export interface Settings {
   messageRenderMode: MessageRenderMode;
   /** Theme preference */
   theme: Theme;
+  /** Whether to enforce max output tokens limit */
+  maxOutputTokensEnabled?: boolean;
+  /** Maximum number of output tokens (1-128000). Only used when maxOutputTokensEnabled is true */
+  maxOutputTokens?: number;
 }
 
 /** Default settings values */
