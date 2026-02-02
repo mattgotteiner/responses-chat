@@ -17,6 +17,10 @@ interface MessageProps {
   message: MessageType;
   /** Handler to open JSON panel */
   onOpenJsonPanel: (data: JsonPanelData) => void;
+  /** Handler when user approves an MCP tool call */
+  onMcpApprove?: (approvalRequestId: string) => void;
+  /** Handler when user denies an MCP tool call */
+  onMcpDeny?: (approvalRequestId: string) => void;
 }
 
 interface RenderModeToggleProps {
@@ -106,7 +110,7 @@ function RenderModeToggle({ currentMode, onModeChange, hasOverride }: RenderMode
 /**
  * Renders a single chat message with appropriate styling based on role
  */
-export function Message({ message, onOpenJsonPanel }: MessageProps) {
+export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny }: MessageProps) {
   const { settings } = useSettingsContext();
   const [overrideRenderMode, setOverrideRenderMode] = useState<MessageRenderMode | null>(null);
   
@@ -222,6 +226,8 @@ export function Message({ message, onOpenJsonPanel }: MessageProps) {
             <ToolCallBox
               key={toolCall.id}
               toolCall={toolCall}
+              onApprove={onMcpApprove}
+              onDeny={onMcpDeny}
             />
           ))}
 

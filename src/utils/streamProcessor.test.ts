@@ -930,6 +930,71 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('mcp_approval_request events', () => {
+      it('creates mcp_approval tool call from output_item.added with mcp_approval_request', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'test_reasoning_id',
+          generateToolCallId: () => 'test_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcpr_abc123',
+            type: 'mcp_approval_request',
+            name: 'microsoft_docs_search',
+            server_label: 'mslearn',
+            arguments: '{"query": "Azure AI Foundry"}',
+          },
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('test_tool_id');
+        expect(result.toolCalls[0].type).toBe('mcp_approval');
+        expect(result.toolCalls[0].name).toBe('mslearn/microsoft_docs_search');
+        expect(result.toolCalls[0].status).toBe('pending_approval');
+        expect(result.toolCalls[0].serverLabel).toBe('mslearn');
+        expect(result.toolCalls[0].approvalRequestId).toBe('mcpr_abc123');
+        expect(result.toolCalls[0].arguments).toBe('{"query": "Azure AI Foundry"}');
+      });
+
+      it('creates mcp_approval without server_label', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'test_reasoning_id',
+          generateToolCallId: () => 'test_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcpr_xyz789',
+            type: 'mcp_approval_request',
+            name: 'some_tool',
+            arguments: '{}',
+          },
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.toolCalls[0].name).toBe('some_tool');
+        expect(result.toolCalls[0].serverLabel).toBeUndefined();
+      });
+
+      it('handles mcp_approval_request with empty arguments', () => {
+        const customGenerators: IdGenerators = {
+          generateReasoningId: () => 'test_reasoning_id',
+          generateToolCallId: () => 'test_tool_id',
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcpr_empty',
+            type: 'mcp_approval_request',
+            name: 'no_args_tool',
+            server_label: 'test_server',
+          },
+        };
+        const result = processStreamEvent(accumulator, event, customGenerators);
+        expect(result.toolCalls[0].arguments).toBe('');
+      });
+    });
+
     describe('unknown event types', () => {
       it('returns accumulator unchanged for unknown events', () => {
         const event: StreamEvent = {

@@ -261,6 +261,98 @@
   background-color: #fafafa;
 }
 
+/* Pending approval variant */
+.tool-call-box--pending-approval {
+  border-color: #d4a574;
+  background-color: #fff8e8;
+}
+
+.tool-call-box--pending-approval .tool-call-box__header {
+  background-color: #fff3cd;
+  border-bottom-color: #d4a574;
+}
+
+.tool-call-box--pending-approval .tool-call-box__name {
+  color: #856404;
+}
+
+.tool-call-box__status--pending_approval {
+  background-color: #fff3cd;
+  color: #856404;
+  animation: pulse-approval 2s ease-in-out infinite;
+}
+
+.tool-call-box__status--approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.tool-call-box__status--denied {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
+@keyframes pulse-approval {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+/* Approval action buttons container */
+.tool-call-box__approval-actions {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  border-top: 1px solid #d4a574;
+  background-color: #fffbf5;
+}
+
+.tool-call-box__approve-btn,
+.tool-call-box__deny-btn {
+  flex: 1;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+
+.tool-call-box__approve-btn:hover,
+.tool-call-box__deny-btn:hover {
+  filter: brightness(0.95);
+}
+
+.tool-call-box__approve-btn {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #28a745;
+}
+
+.tool-call-box__deny-btn {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #dc3545;
+}
+
+/* Approval result messages */
+.tool-call-box__approval-result {
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  border-top: 1px solid #d4a574;
+}
+
+.tool-call-box__approval-result--approved {
+  background-color: #d4edda;
+  color: #155724;
+}
+
+.tool-call-box__approval-result--denied {
+  background-color: #f8d7da;
+  color: #721c24;
+}
+
 @media (prefers-color-scheme: dark) {
   .tool-call-box {
     border-color: #8b6914;
@@ -400,5 +492,71 @@
   .tool-call-box__output-block {
     color: #bbb;
     background-color: #222;
+  }
+
+  /* Pending approval dark mode */
+  .tool-call-box--pending-approval {
+    border-color: #8b6914;
+    background-color: #2d2a1f;
+  }
+
+  .tool-call-box--pending-approval .tool-call-box__header {
+    background-color: #3d3520;
+    border-bottom-color: #8b6914;
+  }
+
+  .tool-call-box--pending-approval .tool-call-box__name {
+    color: #d4a574;
+  }
+
+  .tool-call-box__status--pending_approval {
+    background-color: #3d3520;
+    color: #d4a574;
+  }
+
+  .tool-call-box__status--approved {
+    background-color: #1d3a2a;
+    color: #74d494;
+  }
+
+  .tool-call-box__status--denied {
+    background-color: #3a1d1d;
+    color: #d47474;
+  }
+
+  .tool-call-box__approval-actions {
+    border-top-color: #8b6914;
+    background-color: #2d2a1f;
+  }
+
+  .tool-call-box__approve-btn {
+    background-color: #2d5a2d;
+    color: #90ee90;
+    border-color: #3d8a5a;
+  }
+
+  .tool-call-box__deny-btn {
+    background-color: #5a2d2d;
+    color: #ffa0a0;
+    border-color: #8a3d3d;
+  }
+
+  .tool-call-box__approve-btn:hover,
+  .tool-call-box__deny-btn:hover {
+    filter: brightness(1.1);
+  }
+
+  .tool-call-box__approval-result {
+    border-top-color: #8b6914;
+  }
+
+  .tool-call-box__approval-result--approved {
+    background-color: #1d3a2a;
+    color: #74d494;
+  }
+
+  .tool-call-box__approval-result--denied {
+    background-color: #3a1d1d;
+    color: #d47474;
   }
 }

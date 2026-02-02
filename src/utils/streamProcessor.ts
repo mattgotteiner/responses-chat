@@ -224,6 +224,37 @@ export function processStreamEvent(
         };
       }
 
+      // Handle mcp_approval_request output items (pending MCP tool call approval)
+      if (itemEvent.item?.type === 'mcp_approval_request') {
+        const approvalItem = itemEvent.item as {
+          id?: string;
+          name?: string;
+          server_label?: string;
+          arguments?: string;
+        };
+        const itemId = approvalItem.id || idGenerators.generateToolCallId();
+        const toolName = approvalItem.name || 'mcp_tool';
+        const serverLabel = approvalItem.server_label;
+        const displayName = serverLabel ? `${serverLabel}/${toolName}` : toolName;
+        const args = approvalItem.arguments || '';
+
+        const newToolCalls = [...accumulator.toolCalls];
+        newToolCalls.push({
+          id: idGenerators.generateToolCallId(),
+          name: displayName,
+          type: 'mcp_approval',
+          arguments: args,
+          status: 'pending_approval',
+          serverLabel,
+          approvalRequestId: itemId,
+        });
+
+        return {
+          ...accumulator,
+          toolCalls: newToolCalls,
+        };
+      }
+
       // Handle mcp_call output items (remote MCP server tool invocations)
       if (itemEvent.item?.type === 'mcp_call') {
         const mcpItem = itemEvent.item as {

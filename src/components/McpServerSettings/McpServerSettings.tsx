@@ -3,8 +3,8 @@
  */
 
 import { useState, useCallback, type ChangeEvent } from 'react';
-import type { McpServerConfig, McpHeader } from '../../types';
-import { MAX_MCP_SERVERS } from '../../types';
+import type { McpServerConfig, McpHeader, McpApprovalMode } from '../../types';
+import { MAX_MCP_SERVERS, MCP_APPROVAL_OPTIONS } from '../../types';
 import './McpServerSettings.css';
 
 interface McpServerSettingsProps {
@@ -128,6 +128,13 @@ function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
     [onUpdate]
   );
 
+  const handleApprovalChange = useCallback(
+    (e: ChangeEvent<HTMLSelectElement>) => {
+      onUpdate({ requireApproval: e.target.value as McpApprovalMode });
+    },
+    [onUpdate]
+  );
+
   const handleHeadersChange = useCallback(
     (headers: McpHeader[]) => {
       onUpdate({ headers });
@@ -138,6 +145,7 @@ function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
   const nameId = `mcp-name-${formIdSuffix}`;
   const labelId = `mcp-label-${formIdSuffix}`;
   const urlId = `mcp-url-${formIdSuffix}`;
+  const approvalId = `mcp-approval-${formIdSuffix}`;
   const headersId = `mcp-headers-${formIdSuffix}`;
 
   return (
@@ -176,6 +184,22 @@ function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
           onChange={handleInputChange('serverUrl')}
           placeholder="https://example.com/mcp"
         />
+      </div>
+
+      <div className="mcp-server-form__field">
+        <label className="mcp-server-form__label" htmlFor={approvalId}>Tool Approval</label>
+        <select
+          id={approvalId}
+          className="mcp-server-form__select"
+          value={server.requireApproval}
+          onChange={handleApprovalChange}
+        >
+          {MCP_APPROVAL_OPTIONS.map((mode) => (
+            <option key={mode} value={mode}>
+              {mode === 'never' ? 'Never (auto-execute)' : 'Always (require approval)'}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="mcp-server-form__field">

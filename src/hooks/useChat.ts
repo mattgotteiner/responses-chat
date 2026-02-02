@@ -26,6 +26,8 @@ export interface UseChatReturn {
   stopStreaming: () => void;
   /** Clear all messages and reset conversation */
   clearConversation: () => void;
+  /** Handle MCP tool call approval or denial */
+  handleMcpApproval: (approvalRequestId: string, approve: boolean, settings: Settings) => Promise<void>;
   /** Any error that occurred */
   error: string | null;
 }
@@ -332,12 +334,212 @@ export function useChat(): UseChatReturn {
     setError(null);
   }, []);
 
+  const handleMcpApproval = useCallback(
+    async (approvalRequestId: string, approve: boolean, settings: Settings) => {
+      // Find the message containing this approval request
+      let targetMessage: Message | undefined;
+      let targetToolCallIndex = -1;
+
+      for (const msg of messages) {
+        if (msg.toolCalls) {
+          const idx = msg.toolCalls.findIndex(
+            (tc) => tc.approvalRequestId === approvalRequestId
+          );
+          if (idx >= 0) {
+            targetMessage = msg;
+            targetToolCallIndex = idx;
+            break;
+          }
+        }
+      }
+
+      if (!targetMessage || targetToolCallIndex < 0) {
+        setError('Could not find approval request');
+        return;
+      }
+
+      // Update tool call status to approved or denied
+      const newStatus = approve ? 'approved' : 'denied';
+      setMessages((prev) =>
+        prev.map((msg) => {
+          if (msg.id !== targetMessage!.id || !msg.toolCalls) return msg;
+          const newToolCalls = [...msg.toolCalls];
+          newToolCalls[targetToolCallIndex] = {
+            ...newToolCalls[targetToolCallIndex],
+            status: newStatus,
+          };
+          return { ...msg, toolCalls: newToolCalls };
+        })
+      );
+
+      // Must have a previous response ID to chain the response
+      if (!previousResponseIdRef.current) {
+        setError('No previous response to chain approval to');
+        return;
+      }
+
+      setError(null);
+      setIsStreaming(true);
+
+      const client = createAzureClient(settings);
+      const deployment = settings.deploymentName || settings.modelName;
+
+      // Build the approval response input
+      const approvalInput = {
+        type: 'mcp_approval_response',
+        approval_request_id: approvalRequestId,
+        approve,
+      };
+
+      // Build request params
+      const requestParams: Record<string, unknown> = {
+        model: deployment,
+        input: [approvalInput],
+        previous_response_id: previousResponseIdRef.current,
+      };
+
+      // Re-add tools configuration (required for continuing MCP calls)
+      const tools: Array<Record<string, unknown>> = [];
+      const include: string[] = [];
+      if (settings.webSearchEnabled) {
+        tools.push({ type: 'web_search_preview' });
+      }
+      if (settings.codeInterpreterEnabled) {
+        tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
+        include.push('code_interpreter_call.outputs');
+      }
+      if (settings.mcpServers && settings.mcpServers.length > 0) {
+        for (const server of settings.mcpServers) {
+          if (server.enabled) {
+            const mcpTool: Record<string, unknown> = {
+              type: 'mcp',
+              server_label: server.serverLabel,
+              server_url: server.serverUrl,
+              require_approval: server.requireApproval,
+            };
+            if (server.headers.length > 0) {
+              const headers: Record<string, string> = {};
+              for (const header of server.headers) {
+                if (header.key.trim() && header.value.trim()) {
+                  headers[header.key.trim()] = header.value.trim();
+                }
+              }
+              if (Object.keys(headers).length > 0) {
+                mcpTool.headers = headers;
+              }
+            }
+            tools.push(mcpTool);
+          }
+        }
+      }
+      if (tools.length > 0) {
+        requestParams.tools = tools;
+      }
+      if (include.length > 0) {
+        requestParams.include = include;
+      }
+
+      // Create a new assistant message for the continuation
+      const assistantMessage: Message = {
+        id: generateMessageId(),
+        role: 'assistant',
+        content: '',
+        reasoning: [],
+        toolCalls: [],
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+
+      // Start recording session if RECORD mode is enabled
+      const recordingSession = createRecordingSession();
+
+      try {
+        abortControllerRef.current = new AbortController();
+        recordingSession?.recordRequest(requestParams);
+
+        const stream = await client.responses.create(
+          {
+            ...requestParams,
+            stream: true,
+          } as Parameters<typeof client.responses.create>[0],
+          { signal: abortControllerRef.current.signal }
+        );
+
+        let accumulator = createInitialAccumulator();
+
+        const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? {
+                    ...msg,
+                    content: acc.content,
+                    reasoning: [...acc.reasoning],
+                    toolCalls: [...acc.toolCalls],
+                    ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
+                    ...(acc.responseJson && { responseJson: acc.responseJson }),
+                  }
+                : msg
+            )
+          );
+        };
+
+        for await (const event of stream as AsyncIterable<StreamEvent>) {
+          recordingSession?.recordEvent(event);
+          const newAccumulator = processStreamEvent(accumulator, event);
+          if (newAccumulator !== accumulator) {
+            accumulator = newAccumulator;
+            updateMessageFromAccumulator(accumulator);
+          }
+          if (accumulator.responseId) {
+            previousResponseIdRef.current = accumulator.responseId;
+          }
+        }
+
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
+          )
+        );
+      } catch (err) {
+        if (err instanceof Error && err.name === 'AbortError') {
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, isStreaming: false, isStopped: true }
+                : msg
+            )
+          );
+        } else {
+          const errorMessage =
+            err instanceof Error ? err.message : 'An unknown error occurred';
+          setError(errorMessage);
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, content: `Error: ${errorMessage}`, isStreaming: false, isError: true }
+                : msg
+            )
+          );
+        }
+      } finally {
+        recordingSession?.finalize();
+        setIsStreaming(false);
+        abortControllerRef.current = null;
+      }
+    },
+    [messages]
+  );
+
   return {
     messages,
     isStreaming,
     sendMessage,
     stopStreaming,
     clearConversation,
+    handleMcpApproval,
     error,
   };
 }
