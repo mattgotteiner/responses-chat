@@ -9,9 +9,9 @@
   position: relative;
   display: flex;
   align-items: center;
-  background-color: #f5f5f5;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -33,12 +33,12 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  color: #dc3545;
+  color: var(--color-danger);
 }
 
 .attachment-preview__filename {
   font-size: 12px;
-  color: #333;
+  color: var(--color-text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -56,7 +56,7 @@
   padding: 0;
   background-color: rgba(0, 0, 0, 0.6);
   border: none;
-  border-radius: 50%;
+  border-radius: var(--radius-round);
   color: #fff;
   cursor: pointer;
   opacity: 0.6;
@@ -70,7 +70,7 @@
 }
 
 .attachment-preview__remove:focus {
-  outline: 2px solid #0078d4;
+  outline: 2px solid var(--color-primary);
   outline-offset: 1px;
 }
 
@@ -86,19 +86,4 @@
 .attachment-preview__remove svg {
   width: 12px;
   height: 12px;
-}
-
-@media (prefers-color-scheme: dark) {
-  .attachment-preview__item {
-    background-color: #2a2a2a;
-    border-color: #444;
-  }
-
-  .attachment-preview__filename {
-    color: #ddd;
-  }
-
-  .attachment-preview__file-icon {
-    color: #ff6b6b;
-  }
 }

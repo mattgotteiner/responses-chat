@@ -40,6 +40,12 @@ export const VERBOSITY_OPTIONS: Verbosity[] = ['low', 'medium', 'high'];
 /** Reasoning summary type */
 export type ReasoningSummary = 'auto' | 'concise' | 'detailed';
 
+/** Theme options */
+export type Theme = 'light' | 'dark' | 'system';
+
+/** All theme options */
+export const THEME_OPTIONS: Theme[] = ['light', 'dark', 'system'];
+
 /** All reasoning summary options */
 export const REASONING_SUMMARY_OPTIONS: ReasoningSummary[] = ['auto', 'concise', 'detailed'];
 
@@ -107,6 +113,8 @@ export interface Settings {
   messageRenderMode: MessageRenderMode;
   /** Configured remote MCP servers */
   mcpServers?: McpServerConfig[];
+  /** Theme preference */
+  theme: Theme;
 }
 
 /** Default settings values */
@@ -121,6 +129,7 @@ export const DEFAULT_SETTINGS: Settings = {
   developerInstructions: undefined,
   messageRenderMode: 'markdown',
   mcpServers: [],
+  theme: 'system',
 };
 
 /** Tool call status types */

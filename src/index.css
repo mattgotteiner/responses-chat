@@ -8,20 +8,128 @@
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: #213547;
-  background-color: #ffffff;
-
-  /* Theme color variables */
-  --color-surface: #f5f5f5;
-  --color-border: #e0e0e0;
-  --color-text-secondary: #666666;
-  --color-primary: #0066cc;
-
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* Border radius tokens */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 24px;
+  --radius-round: 50%;
+
+  /* Light theme (default) */
+  --color-bg: #ffffff;
+  --color-surface: #f5f5f5;
+  --color-surface-elevated: #f0f0f0;
+  --color-border: #e0e0e0;
+  --color-border-muted: #ddd;
+  --color-text: #333333;
+  --color-text-secondary: #666666;
+  --color-text-muted: #888888;
+  --color-text-hint: #999999;
+  --color-primary: #0066cc;
+  --color-primary-hover: #0052a3;
+  --color-danger: #dc3545;
+  --color-danger-hover: #c82333;
+
+  /* Interactive surface colors (for buttons, toggles, etc.) */
+  --color-btn-surface: rgba(0, 0, 0, 0.12);
+  --color-btn-surface-hover: rgba(0, 0, 0, 0.15);
+  --color-focus-ring: rgba(0, 102, 204, 0.1);
+
+  /* Error colors */
+  --color-error-bg: #fee;
+  --color-error-border: #fcc;
+  --color-error-text: #c00;
+
+  /* Warning colors */
+  --color-warning: #b45309;
+
+  /* Border colors (transparent variants) */
+  --color-border-transparent: rgba(0, 0, 0, 0.1);
+
+  color-scheme: light;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+/* Dark theme */
+.theme-dark {
+  --color-bg: #1a1a1a;
+  --color-surface: #2a2a2a;
+  --color-surface-elevated: #333333;
+  --color-border: #404040;
+  --color-border-muted: #444444;
+  --color-text: #e0e0e0;
+  --color-text-secondary: #a0a0a0;
+  --color-text-muted: #888888;
+  --color-text-hint: #666666;
+  --color-primary: #0066cc;
+  --color-primary-hover: #3399ff;
+  --color-danger: #dc3545;
+  --color-danger-hover: #ff5a67;
+
+  /* Interactive surface colors */
+  --color-btn-surface: rgba(255, 255, 255, 0.12);
+  --color-btn-surface-hover: rgba(255, 255, 255, 0.2);
+  --color-focus-ring: rgba(77, 159, 255, 0.2);
+
+  /* Error colors */
+  --color-error-bg: #3a1a1a;
+  --color-error-border: #5a2a2a;
+  --color-error-text: #f88;
+
+  /* Warning colors */
+  --color-warning: #fbbf24;
+
+  /* Border colors (transparent variants) */
+  --color-border-transparent: rgba(255, 255, 255, 0.1);
+
+  color-scheme: dark;
+  color: var(--color-text);
+  background-color: var(--color-bg);
+}
+
+/* System preference fallback when no class is set */
+@media (prefers-color-scheme: dark) {
+  :root:not(.theme-light):not(.theme-dark) {
+    --color-bg: #1a1a1a;
+    --color-surface: #2a2a2a;
+    --color-surface-elevated: #333333;
+    --color-border: #404040;
+    --color-border-muted: #444444;
+    --color-text: #e0e0e0;
+    --color-text-secondary: #a0a0a0;
+    --color-text-muted: #888888;
+    --color-text-hint: #666666;
+    --color-primary: #0066cc;
+    --color-primary-hover: #3399ff;
+    --color-danger: #dc3545;
+    --color-danger-hover: #ff5a67;
+
+    /* Interactive surface colors */
+    --color-btn-surface: rgba(255, 255, 255, 0.12);
+    --color-btn-surface-hover: rgba(255, 255, 255, 0.2);
+    --color-focus-ring: rgba(77, 159, 255, 0.2);
+
+    /* Error colors */
+    --color-error-bg: #3a1a1a;
+    --color-error-border: #5a2a2a;
+    --color-error-text: #f88;
+
+    /* Warning colors */
+    --color-warning: #fbbf24;
+
+    /* Border colors (transparent variants) */
+    --color-border-transparent: rgba(255, 255, 255, 0.1);
+
+    color-scheme: dark;
+    color: var(--color-text);
+    background-color: var(--color-bg);
+  }
 }
 
 html,
@@ -39,27 +147,10 @@ body {
 
 a {
   font-weight: 500;
-  color: #0066cc;
+  color: var(--color-primary);
   text-decoration: none;
 }
 
 a:hover {
   text-decoration: underline;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #e0e0e0;
-    background-color: #1a1a1a;
-
-    /* Theme color variables (dark mode) */
-    --color-surface: #2a2a2a;
-    --color-border: #404040;
-    --color-text-secondary: #a0a0a0;
-    --color-primary: #4d9fff;
-  }
-
-  a {
-    color: #4d9fff;
-  }
 }
