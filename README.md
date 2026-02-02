@@ -22,7 +22,7 @@ A React + TypeScript chat interface for Azure OpenAI's Responses API with stream
 
 ```bash
 # Clone this repository
-git clone <your-repo-url>
+git clone https://github.com/mattgotteiner/responses-chat
 cd responses-chat
 
 # Install Node.js (uses .node-version file)
@@ -59,31 +59,44 @@ Open http://localhost:5173 and configure your Azure OpenAI settings to start cha
 ├── public/                         # Static files served as-is
 ├── src/
 │   ├── components/
-│   │   ├── Button/                 # Reusable button component
-│   │   ├── ChatContainer/          # Main chat layout
-│   │   ├── ChatInput/              # Message input with send button
-│   │   ├── Message/                # Individual message display
-│   │   ├── MessageList/            # Scrollable message container
-│   │   ├── ReasoningBox/           # Collapsible reasoning display
-│   │   ├── SettingsButton/         # Header settings trigger
-│   │   ├── SettingsSidebar/        # Configuration panel
-│   │   └── ToolCallBox/            # Function call display
+│   │   ├── AttachmentButton/        # File attachment trigger
+│   │   ├── AttachmentPreview/       # Attachment thumbnail display
+│   │   ├── Button/                  # Reusable button component
+│   │   ├── ChatContainer/           # Main chat layout
+│   │   ├── ChatInput/               # Message input with send button
+│   │   ├── JsonSidePanel/           # JSON viewer side panel
+│   │   ├── McpServerSettings/       # MCP server configuration
+│   │   ├── Message/                 # Individual message display
+│   │   ├── MessageList/             # Scrollable message container
+│   │   ├── ReasoningBox/            # Collapsible reasoning display
+│   │   ├── SettingsButton/          # Header settings trigger
+│   │   ├── SettingsSidebar/         # Configuration panel
+│   │   ├── TokenUsageDisplay/       # Token usage statistics
+│   │   └── ToolCallBox/             # Function call display
 │   ├── context/
-│   │   └── SettingsContext.tsx     # Global settings provider
+│   │   └── SettingsContext.tsx      # Global settings provider
 │   ├── hooks/
-│   │   ├── useChat.ts              # Chat state and API calls
-│   │   └── useSettings.ts          # Settings with localStorage
+│   │   ├── useChat.ts               # Chat state and API calls
+│   │   └── useSettings.ts           # Settings with localStorage
 │   ├── test/
-│   │   └── setup.ts                # Vitest setup
+│   │   ├── setup.ts                 # Vitest setup
+│   │   ├── helpers.ts               # Test helper utilities
+│   │   └── e2e/                     # End-to-end tests
 │   ├── types/
-│   │   └── index.ts                # TypeScript type definitions
+│   │   └── index.ts                 # TypeScript type definitions
 │   ├── utils/
-│   │   ├── api.ts                  # Azure OpenAI client utilities
-│   │   └── localStorage.ts         # Storage helpers
-│   ├── App.tsx                     # Root component
-│   ├── main.tsx                    # Entry point
-│   └── index.css                   # Global styles
-├── AGENTS.md                       # AI coding agent instructions
+│   │   ├── api.ts                   # Azure OpenAI client utilities
+│   │   ├── attachment.ts            # Attachment processing
+│   │   ├── localStorage.ts          # Storage helpers
+│   │   ├── recording.ts             # Recording file utilities
+│   │   ├── recordingReplay.ts       # Recording replay for tests
+│   │   ├── streamProcessor.ts       # Streaming response processor
+│   │   └── tokenUsage.ts            # Token usage calculations
+│   ├── App.tsx                      # Root component
+│   ├── main.tsx                     # Entry point
+│   └── index.css                    # Global styles
+├── recordings/                       # API response recordings for tests
+├── AGENTS.md                         # AI coding agent instructions
 ├── package.json                    # Dependencies and scripts
 └── vite.config.ts                  # Vite configuration
 ```
@@ -95,7 +108,7 @@ Open http://localhost:5173 and configure your Azure OpenAI settings to start cha
 ```bash
 npm run lint          # Check for lint errors
 npm run test:run      # Run all tests
-npx tsc --noEmit      # Type check
+npm run typecheck     # Type check
 ```
 
 ## Configuration

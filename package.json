@@ -1,7 +1,22 @@
 {
-  "name": "react-ts-template",
-  "private": true,
-  "version": "0.0.0",
+  "name": "responses-chat",
+  "version": "1.0.0",
+  "description": "A React + TypeScript chat interface for Azure OpenAI's Responses API",
+  "author": "Matthew Gotteiner",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mattgotteiner/responses-chat.git"
+  },
+  "homepage": "https://github.com/mattgotteiner/responses-chat",
+  "keywords": [
+    "react",
+    "typescript",
+    "azure",
+    "openai",
+    "chat",
+    "responses-api"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",
