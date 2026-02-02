@@ -168,7 +168,8 @@ export function ChatInput({
               onClick={handleCopyConversation}
               title="Copy conversation as JSON"
             >
-              📋 Copy JSON
+              <span className="chat-input__copy-json-icon">📋</span>
+              <span>Copy JSON</span>
             </button>
           )}
         </div>
