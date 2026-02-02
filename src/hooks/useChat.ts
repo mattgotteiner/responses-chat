@@ -127,6 +127,11 @@ export function useChat(): UseChatReturn {
         requestParams.verbosity = settings.verbosity;
       }
 
+      // Add max output tokens if enabled
+      if (settings.maxOutputTokensEnabled && settings.maxOutputTokens) {
+        requestParams.max_output_tokens = settings.maxOutputTokens;
+      }
+
       // Add tools if enabled
       const tools: Array<Record<string, unknown>> = [];
       const include: string[] = [];
@@ -228,6 +233,8 @@ export function useChat(): UseChatReturn {
                     toolCalls: [...acc.toolCalls],
                     ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
+                    ...(acc.isTruncated && { isTruncated: true }),
+                    ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
                   }
                 : msg
             )

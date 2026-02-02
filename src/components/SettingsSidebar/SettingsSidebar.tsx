@@ -11,6 +11,7 @@ import {
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
   THEME_OPTIONS,
+  DEFAULT_SETTINGS,
 } from '../../types';
 import { McpServerSettings } from '../McpServerSettings';
 import './SettingsSidebar.css';
@@ -51,6 +52,16 @@ export function SettingsSidebar({
   const handleCheckboxChange: CheckboxChangeHandler = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => {
       onUpdateSettings({ [field]: e.target.checked });
+    },
+    [onUpdateSettings]
+  );
+
+  const handleSliderChange = useCallback(
+    (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => {
+      const parsed = parseInt(e.target.value, 10);
+      if (!isNaN(parsed)) {
+        onUpdateSettings({ [field]: parsed });
+      }
     },
     [onUpdateSettings]
   );
@@ -355,6 +366,49 @@ export function SettingsSidebar({
                 How assistant messages are displayed. Can be overridden per message.
               </span>
             </div>
+          </section>
+
+          {/* API Limits */}
+          <section className="settings-section">
+            <h3 className="settings-section__title">API Limits</h3>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="maxOutputTokensEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.maxOutputTokensEnabled || false}
+                  onChange={handleCheckboxChange('maxOutputTokensEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Limit Max Output Tokens</span>
+              </label>
+              <span className="settings-field__hint">
+                When disabled, no limit is sent (null). Enable to set a specific limit.
+              </span>
+            </div>
+
+            {settings.maxOutputTokensEnabled && (
+              <div className="settings-field">
+                <label className="settings-field__label" htmlFor="maxOutputTokens">
+                  Max Output Tokens: {(settings.maxOutputTokens ?? DEFAULT_SETTINGS.maxOutputTokens!).toLocaleString()}
+                </label>
+                <input
+                  id="maxOutputTokens"
+                  type="range"
+                  className="settings-field__slider"
+                  value={settings.maxOutputTokens ?? DEFAULT_SETTINGS.maxOutputTokens}
+                  onChange={handleSliderChange('maxOutputTokens')}
+                  min="1000"
+                  max="128000"
+                  step="1000"
+                />
+                <div className="settings-field__slider-labels">
+                  <span>1K</span>
+                  <span>128K</span>
+                </div>
+              </div>
+            )}
           </section>
         </div>
       </div>
