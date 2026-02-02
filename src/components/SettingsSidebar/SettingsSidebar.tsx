@@ -11,6 +11,7 @@ import {
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
   THEME_OPTIONS,
+  DEFAULT_SETTINGS,
 } from '../../types';
 import { McpServerSettings } from '../McpServerSettings';
 import './SettingsSidebar.css';
@@ -390,13 +391,13 @@ export function SettingsSidebar({
             {settings.maxOutputTokensEnabled && (
               <div className="settings-field">
                 <label className="settings-field__label" htmlFor="maxOutputTokens">
-                  Max Output Tokens: {settings.maxOutputTokens?.toLocaleString() || '16000'}
+                  Max Output Tokens: {(settings.maxOutputTokens ?? DEFAULT_SETTINGS.maxOutputTokens!).toLocaleString()}
                 </label>
                 <input
                   id="maxOutputTokens"
                   type="range"
                   className="settings-field__slider"
-                  value={settings.maxOutputTokens ?? 16000}
+                  value={settings.maxOutputTokens ?? DEFAULT_SETTINGS.maxOutputTokens}
                   onChange={handleSliderChange('maxOutputTokens')}
                   min="1000"
                   max="128000"

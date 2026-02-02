@@ -119,7 +119,7 @@ export interface Settings {
   theme: Theme;
   /** Whether to enforce max output tokens limit */
   maxOutputTokensEnabled?: boolean;
-  /** Maximum number of output tokens (1-128000). Only used when maxOutputTokensEnabled is true */
+  /** Maximum number of output tokens (1000-128000). Only used when maxOutputTokensEnabled is true */
   maxOutputTokens?: number;
 }
 
@@ -136,6 +136,8 @@ export const DEFAULT_SETTINGS: Settings = {
   messageRenderMode: 'markdown',
   mcpServers: [],
   theme: 'system',
+  maxOutputTokensEnabled: false,
+  maxOutputTokens: 16000,
 };
 
 /** Tool call status types */
