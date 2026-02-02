@@ -218,6 +218,17 @@
   border-bottom: 1px solid #4a9d6a;
 }
 
+/* MCP arguments label */
+.tool-call-box__arguments-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #6a2b6a;
+  padding: 6px 12px;
+  background-color: #f0e5f0;
+  border-bottom: 1px solid #9d4a9d;
+}
+
 .tool-call-box__code-block {
   margin: 0;
   padding: 12px;
@@ -476,6 +487,12 @@
     color: #74d494;
     background-color: #1f3d2a;
     border-bottom-color: #3d8a5a;
+  }
+
+  .tool-call-box__arguments-label {
+    color: #d494d4;
+    background-color: #3d1f3d;
+    border-bottom-color: #8a3d8a;
   }
 
   .tool-call-box__code-block {

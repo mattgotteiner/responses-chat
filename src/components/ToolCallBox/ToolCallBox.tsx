@@ -177,7 +177,7 @@ function McpCallContent({ toolCall }: { toolCall: ToolCall }) {
         <>
           {toolCall.arguments && (
             <div className="tool-call-box__arguments">
-              <div className="tool-call-box__code-label">Arguments</div>
+              <div className="tool-call-box__arguments-label">Arguments</div>
               <pre>{formattedArgs}</pre>
             </div>
           )}
@@ -258,7 +258,7 @@ function McpApprovalContent({
         <>
           {toolCall.arguments && (
             <div className="tool-call-box__arguments">
-              <div className="tool-call-box__code-label">Arguments</div>
+              <div className="tool-call-box__arguments-label">Arguments</div>
               <pre>{formattedArgs}</pre>
             </div>
           )}

@@ -1059,6 +1059,43 @@ describe('streamProcessor', () => {
         const result = processStreamEvent(accumulator, event, customGenerators);
         expect(result.toolCalls[0].arguments).toBe('');
       });
+
+      it('deduplicates mcp_approval_request when both added and done events fire', () => {
+        // Simulates real API behavior where both response.output_item.added and
+        // response.output_item.done fire for the same mcp_approval_request
+        const addedEvent: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'mcpr_dedup_test',
+            type: 'mcp_approval_request',
+            name: 'microsoft_docs_search',
+            server_label: 'mslearn',
+            arguments: '{"query": "test"}',
+          },
+        };
+        const doneEvent: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'mcpr_dedup_test',
+            type: 'mcp_approval_request',
+            name: 'microsoft_docs_search',
+            server_label: 'mslearn',
+            arguments: '{"query": "test"}',
+          },
+        };
+
+        // Process added event first
+        const afterAdded = processStreamEvent(accumulator, addedEvent);
+        expect(afterAdded.toolCalls).toHaveLength(1);
+        expect(afterAdded.toolCalls[0].id).toBe('mcpr_dedup_test');
+
+        // Process done event - should NOT create a duplicate
+        const afterDone = processStreamEvent(afterAdded, doneEvent);
+        expect(afterDone.toolCalls).toHaveLength(1);
+        expect(afterDone.toolCalls[0].id).toBe('mcpr_dedup_test');
+        // Should return same accumulator reference since nothing changed
+        expect(afterDone).toBe(afterAdded);
+      });
     });
 
     describe('unknown event types', () => {

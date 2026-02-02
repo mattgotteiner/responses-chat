@@ -102,6 +102,9 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const previousResponseIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Recording session ref - persists across sendMessage and handleMcpApproval
+  // to support recording approval flows as a single session
+  const recordingSessionRef = useRef<ReturnType<typeof createRecordingSession>>(null);
 
   const sendMessage = useCallback(
     async (content: string, settings: Settings, attachments?: Attachment[]) => {
@@ -216,8 +219,13 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
 
-      // Start recording session if RECORD mode is enabled (declared here for finally block access)
+      // Start recording session if RECORD mode is enabled
+      // Store in ref so handleMcpApproval can continue using it
       const recordingSession = createRecordingSession();
+      recordingSessionRef.current = recordingSession;
+
+      // Track the accumulator to check for pending approvals at stream end
+      let finalAccumulator: StreamAccumulator | null = null;
 
       try {
         // Create abort controller for this request
@@ -277,6 +285,9 @@ export function useChat(): UseChatReturn {
           }
         }
 
+        // Store final accumulator to check for pending approvals
+        finalAccumulator = accumulator;
+
         // Mark message as no longer streaming
         setMessages((prev) =>
           prev.map((msg) =>
@@ -318,8 +329,18 @@ export function useChat(): UseChatReturn {
           );
         }
       } finally {
-        // Finalize recording if active
-        recordingSession?.finalize();
+        // Check for pending approvals - if any, don't finalize recording yet
+        const hasPendingApprovals = finalAccumulator?.toolCalls.some(
+          (tc) => tc.status === 'pending_approval'
+        );
+        
+        if (!hasPendingApprovals) {
+          // Finalize recording if active and no pending approvals
+          recordingSession?.finalize();
+          recordingSessionRef.current = null;
+        }
+        // If pending approvals, keep recording session alive for handleMcpApproval
+        
         setIsStreaming(false);
         abortControllerRef.current = null;
       }
@@ -380,7 +401,7 @@ export function useChat(): UseChatReturn {
       }
 
       // Update tool call status to approved or denied
-      const newStatus = approve ? 'approved' : 'denied';
+      const newStatus = approve ? 'approved' as const : 'denied' as const;
       setMessages((prev) =>
         prev.map((msg) => {
           if (msg.id !== targetMessage!.id || !msg.toolCalls) return msg;
@@ -448,21 +469,31 @@ export function useChat(): UseChatReturn {
         requestParams.include = include;
       }
 
-      // Create a new assistant message for the continuation
-      const assistantMessage: Message = {
-        id: generateMessageId(),
-        role: 'assistant',
-        content: '',
-        reasoning: [],
-        toolCalls: [],
-        isStreaming: true,
-        timestamp: new Date(),
-      };
+      // Continue streaming into the same message that had the approval request
+      // Store the existing content and tool calls to append to
+      // IMPORTANT: Update the tool call status in our local copy to match the setMessages update above
+      // Otherwise the merge will overwrite the approved/denied status with the old pending_approval status
+      const existingContent = targetMessage.content || '';
+      const existingToolCalls = (targetMessage.toolCalls || []).map((tc, idx) =>
+        idx === targetToolCallIndex ? { ...tc, status: newStatus } : tc
+      );
+      const existingReasoning = targetMessage.reasoning || [];
+      const existingCitations = targetMessage.citations || [];
+      const targetMessageId = targetMessage.id;
 
-      setMessages((prev) => [...prev, assistantMessage]);
+      // Mark the target message as streaming again
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === targetMessageId ? { ...msg, isStreaming: true } : msg
+        )
+      );
 
-      // Start recording session if RECORD mode is enabled
-      const recordingSession = createRecordingSession();
+      // Use existing recording session from sendMessage (if still active)
+      // This keeps the entire approval flow in a single recording
+      const recordingSession = recordingSessionRef.current;
+      
+      // Track final accumulator to check for more pending approvals at stream end
+      let finalAccumulator: StreamAccumulator | null = null;
 
       try {
         abortControllerRef.current = new AbortController();
@@ -479,15 +510,29 @@ export function useChat(): UseChatReturn {
         let accumulator = createInitialAccumulator();
 
         const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
+          // Merge existing content with new content from this continuation
+          // Keep existing tool calls, append new ones from this stream
+          const mergedToolCalls = [
+            ...existingToolCalls,
+            ...acc.toolCalls,
+          ];
+          
+          // Append new content to existing content
+          const mergedContent = existingContent + acc.content;
+          
+          // Merge reasoning and citations
+          const mergedReasoning = [...existingReasoning, ...acc.reasoning];
+          const mergedCitations = [...existingCitations, ...acc.citations];
+
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessage.id
+              msg.id === targetMessageId
                 ? {
                     ...msg,
-                    content: acc.content,
-                    reasoning: [...acc.reasoning],
-                    toolCalls: [...acc.toolCalls],
-                    ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
+                    content: mergedContent,
+                    reasoning: mergedReasoning,
+                    toolCalls: mergedToolCalls,
+                    ...(mergedCitations.length > 0 && { citations: mergedCitations }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg
@@ -507,16 +552,19 @@ export function useChat(): UseChatReturn {
           }
         }
 
+        // Store final accumulator to check for pending approvals
+        finalAccumulator = accumulator;
+
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
+            msg.id === targetMessageId ? { ...msg, isStreaming: false } : msg
           )
         );
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessage.id
+              msg.id === targetMessageId
                 ? { ...msg, isStreaming: false, isStopped: true }
                 : msg
             )
@@ -527,14 +575,25 @@ export function useChat(): UseChatReturn {
           setError(errorMessage);
           setMessages((prev) =>
             prev.map((msg) =>
-              msg.id === assistantMessage.id
-                ? { ...msg, content: `Error: ${errorMessage}`, isStreaming: false, isError: true }
+              msg.id === targetMessageId
+                ? { ...msg, content: msg.content + `\n\nError: ${errorMessage}`, isStreaming: false, isError: true }
                 : msg
             )
           );
         }
       } finally {
-        recordingSession?.finalize();
+        // Check for pending approvals - if any, don't finalize recording yet
+        const hasPendingApprovals = finalAccumulator?.toolCalls.some(
+          (tc) => tc.status === 'pending_approval'
+        );
+        
+        if (!hasPendingApprovals) {
+          // Finalize recording if active and no more pending approvals
+          recordingSession?.finalize();
+          recordingSessionRef.current = null;
+        }
+        // If pending approvals, keep recording session alive for next approval
+        
         setIsStreaming(false);
         abortControllerRef.current = null;
       }

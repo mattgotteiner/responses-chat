@@ -5,7 +5,7 @@
  * enabling both real-time UI updates and offline replay of recorded sessions.
  */
 
-import type { ReasoningStep, ToolCall, Citation } from '../types';
+import type { ReasoningStep, ToolCall, Citation, ToolCallStatus } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
 /** ID generator functions for customizable ID generation */
@@ -239,6 +239,13 @@ export function processStreamEvent(
           arguments?: string;
         };
         const itemId = approvalItem.id || idGenerators.generateToolCallId();
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        
+        // Skip if we already have this approval request (handles both added and done events)
+        if (existingIndex >= 0) {
+          return accumulator;
+        }
+        
         const toolName = approvalItem.name || 'mcp_tool';
         const serverLabel = approvalItem.server_label;
         const displayName = serverLabel ? `${serverLabel}/${toolName}` : toolName;
@@ -330,7 +337,7 @@ export function processStreamEvent(
       const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
       if (existingIndex < 0) return accumulator;
 
-      const newStatus = event.type === 'response.web_search_call.completed'
+      const newStatus: ToolCallStatus = event.type === 'response.web_search_call.completed'
         ? 'completed'
         : event.type === 'response.web_search_call.searching'
           ? 'searching'
@@ -359,7 +366,7 @@ export function processStreamEvent(
       const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
       if (existingIndex < 0) return accumulator;
 
-      const newStatus = event.type === 'response.code_interpreter_call.completed'
+      const newStatus: ToolCallStatus = event.type === 'response.code_interpreter_call.completed'
         ? 'completed'
         : event.type === 'response.code_interpreter_call.interpreting'
           ? 'interpreting'
@@ -387,7 +394,7 @@ export function processStreamEvent(
       const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
       if (existingIndex < 0) return accumulator;
 
-      const newStatus = event.type === 'response.mcp_call.completed'
+      const newStatus: ToolCallStatus = event.type === 'response.mcp_call.completed'
         ? 'completed'
         : 'in_progress';
 
