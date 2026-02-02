@@ -213,4 +213,77 @@ describe('SettingsSidebar', () => {
       expect(mockOnUpdateSettings).toHaveBeenCalledWith({ theme: 'system' });
     });
   });
+
+  describe('API Limits', () => {
+    it('renders the API Limits section', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('API Limits')).toBeInTheDocument();
+    });
+
+    it('renders max output tokens checkbox', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Limit Max Output Tokens')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /limit max output tokens/i })).toBeInTheDocument();
+    });
+
+    it('checkbox is unchecked by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /limit max output tokens/i });
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it('does not show slider when checkbox is unchecked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    });
+
+    it('shows slider when checkbox is checked', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByRole('slider')).toBeInTheDocument();
+    });
+
+    it('calls onUpdateSettings with maxOutputTokensEnabled: true when checkbox is checked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /limit max output tokens/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ maxOutputTokensEnabled: true });
+    });
+
+    it('calls onUpdateSettings with maxOutputTokensEnabled: false when checkbox is unchecked', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /limit max output tokens/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ maxOutputTokensEnabled: false });
+    });
+
+    it('slider shows current maxOutputTokens value', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true, maxOutputTokens: 32000 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const slider = screen.getByRole('slider');
+      expect(slider).toHaveValue('32000');
+    });
+
+    it('displays current token value in label', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true, maxOutputTokens: 32000 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByText(/Max Output Tokens: 32,000/)).toBeInTheDocument();
+    });
+
+    it('calls onUpdateSettings with maxOutputTokens when slider is changed', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true, maxOutputTokens: 16000 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const slider = screen.getByRole('slider');
+      fireEvent.change(slider, { target: { value: '64000' } });
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ maxOutputTokens: 64000 });
+    });
+
+    it('displays hint text about null behavior', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByText(/when disabled, no limit is sent/i)
+      ).toBeInTheDocument();
+    });
+  });
 });
