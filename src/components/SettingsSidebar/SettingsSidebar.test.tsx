@@ -11,12 +11,14 @@ import type { Settings } from '../../types';
 describe('SettingsSidebar', () => {
   const mockOnClose = vi.fn();
   const mockOnUpdateSettings = vi.fn();
+  const mockOnClearStoredData = vi.fn();
 
   const defaultProps = {
     isOpen: true,
     onClose: mockOnClose,
     settings: { ...DEFAULT_SETTINGS },
     onUpdateSettings: mockOnUpdateSettings,
+    onClearStoredData: mockOnClearStoredData,
   };
 
   beforeEach(() => {
@@ -283,6 +285,57 @@ describe('SettingsSidebar', () => {
       render(<SettingsSidebar {...defaultProps} />);
       expect(
         screen.getByText(/when disabled, no limit is sent/i)
+      ).toBeInTheDocument();
+    });
+  });
+
+  describe('Storage Settings', () => {
+    it('renders the Storage section at the top', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Storage')).toBeInTheDocument();
+    });
+
+    it('renders the noLocalStorage checkbox', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText("Don't save settings")).toBeInTheDocument();
+    });
+
+    it('checkbox is unchecked by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /don't save settings/i });
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it('checkbox is checked when noLocalStorage is true', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, noLocalStorage: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /don't save settings/i });
+      expect(checkbox).toBeChecked();
+    });
+
+    it('calls onUpdateSettings with noLocalStorage: true when checkbox is checked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /don't save settings/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ noLocalStorage: true });
+    });
+
+    it('renders Clear Saved Data button', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByRole('button', { name: /clear saved data/i })).toBeInTheDocument();
+    });
+
+    it('calls onClearStoredData when Clear Saved Data button is clicked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const button = screen.getByRole('button', { name: /clear saved data/i });
+      fireEvent.click(button);
+      expect(mockOnClearStoredData).toHaveBeenCalledTimes(1);
+    });
+
+    it('displays hint text about session behavior', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByText(/settings are not saved and must be re-entered each session/i)
       ).toBeInTheDocument();
     });
   });

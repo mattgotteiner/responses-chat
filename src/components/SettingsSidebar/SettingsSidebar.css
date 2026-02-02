@@ -76,6 +76,34 @@
   margin-bottom: 24px;
 }
 
+.settings-section--storage {
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.settings-section--clear {
+  padding-top: 20px;
+  margin-bottom: 0;
+  border-top: 1px solid var(--color-border);
+}
+
+.settings-storage__clear-btn {
+  padding: 8px 14px;
+  background-color: transparent;
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-danger);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-storage__clear-btn:hover {
+  background-color: var(--color-danger);
+  color: #fff;
+}
+
 .settings-section__title {
   margin: 0 0 16px 0;
   font-size: 13px;

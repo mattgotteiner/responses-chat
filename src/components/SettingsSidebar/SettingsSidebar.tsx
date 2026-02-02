@@ -28,6 +28,8 @@ interface SettingsSidebarProps {
   settings: Settings;
   /** Handler to update settings */
   onUpdateSettings: (updates: Partial<Settings>) => void;
+  /** Handler to clear all stored data */
+  onClearStoredData?: () => void;
 }
 
 /**
@@ -38,6 +40,7 @@ export function SettingsSidebar({
   onClose,
   settings,
   onUpdateSettings,
+  onClearStoredData,
 }: SettingsSidebarProps) {
   const availableReasoningEfforts = MODEL_REASONING_EFFORTS[settings.modelName];
 
@@ -120,6 +123,27 @@ export function SettingsSidebar({
         </div>
 
         <div className="settings-sidebar__content">
+          {/* Storage Settings */}
+          <section className="settings-section settings-section--storage">
+            <h3 className="settings-section__title">Storage</h3>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="noLocalStorage"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.noLocalStorage || false}
+                  onChange={handleCheckboxChange('noLocalStorage')}
+                />
+                <span className="settings-field__checkbox-label">Don't save settings</span>
+              </label>
+              <span className="settings-field__hint">
+                When enabled, settings are not saved and must be re-entered each session.
+              </span>
+            </div>
+          </section>
+
           {/* Appearance Settings */}
           <section className="settings-section">
             <h3 className="settings-section__title">Appearance</h3>
@@ -176,9 +200,15 @@ export function SettingsSidebar({
                 onChange={handleInputChange('apiKey')}
                 placeholder="Enter your API key"
               />
-              <span className="settings-field__hint settings-field__hint--warning">
-                ⚠️ Stored in browser localStorage (unencrypted). Use only on trusted devices.
-              </span>
+              {settings.noLocalStorage ? (
+                <span className="settings-field__hint">
+                  Storage disabled — credentials will not be saved.
+                </span>
+              ) : (
+                <span className="settings-field__hint settings-field__hint--warning">
+                  ⚠️ Stored in browser localStorage (unencrypted). Use only on trusted devices.
+                </span>
+              )}
             </div>
 
             <div className="settings-field">
@@ -409,6 +439,22 @@ export function SettingsSidebar({
                 </div>
               </div>
             )}
+          </section>
+
+          {/* Clear Data */}
+          <section className="settings-section settings-section--clear">
+            <div className="settings-field">
+              <button
+                type="button"
+                className="settings-storage__clear-btn"
+                onClick={onClearStoredData}
+              >
+                Clear Saved Data
+              </button>
+              <span className="settings-field__hint">
+                Remove all saved settings from this browser.
+              </span>
+            </div>
           </section>
         </div>
       </div>
