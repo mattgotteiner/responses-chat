@@ -5,6 +5,9 @@
 /** Storage key for application settings */
 export const SETTINGS_STORAGE_KEY = 'azure-openai-settings';
 
+/** All storage keys used by the application */
+export const ALL_STORAGE_KEYS = [SETTINGS_STORAGE_KEY] as const;
+
 /**
  * Retrieves a value from localStorage
  * @param key - Storage key
@@ -51,5 +54,18 @@ export function removeStoredValue(key: string): void {
     localStorage.removeItem(key);
   } catch (error) {
     console.error('Failed to remove from localStorage:', error);
+  }
+}
+
+/**
+ * Clears all application-related localStorage keys
+ */
+export function clearAllStoredValues(): void {
+  try {
+    for (const key of ALL_STORAGE_KEYS) {
+      localStorage.removeItem(key);
+    }
+  } catch (error) {
+    console.error('Failed to clear localStorage:', error);
   }
 }

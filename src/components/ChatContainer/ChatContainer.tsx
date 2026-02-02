@@ -9,6 +9,7 @@ import { SettingsButton } from '../SettingsButton';
 import { SettingsSidebar } from '../SettingsSidebar';
 import { MessageList } from '../MessageList';
 import { ChatInput } from '../ChatInput';
+import { ConfigurationBanner } from '../ConfigurationBanner';
 import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import { calculateConversationUsage } from '../../utils/tokenUsage';
 import type { Attachment } from '../../types';
@@ -20,7 +21,7 @@ import './ChatContainer.css';
 export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
-  const { settings, updateSettings, isConfigured } = useSettingsContext();
+  const { settings, updateSettings, clearStoredData, isConfigured } = useSettingsContext();
   const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval } = useChat();
 
   const handleOpenSettings = useCallback(() => {
@@ -85,6 +86,10 @@ export function ChatContainer() {
         onMcpDeny={handleMcpDeny}
       />
 
+      {!isConfigured && (
+        <ConfigurationBanner onConfigureClick={handleOpenSettings} />
+      )}
+
       <ChatInput
         onSendMessage={handleSendMessage}
         onClearConversation={clearConversation}
@@ -101,6 +106,7 @@ export function ChatContainer() {
         onClose={handleCloseSettings}
         settings={settings}
         onUpdateSettings={updateSettings}
+        onClearStoredData={clearStoredData}
       />
 
       <JsonSidePanel

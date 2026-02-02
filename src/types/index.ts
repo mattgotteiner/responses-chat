@@ -124,6 +124,8 @@ export interface Settings {
   maxOutputTokensEnabled?: boolean;
   /** Maximum number of output tokens (1000-128000). Only used when maxOutputTokensEnabled is true */
   maxOutputTokens?: number;
+  /** Disable localStorage persistence - settings will not be saved between sessions */
+  noLocalStorage?: boolean;
 }
 
 /** Default settings values */
@@ -141,6 +143,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   maxOutputTokensEnabled: false,
   maxOutputTokens: 16000,
+  noLocalStorage: false,
 };
 
 /** Tool call status types */

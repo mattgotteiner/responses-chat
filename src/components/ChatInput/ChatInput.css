@@ -12,9 +12,9 @@
 
 .chat-input__textarea {
   flex: 1;
-  min-height: 44px;
+  min-height: 64px;
   max-height: 200px;
-  padding: 12px 16px;
+  padding: 14px 18px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   font-family: inherit;
@@ -25,6 +25,25 @@
   color: var(--color-text);
   background-color: var(--color-surface);
   transition: border-color 0.2s, box-shadow 0.2s;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
+
+.chat-input__textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+.chat-input__textarea::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-input__textarea::-webkit-scrollbar-thumb {
+  background-color: var(--color-border);
+  border-radius: 3px;
+}
+
+.chat-input__textarea::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-text-muted);
 }
 
 .chat-input__textarea:focus {

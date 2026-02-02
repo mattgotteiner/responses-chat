@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { getStoredValue, setStoredValue, removeStoredValue } from './localStorage';
+import { getStoredValue, setStoredValue, removeStoredValue, clearAllStoredValues, SETTINGS_STORAGE_KEY } from './localStorage';
 
 describe('localStorage utilities', () => {
   beforeEach(() => {
@@ -73,6 +73,36 @@ describe('localStorage utilities', () => {
 
     it('does not throw when key does not exist', () => {
       expect(() => removeStoredValue('nonexistent')).not.toThrow();
+    });
+  });
+
+  describe('clearAllStoredValues', () => {
+    it('clears all application storage keys', () => {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify({ theme: 'dark' }));
+      localStorage.setItem('other-key', 'should-remain');
+      
+      clearAllStoredValues();
+      
+      expect(localStorage.getItem(SETTINGS_STORAGE_KEY)).toBeNull();
+      // Other keys not in ALL_STORAGE_KEYS should remain
+      expect(localStorage.getItem('other-key')).toBe('should-remain');
+    });
+
+    it('does not throw when keys do not exist', () => {
+      expect(() => clearAllStoredValues()).not.toThrow();
+    });
+
+    it('handles storage errors gracefully', () => {
+      const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      const mockRemoveItem = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+        throw new Error('Storage access denied');
+      });
+
+      clearAllStoredValues(); // Should not throw
+
+      expect(consoleSpy).toHaveBeenCalled();
+      mockRemoveItem.mockRestore();
+      consoleSpy.mockRestore();
     });
   });
 });
