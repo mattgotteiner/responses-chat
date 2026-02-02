@@ -1080,6 +1080,8 @@ describe('streamProcessor', () => {
         citations: [],
         responseId: null,
         responseJson: null,
+        isTruncated: false,
+        truncationReason: null,
       };
 
       const result = await processStream(events, initial);
