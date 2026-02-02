@@ -196,6 +196,18 @@ This is a client-side application designed for local development and testing:
 - **API Key Storage** – Keys are stored in browser localStorage (unencrypted). Only use on trusted devices. Clear browser data when finished on shared machines.
 - **Browser SDK Usage** – The OpenAI SDK runs with `dangerouslyAllowBrowser: true`, which is required for browser-based API calls. This means credentials are accessible in client-side code.
 
+## Known Limitations
+
+### Code Interpreter Cancellation
+
+When using Code Interpreter and the model executes an infinite loop or long-running code, **there is no API to immediately terminate the execution**. The "Stop" button in the UI will abort the streaming connection (stop receiving events), but the server-side code execution continues until:
+
+- The **20-minute idle timeout** kicks in
+- The **1-hour maximum session lifetime** expires
+- Azure's internal sandbox limits are reached
+
+The Azure OpenAI Responses API does not expose a container management endpoint to delete or terminate Code Interpreter containers directly. Background mode (`background: true`) does support a `/cancel` endpoint, but adds latency that's not ideal for interactive chat.
+
 ## Tech Stack
 
 | Technology | Version | Purpose |

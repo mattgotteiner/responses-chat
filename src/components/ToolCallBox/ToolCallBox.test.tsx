@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { ToolCallBox } from './ToolCallBox';
 import type { ToolCall } from '../../types';
 
@@ -106,6 +106,106 @@ describe('ToolCallBox', () => {
     it('applies web search CSS class', () => {
       const { container } = render(<ToolCallBox toolCall={webSearchCall} />);
       expect(container.querySelector('.tool-call-box--web-search')).toBeInTheDocument();
+    });
+  });
+
+  describe('code interpreter calls', () => {
+    const codeInterpreterCall: ToolCall = {
+      id: 'ci-1',
+      name: 'code_interpreter',
+      type: 'code_interpreter',
+      arguments: '',
+      status: 'completed',
+      code: 'print(2 + 2)',
+      output: '4',
+    };
+
+    it('renders code interpreter label', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(screen.getByText('Code Interpreter')).toBeInTheDocument();
+    });
+
+    it('renders python icon for code interpreter', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(screen.getByText('🐍')).toBeInTheDocument();
+    });
+
+    it('renders Python label when expanded', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('Python')).toBeInTheDocument();
+    });
+
+    it('renders the code when expanded', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('print(2 + 2)')).toBeInTheDocument();
+    });
+
+    it('renders the output when expanded', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.getByText('Output')).toBeInTheDocument();
+      expect(screen.getByText('4')).toBeInTheDocument();
+    });
+
+    it('is collapsed by default', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(screen.queryByText('Python')).not.toBeInTheDocument();
+      expect(screen.queryByText('print(2 + 2)')).not.toBeInTheDocument();
+    });
+
+    it('renders chevron indicator', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(screen.getByText('▶')).toBeInTheDocument();
+    });
+
+    it('renders complete status', () => {
+      render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(screen.getByText('Complete')).toBeInTheDocument();
+    });
+
+    it('renders interpreting status', () => {
+      const interpretingCall: ToolCall = {
+        ...codeInterpreterCall,
+        status: 'interpreting',
+      };
+      render(<ToolCallBox toolCall={interpretingCall} />);
+      expect(screen.getByText('Executing...')).toBeInTheDocument();
+    });
+
+    it('renders in_progress status', () => {
+      const inProgressCall: ToolCall = {
+        ...codeInterpreterCall,
+        status: 'in_progress',
+      };
+      render(<ToolCallBox toolCall={inProgressCall} />);
+      expect(screen.getByText('Running...')).toBeInTheDocument();
+    });
+
+    it('applies code interpreter CSS class', () => {
+      const { container } = render(<ToolCallBox toolCall={codeInterpreterCall} />);
+      expect(container.querySelector('.tool-call-box--code-interpreter')).toBeInTheDocument();
+    });
+
+    it('does not render output section when output is absent', () => {
+      const callWithoutOutput: ToolCall = {
+        ...codeInterpreterCall,
+        output: undefined,
+      };
+      render(<ToolCallBox toolCall={callWithoutOutput} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.queryByText('Output')).not.toBeInTheDocument();
+    });
+
+    it('does not render code section when code is absent', () => {
+      const callWithoutCode: ToolCall = {
+        ...codeInterpreterCall,
+        code: undefined,
+      };
+      render(<ToolCallBox toolCall={callWithoutCode} />);
+      fireEvent.click(screen.getByRole('button'));
+      expect(screen.queryByText('Python')).not.toBeInTheDocument();
     });
   });
 });

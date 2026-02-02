@@ -12,6 +12,12 @@
   background-color: #f0f5ff;
 }
 
+/* Code interpreter variant */
+.tool-call-box--code-interpreter {
+  border-color: #4a9d6a;
+  background-color: #f0fff5;
+}
+
 .tool-call-box__header {
   display: flex;
   align-items: center;
@@ -28,6 +34,11 @@
   border-bottom-color: #7494d4;
 }
 
+.tool-call-box--code-interpreter .tool-call-box__header {
+  background-color: #ebfdf0;
+  border-bottom-color: #4a9d6a;
+}
+
 .tool-call-box__icon {
   font-size: 14px;
 }
@@ -39,6 +50,10 @@
 
 .tool-call-box--web-search .tool-call-box__name {
   color: #2b5a8b;
+}
+
+.tool-call-box--code-interpreter .tool-call-box__name {
+  color: #2b6a4a;
 }
 
 .tool-call-box__status {
@@ -60,6 +75,38 @@
 .tool-call-box__status--completed {
   background-color: #d4edda;
   color: #155724;
+}
+
+/* Clickable header styling */
+.tool-call-box__header--clickable {
+  width: 100%;
+  border: none;
+  border-bottom: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.tool-call-box__header--clickable:hover {
+  filter: brightness(0.97);
+}
+
+.tool-call-box__header--clickable:disabled {
+  cursor: default;
+}
+
+.tool-call-box__header--clickable:disabled:hover {
+  filter: none;
+}
+
+.tool-call-box__chevron {
+  font-size: 10px;
+  color: #666;
+  transition: transform 0.2s ease;
+  margin-left: 8px;
+}
+
+.tool-call-box__chevron.expanded {
+  transform: rotate(90deg);
 }
 
 .tool-call-box__query {
@@ -121,6 +168,64 @@
   color: #555;
 }
 
+/* Code interpreter code section */
+.tool-call-box__code {
+  padding: 0;
+}
+
+.tool-call-box__code-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #2b6a4a;
+  padding: 6px 12px;
+  background-color: #e8f5ec;
+  border-bottom: 1px solid #4a9d6a;
+}
+
+.tool-call-box__code-block {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #1a3d2a;
+  background-color: #f8fdf9;
+}
+
+.tool-call-box__code-block code {
+  font-family: inherit;
+}
+
+/* Code interpreter output section */
+.tool-call-box__output {
+  border-top: 1px solid #4a9d6a;
+}
+
+.tool-call-box__output-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #5a5a5a;
+  padding: 6px 12px;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #ddd;
+}
+
+.tool-call-box__output-block {
+  margin: 0;
+  padding: 12px;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: #333;
+  background-color: #fafafa;
+}
+
 @media (prefers-color-scheme: dark) {
   .tool-call-box {
     border-color: #8b6914;
@@ -130,6 +235,11 @@
   .tool-call-box--web-search {
     border-color: #4a6a9d;
     background-color: #1a2230;
+  }
+
+  .tool-call-box--code-interpreter {
+    border-color: #3d8a5a;
+    background-color: #1a2a20;
   }
 
   .tool-call-box__header {
@@ -142,12 +252,21 @@
     border-bottom-color: #4a6a9d;
   }
 
+  .tool-call-box--code-interpreter .tool-call-box__header {
+    background-color: #1f3d2a;
+    border-bottom-color: #3d8a5a;
+  }
+
   .tool-call-box__name {
     color: #d4a574;
   }
 
   .tool-call-box--web-search .tool-call-box__name {
     color: #7494d4;
+  }
+
+  .tool-call-box--code-interpreter .tool-call-box__name {
+    color: #74d494;
   }
 
   .tool-call-box__status {
@@ -164,6 +283,10 @@
   .tool-call-box__status--completed {
     background-color: #1d3a2a;
     color: #74d494;
+  }
+
+  .tool-call-box__chevron {
+    color: #888;
   }
 
   .tool-call-box__query-label {
@@ -186,5 +309,28 @@
 
   .tool-call-box__result-label {
     color: #d4a574;
+  }
+
+  /* Code interpreter dark mode */
+  .tool-call-box__code-label {
+    color: #74d494;
+    background-color: #1f3d2a;
+    border-bottom-color: #3d8a5a;
+  }
+
+  .tool-call-box__code-block {
+    color: #c8e8d0;
+    background-color: #1a2a20;
+  }
+
+  .tool-call-box__output-label {
+    color: #aaa;
+    background-color: #2a2a2a;
+    border-bottom-color: #444;
+  }
+
+  .tool-call-box__output-block {
+    color: #bbb;
+    background-color: #222;
   }
 }
