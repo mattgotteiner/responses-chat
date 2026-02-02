@@ -15,6 +15,10 @@ interface MessageListProps {
   isConfigured: boolean;
   /** Handler to open JSON panel */
   onOpenJsonPanel: (data: JsonPanelData) => void;
+  /** Handler when user approves an MCP tool call */
+  onMcpApprove?: (approvalRequestId: string) => void;
+  /** Handler when user denies an MCP tool call */
+  onMcpDeny?: (approvalRequestId: string) => void;
 }
 
 /** Threshold in pixels for considering user "at bottom" */
@@ -28,6 +32,8 @@ export function MessageList({
   messages,
   isConfigured,
   onOpenJsonPanel,
+  onMcpApprove,
+  onMcpDeny,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -86,6 +92,8 @@ export function MessageList({
             key={message.id}
             message={message}
             onOpenJsonPanel={onOpenJsonPanel}
+            onMcpApprove={onMcpApprove}
+            onMcpDeny={onMcpDeny}
           />
         ))}
         <div ref={bottomRef} />

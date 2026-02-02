@@ -56,7 +56,10 @@ export type MessageRenderMode = 'markdown' | 'plaintext' | 'code';
 export const MESSAGE_RENDER_MODE_OPTIONS: MessageRenderMode[] = ['markdown', 'plaintext', 'code'];
 
 /** MCP server approval requirement options */
-export type McpApprovalMode = 'never';
+export type McpApprovalMode = 'never' | 'always';
+
+/** All MCP approval mode options */
+export const MCP_APPROVAL_OPTIONS: McpApprovalMode[] = ['never', 'always'];
 
 /** Custom header for MCP server authentication */
 export interface McpHeader {
@@ -146,7 +149,10 @@ export type ToolCallStatus =
   | 'searching'
   | 'interpreting'
   | 'completed'
-  | 'aborted';
+  | 'aborted'
+  | 'pending_approval'
+  | 'approved'
+  | 'denied';
 
 /** Tool call information */
 export interface ToolCall {
@@ -154,8 +160,8 @@ export interface ToolCall {
   id: string;
   /** Name of the tool being called (e.g., 'web_search', function name, 'code_interpreter', 'mcp') */
   name: string;
-  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution, 'mcp' for MCP server calls */
-  type: 'function' | 'web_search' | 'code_interpreter' | 'mcp';
+  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution, 'mcp' for MCP server calls, 'mcp_approval' for pending MCP approval */
+  type: 'function' | 'web_search' | 'code_interpreter' | 'mcp' | 'mcp_approval';
   /** JSON arguments passed to the tool (for function calls) */
   arguments: string;
   /** Result from the tool execution, if any */
@@ -170,6 +176,10 @@ export interface ToolCall {
   output?: string;
   /** Container ID for code interpreter session */
   containerId?: string;
+  /** Server label for MCP calls (e.g., 'mslearn') */
+  serverLabel?: string;
+  /** Approval request ID for MCP approval requests */
+  approvalRequestId?: string;
 }
 
 /** Reasoning step from the model */

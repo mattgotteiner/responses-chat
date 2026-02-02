@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ToolCallBox } from './ToolCallBox';
 import type { ToolCall } from '../../types';
@@ -360,6 +360,117 @@ describe('ToolCallBox', () => {
       // Should have aborted class, not web-search class
       expect(container.querySelector('.tool-call-box--aborted')).toBeInTheDocument();
       expect(container.querySelector('.tool-call-box--web-search')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('MCP approval calls', () => {
+    const mcpApprovalCall: ToolCall = {
+      id: 'mcp-approval-1',
+      name: 'mslearn/microsoft_docs_search',
+      type: 'mcp_approval',
+      arguments: '{"query": "Azure AI Foundry"}',
+      status: 'pending_approval',
+      serverLabel: 'mslearn',
+      approvalRequestId: 'mcpr_abc123',
+    };
+
+    it('renders MCP approval tool name', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      expect(screen.getByText('mslearn/microsoft_docs_search')).toBeInTheDocument();
+    });
+
+    it('renders warning icon for approval request', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      expect(screen.getByText('⚠️')).toBeInTheDocument();
+    });
+
+    it('renders pending approval status', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      expect(screen.getByText('Approval Required')).toBeInTheDocument();
+    });
+
+    it('is expanded by default when pending approval', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      // Should show arguments immediately
+      expect(screen.getByText('Arguments')).toBeInTheDocument();
+    });
+
+    it('shows approve and deny buttons when pending', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      expect(screen.getByText('✓ Approve')).toBeInTheDocument();
+      expect(screen.getByText('✕ Deny')).toBeInTheDocument();
+    });
+
+    it('calls onApprove with approvalRequestId when approve is clicked', () => {
+      const handleApprove = vi.fn();
+      render(<ToolCallBox toolCall={mcpApprovalCall} onApprove={handleApprove} />);
+      fireEvent.click(screen.getByText('✓ Approve'));
+      expect(handleApprove).toHaveBeenCalledWith('mcpr_abc123');
+    });
+
+    it('calls onDeny with approvalRequestId when deny is clicked', () => {
+      const handleDeny = vi.fn();
+      render(<ToolCallBox toolCall={mcpApprovalCall} onDeny={handleDeny} />);
+      fireEvent.click(screen.getByText('✕ Deny'));
+      expect(handleDeny).toHaveBeenCalledWith('mcpr_abc123');
+    });
+
+    it('shows approved status and hides buttons when approved', () => {
+      const approvedCall: ToolCall = {
+        ...mcpApprovalCall,
+        status: 'approved',
+      };
+      render(<ToolCallBox toolCall={approvedCall} />);
+      expect(screen.getByText('Approved')).toBeInTheDocument();
+      expect(screen.getByText('✓ Tool call approved')).toBeInTheDocument();
+      expect(screen.queryByText('✓ Approve')).not.toBeInTheDocument();
+      expect(screen.queryByText('✕ Deny')).not.toBeInTheDocument();
+    });
+
+    it('shows denied status and hides buttons when denied', () => {
+      const deniedCall: ToolCall = {
+        ...mcpApprovalCall,
+        status: 'denied',
+      };
+      render(<ToolCallBox toolCall={deniedCall} />);
+      expect(screen.getByText('Denied')).toBeInTheDocument();
+      expect(screen.getByText('✕ Tool call denied by user')).toBeInTheDocument();
+      expect(screen.queryByText('✓ Approve')).not.toBeInTheDocument();
+      expect(screen.queryByText('✕ Deny')).not.toBeInTheDocument();
+    });
+
+    it('applies pending-approval CSS class', () => {
+      const { container } = render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      expect(container.querySelector('.tool-call-box--pending-approval')).toBeInTheDocument();
+    });
+
+    it('formats JSON arguments', () => {
+      render(<ToolCallBox toolCall={mcpApprovalCall} />);
+      // JSON should be formatted with proper keys
+      expect(screen.getByText(/"query": "Azure AI Foundry"/)).toBeInTheDocument();
+    });
+
+    it('renders non-JSON arguments as-is', () => {
+      const callWithBadJson: ToolCall = {
+        ...mcpApprovalCall,
+        arguments: 'not valid json',
+      };
+      render(<ToolCallBox toolCall={callWithBadJson} />);
+      expect(screen.getByText('not valid json')).toBeInTheDocument();
+    });
+
+    it('does not call handlers if approvalRequestId is missing', () => {
+      const callWithoutId: ToolCall = {
+        ...mcpApprovalCall,
+        approvalRequestId: undefined,
+      };
+      const handleApprove = vi.fn();
+      const handleDeny = vi.fn();
+      render(<ToolCallBox toolCall={callWithoutId} onApprove={handleApprove} onDeny={handleDeny} />);
+      fireEvent.click(screen.getByText('✓ Approve'));
+      fireEvent.click(screen.getByText('✕ Deny'));
+      expect(handleApprove).not.toHaveBeenCalled();
+      expect(handleDeny).not.toHaveBeenCalled();
     });
   });
 });

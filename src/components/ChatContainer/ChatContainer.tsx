@@ -21,7 +21,7 @@ export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, isConfigured } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval } = useChat();
 
   const handleOpenSettings = useCallback(() => {
     setIsSettingsOpen(true);
@@ -46,6 +46,20 @@ export function ChatContainer() {
     [sendMessage, settings]
   );
 
+  const handleMcpApprove = useCallback(
+    (approvalRequestId: string) => {
+      handleMcpApproval(approvalRequestId, true, settings);
+    },
+    [handleMcpApproval, settings]
+  );
+
+  const handleMcpDeny = useCallback(
+    (approvalRequestId: string) => {
+      handleMcpApproval(approvalRequestId, false, settings);
+    },
+    [handleMcpApproval, settings]
+  );
+
   const inputPlaceholder = isConfigured
     ? 'Type a message...'
     : 'Configure settings to start chatting...';
@@ -67,6 +81,8 @@ export function ChatContainer() {
         messages={messages}
         isConfigured={isConfigured}
         onOpenJsonPanel={handleOpenJsonPanel}
+        onMcpApprove={handleMcpApprove}
+        onMcpDeny={handleMcpDeny}
       />
 
       <ChatInput
