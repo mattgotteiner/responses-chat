@@ -224,6 +224,61 @@ export function processStreamEvent(
         };
       }
 
+      // Handle mcp_call output items (remote MCP server tool invocations)
+      if (itemEvent.item?.type === 'mcp_call') {
+        const mcpItem = itemEvent.item as {
+          id?: string;
+          type?: string;
+          status?: string;
+          name?: string;
+          server_label?: string;
+          arguments?: string;
+          output?: string;
+          error?: string;
+        };
+        const itemId = mcpItem.id || idGenerators.generateToolCallId();
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        const newToolCalls = [...accumulator.toolCalls];
+
+        const status = mcpItem.status as 'in_progress' | 'completed' | 'aborted' | undefined;
+        const toolName = mcpItem.name || 'mcp_tool';
+        const serverLabel = mcpItem.server_label;
+        // Build the display name: server_label/toolName if both present
+        const displayName = serverLabel ? `${serverLabel}/${toolName}` : toolName;
+        const args = mcpItem.arguments || '';
+        const output = mcpItem.output;
+        const error = mcpItem.error;
+
+        if (existingIndex >= 0) {
+          // Update existing tool call - also update name/type if they were placeholders
+          newToolCalls[existingIndex] = {
+            ...newToolCalls[existingIndex],
+            // Update name from placeholder to actual name when available
+            ...(displayName !== 'mcp_tool' && { name: displayName }),
+            type: 'mcp',
+            ...(status && { status }),
+            ...(args && { arguments: args }),
+            ...(output && { result: output }),
+            ...(error && { result: `Error: ${error}` }),
+          };
+        } else {
+          // Add new MCP call
+          newToolCalls.push({
+            id: itemId,
+            name: serverLabel ? `${serverLabel}/${toolName}` : toolName,
+            type: 'mcp',
+            arguments: args,
+            status: status || 'in_progress',
+            result: output || error ? (error ? `Error: ${error}` : output) : undefined,
+          });
+        }
+
+        return {
+          ...accumulator,
+          toolCalls: newToolCalls,
+        };
+      }
+
       return accumulator;
     }
 
@@ -278,6 +333,103 @@ export function processStreamEvent(
         ...newToolCalls[existingIndex],
         status: newStatus,
       };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.mcp_call.in_progress':
+    case 'response.mcp_call.completed': {
+      // Update MCP call status
+      const mcpEvent = event as { item_id?: string };
+      const itemId = mcpEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      if (existingIndex < 0) return accumulator;
+
+      const newStatus = event.type === 'response.mcp_call.completed'
+        ? 'completed'
+        : 'in_progress';
+
+      const newToolCalls = [...accumulator.toolCalls];
+      newToolCalls[existingIndex] = {
+        ...newToolCalls[existingIndex],
+        status: newStatus,
+      };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.mcp_call_arguments.delta': {
+      // Accumulate MCP call arguments from streaming delta events
+      const mcpArgsEvent = event as { item_id?: string; delta?: string };
+      const delta = mcpArgsEvent.delta || '';
+      const itemId = mcpArgsEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+
+      // Short-circuit on empty delta if the tool call already exists
+      if (delta === '' && existingIndex >= 0) {
+        return accumulator;
+      }
+
+      const newToolCalls = [...accumulator.toolCalls];
+
+      if (existingIndex >= 0) {
+        newToolCalls[existingIndex] = {
+          ...newToolCalls[existingIndex],
+          arguments: (newToolCalls[existingIndex].arguments || '') + delta,
+        };
+      } else {
+        // Create new entry if it doesn't exist yet
+        newToolCalls.push({
+          id: itemId,
+          name: 'mcp_tool',
+          type: 'mcp',
+          arguments: delta,
+          status: 'in_progress',
+        });
+      }
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.mcp_call_arguments.done': {
+      // Capture final complete MCP call arguments
+      const mcpArgsEvent = event as { item_id?: string; arguments?: string };
+      const args = mcpArgsEvent.arguments || '';
+      const itemId = mcpArgsEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      const newToolCalls = [...accumulator.toolCalls];
+
+      if (existingIndex >= 0) {
+        // Update with final complete arguments
+        newToolCalls[existingIndex] = {
+          ...newToolCalls[existingIndex],
+          arguments: args,
+        };
+      } else {
+        // Create new entry if it doesn't exist yet
+        newToolCalls.push({
+          id: itemId,
+          name: 'mcp_tool',
+          type: 'mcp',
+          arguments: args,
+          status: 'in_progress',
+        });
+      }
 
       return {
         ...accumulator,
