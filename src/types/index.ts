@@ -171,7 +171,9 @@ export interface ToolCall {
   result?: string;
   /** Status of the tool call */
   status?: ToolCallStatus;
-  /** Search query (for web search calls) */
+  /** Web search action type: 'search' for queries, 'open_page' for URL fetches */
+  webSearchActionType?: 'search' | 'open_page';
+  /** Search query (for web search calls with action type 'search') */
   query?: string;
   /** Python code being executed (for code interpreter calls) */
   code?: string;
