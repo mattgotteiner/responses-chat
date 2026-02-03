@@ -151,6 +151,7 @@ export function processStreamEvent(
         const newToolCalls = [...accumulator.toolCalls];
 
         const status = itemEvent.item.status as 'in_progress' | 'searching' | 'completed' | undefined;
+        const actionType = itemEvent.item.action?.type as 'search' | 'open_page' | undefined;
         const query = itemEvent.item.action?.query;
 
         if (existingIndex >= 0) {
@@ -158,6 +159,7 @@ export function processStreamEvent(
           newToolCalls[existingIndex] = {
             ...newToolCalls[existingIndex],
             ...(status && { status }),
+            ...(actionType && { webSearchActionType: actionType }),
             ...(query && { query, arguments: JSON.stringify({ query }) }),
           };
         } else {
@@ -168,6 +170,7 @@ export function processStreamEvent(
             type: 'web_search',
             arguments: query ? JSON.stringify({ query }) : '',
             status: status || 'in_progress',
+            webSearchActionType: actionType,
             query,
           });
         }

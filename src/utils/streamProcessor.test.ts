@@ -450,6 +450,52 @@ describe('streamProcessor', () => {
         const result = processStreamEvent(initialAccumulator, event);
         expect(result.toolCalls[0].status).toBe('completed');
         expect(result.toolCalls[0].query).toBe('Paris overview');
+        expect(result.toolCalls[0].webSearchActionType).toBe('search');
+      });
+
+      it('handles open_page action type', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ws_open_123',
+              name: 'web_search',
+              type: 'web_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ws_open_123',
+            type: 'web_search_call',
+            status: 'completed',
+            action: { type: 'open_page' },
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].webSearchActionType).toBe('open_page');
+      });
+
+      it('creates new web_search_call with open_page action from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'ws_new_open',
+            type: 'web_search_call',
+            status: 'in_progress',
+            action: { type: 'open_page' },
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ws_new_open');
+        expect(result.toolCalls[0].type).toBe('web_search');
+        expect(result.toolCalls[0].webSearchActionType).toBe('open_page');
+        expect(result.toolCalls[0].status).toBe('in_progress');
       });
     });
 
