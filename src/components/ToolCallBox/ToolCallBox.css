@@ -468,6 +468,14 @@
     color: #bbb;
   }
 
+  .tool-call-box__url-label {
+    color: #7494d4;
+  }
+
+  .tool-call-box__url-link {
+    color: #7494d4;
+  }
+
   .tool-call-box__arguments pre,
   .tool-call-box__result pre {
     color: #bbb;
