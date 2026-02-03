@@ -109,6 +109,71 @@ describe('ToolCallBox', () => {
     });
   });
 
+  describe('web search open_page calls', () => {
+    const openPageCall: ToolCall = {
+      id: 'ws-open-1',
+      name: 'web_search',
+      type: 'web_search',
+      arguments: '',
+      status: 'completed',
+      webSearchActionType: 'open_page',
+    };
+
+    it('renders Open Page label for open_page action', () => {
+      render(<ToolCallBox toolCall={openPageCall} />);
+      expect(screen.getByText('Open Page')).toBeInTheDocument();
+    });
+
+    it('renders document icon for open_page action', () => {
+      render(<ToolCallBox toolCall={openPageCall} />);
+      expect(screen.getByText('📄')).toBeInTheDocument();
+    });
+
+
+
+    it('renders Page opened status when completed', () => {
+      render(<ToolCallBox toolCall={openPageCall} />);
+      expect(screen.getByText('Page opened')).toBeInTheDocument();
+    });
+
+    it('renders Opening page... status when in_progress', () => {
+      const inProgressCall: ToolCall = {
+        ...openPageCall,
+        status: 'in_progress',
+      };
+      render(<ToolCallBox toolCall={inProgressCall} />);
+      expect(screen.getByText('Opening page...')).toBeInTheDocument();
+    });
+
+    it('renders Opening page... status when searching', () => {
+      const searchingCall: ToolCall = {
+        ...openPageCall,
+        status: 'searching',
+      };
+      render(<ToolCallBox toolCall={searchingCall} />);
+      expect(screen.getByText('Opening page...')).toBeInTheDocument();
+    });
+
+    it('renders Aborted status for aborted open_page', () => {
+      const abortedCall: ToolCall = {
+        ...openPageCall,
+        status: 'aborted',
+      };
+      render(<ToolCallBox toolCall={abortedCall} />);
+      expect(screen.getByText('Aborted')).toBeInTheDocument();
+    });
+
+    it('applies web search CSS class for open_page', () => {
+      const { container } = render(<ToolCallBox toolCall={openPageCall} />);
+      expect(container.querySelector('.tool-call-box--web-search')).toBeInTheDocument();
+    });
+
+    it('does not show query when open_page has no query', () => {
+      render(<ToolCallBox toolCall={openPageCall} />);
+      expect(screen.queryByText('Query:')).not.toBeInTheDocument();
+    });
+  });
+
   describe('code interpreter calls', () => {
     const codeInterpreterCall: ToolCall = {
       id: 'ci-1',

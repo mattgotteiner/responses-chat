@@ -19,29 +19,38 @@ interface ToolCallBoxProps {
  * Renders a web search call with query and status
  */
 function WebSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
-  const statusLabels: Record<string, string> = {
-    in_progress: 'Searching...',
-    searching: 'Searching...',
-    completed: 'Search complete',
-    aborted: 'Aborted',
-  };
-  const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Searching...';
+  const isOpenPage = toolCall.webSearchActionType === 'open_page';
+  
+  const statusLabels: Record<string, string> = isOpenPage
+    ? {
+        in_progress: 'Opening page...',
+        searching: 'Opening page...',
+        completed: 'Page opened',
+        aborted: 'Aborted',
+      }
+    : {
+        in_progress: 'Searching...',
+        searching: 'Searching...',
+        completed: 'Search complete',
+        aborted: 'Aborted',
+      };
+  const statusLabel = statusLabels[toolCall.status || 'in_progress'] || (isOpenPage ? 'Opening page...' : 'Searching...');
 
   return (
     <>
       <div className="tool-call-box__header">
-        <span className="tool-call-box__icon">🔍</span>
-        <span className="tool-call-box__name">Web Search</span>
+        <span className="tool-call-box__icon">{isOpenPage ? '📄' : '🔍'}</span>
+        <span className="tool-call-box__name">{isOpenPage ? 'Open Page' : 'Web Search'}</span>
         <span className={`tool-call-box__status tool-call-box__status--${toolCall.status || 'in_progress'}`}>
           {statusLabel}
         </span>
       </div>
-      {toolCall.query && (
+      {toolCall.query ? (
         <div className="tool-call-box__query">
           <span className="tool-call-box__query-label">Query:</span>
           <span className="tool-call-box__query-text">{toolCall.query}</span>
         </div>
-      )}
+      ) : null}
     </>
   );
 }
