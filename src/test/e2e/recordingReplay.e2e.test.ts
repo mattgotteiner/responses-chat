@@ -992,6 +992,213 @@ describe('Recording Replay E2E', () => {
     });
   });
 
+  describe('single-turn-pdf-upload.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-pdf-upload.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with file input', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBeDefined();
+      
+      // Verify input contains file attachment (PDF)
+      const input = recording.request.data.input;
+      expect(Array.isArray(input)).toBe(true);
+      
+      // Should have a message item with file content
+      const inputArray = input as Array<{
+        type?: string;
+        role?: string;
+        content?: Array<{ type: string; filename?: string; file_data?: string }>;
+      }>;
+      const messageWithFile = inputArray.find(
+        (i) => i.role === 'user' && 
+        Array.isArray(i.content) && 
+        i.content.some((c) => c.type === 'input_file')
+      );
+      expect(messageWithFile).toBeDefined();
+      
+      // Verify file content exists with filename and file_data directly on the content item
+      const fileContent = messageWithFile?.content?.find((c) => c.type === 'input_file');
+      expect(fileContent).toBeDefined();
+      expect(fileContent?.filename).toBe('Benefit_Options.pdf');
+      expect(fileContent?.file_data).toContain('data:application/pdf;base64,');
+    });
+
+    it('contains expected event types', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have response lifecycle events
+      expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.completed']).toBe(1);
+      
+      // Should have output text deltas for the response content
+      expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have captured the response ID from response.completed
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).not.toBeNull();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('captures full response JSON', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have the full response object
+      expect(result.responseJson).toBeDefined();
+      expect(result.responseJson).not.toBeNull();
+      expect(result.responseJson!.id).toBe(result.responseId);
+      expect(result.responseJson!.status).toBe('completed');
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+    });
+
+    it('has reasonable recording duration', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording should be between 1 second and 2 minutes (PDF processing may take longer)
+      expect(stats.durationMs).toBeGreaterThan(1000);
+      expect(stats.durationMs).toBeLessThan(120000);
+    });
+  });
+
+  describe('single-turn-image-upload.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-image-upload.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with image input', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBeDefined();
+      
+      // Verify input contains image attachment
+      const input = recording.request.data.input;
+      expect(Array.isArray(input)).toBe(true);
+      
+      // Should have a message item with image content
+      const inputArray = input as Array<{
+        type?: string;
+        role?: string;
+        content?: Array<{ type: string; image_url?: string }>;
+      }>;
+      const messageWithImage = inputArray.find(
+        (i) => i.role === 'user' && 
+        Array.isArray(i.content) && 
+        i.content.some((c) => c.type === 'input_image')
+      );
+      expect(messageWithImage).toBeDefined();
+      
+      // Verify image content exists with base64 data URL (image_url is a string in Responses API)
+      const imageContent = messageWithImage?.content?.find((c) => c.type === 'input_image');
+      expect(imageContent).toBeDefined();
+      expect(imageContent?.image_url).toContain('data:image/');
+    });
+
+    it('contains expected event types', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have response lifecycle events
+      expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.completed']).toBe(1);
+      
+      // Should have output text deltas for the response content
+      expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have captured the response ID from response.completed
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).not.toBeNull();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('captures full response JSON', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have the full response object
+      expect(result.responseJson).toBeDefined();
+      expect(result.responseJson).not.toBeNull();
+      expect(result.responseJson!.id).toBe(result.responseId);
+      expect(result.responseJson!.status).toBe('completed');
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+    });
+
+    it('has reasonable recording duration', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording should be between 1 second and 2 minutes (image processing may take longer)
+      expect(stats.durationMs).toBeGreaterThan(1000);
+      expect(stats.durationMs).toBeLessThan(120000);
+    });
+  });
+
   describe('Recording stats utility', () => {
     it('provides accurate event counts', () => {
       const recording = loadRecordingFixture('single-turn-reasoning.jsonl');
