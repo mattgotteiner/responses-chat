@@ -36,3 +36,5 @@ coverage
 .env
 .env.local
 .env.*.local
+
+*.csv

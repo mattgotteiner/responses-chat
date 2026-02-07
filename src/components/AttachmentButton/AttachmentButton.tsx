@@ -73,7 +73,7 @@ export function AttachmentButton({
           rejectedFiles.push({
             name: file.name,
             reason: 'unsupported-type',
-            message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). Supported types: PNG, JPEG, WebP, and PDF.`,
+            message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). Supported: images, PDF, CSV, JSON, Excel, Word, and text files.`,
           });
         } else if (file.size > maxFileSize) {
           rejectedFiles.push({
@@ -127,7 +127,7 @@ export function AttachmentButton({
         onClick={handleClick}
         disabled={disabled}
         aria-label="Attach file"
-        title="Attach image or PDF"
+        title="Attach files (images, PDF, CSV, JSON, Excel, Word, code)"
       >
         <svg
           viewBox="0 0 24 24"

@@ -712,6 +712,82 @@ describe('streamProcessor', () => {
         expect(result.toolCalls[0].output).toBe('hello');
       });
 
+      it('captures images from output event', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_img',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'import matplotlib; plt.plot([1,2,3])',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_img',
+          outputs: [
+            { type: 'logs', logs: 'Plot created' },
+            { type: 'image', url: 'https://example.com/chart.png' },
+            { type: 'image', url: 'data:image/png;base64,iVBORw0KGgo=' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].output).toBe('Plot created');
+        expect(result.toolCalls[0].codeInterpreterImages).toHaveLength(2);
+        expect(result.toolCalls[0].codeInterpreterImages![0].url).toBe('https://example.com/chart.png');
+        expect(result.toolCalls[0].codeInterpreterImages![1].url).toBe('data:image/png;base64,iVBORw0KGgo=');
+      });
+
+      it('extracts images from output_item.done with code_interpreter_call', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ci_full',
+            type: 'code_interpreter_call',
+            status: 'completed',
+            code: 'plt.savefig("chart.png")',
+            outputs: [
+              { type: 'logs', logs: 'Saved' },
+              { type: 'image', url: 'https://example.com/generated.png' },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].codeInterpreterImages).toHaveLength(1);
+        expect(result.toolCalls[0].codeInterpreterImages![0].url).toBe('https://example.com/generated.png');
+        expect(result.toolCalls[0].output).toBe('Saved');
+      });
+
+      it('does not create codeInterpreterImages if no images in output', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_text_only',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'print("text only")',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_text_only',
+          outputs: [
+            { type: 'logs', logs: 'text only' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].output).toBe('text only');
+        expect(result.toolCalls[0].codeInterpreterImages).toBeUndefined();
+      });
+
       it('returns same accumulator for empty code delta when tool exists', () => {
         const initialAccumulator = {
           ...createInitialAccumulator(),

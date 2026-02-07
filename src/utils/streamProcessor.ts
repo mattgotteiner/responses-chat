@@ -5,7 +5,7 @@
  * enabling both real-time UI updates and offline replay of recorded sessions.
  */
 
-import type { ReasoningStep, ToolCall, Citation, FileCitation, ToolCallStatus } from '../types';
+import type { ReasoningStep, ToolCall, Citation, FileCitation, ToolCallStatus, CodeInterpreterImage } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
 /** ID generator functions for customizable ID generation */
@@ -192,7 +192,7 @@ export function processStreamEvent(
           status?: string;
           code?: string;
           container_id?: string;
-          outputs?: Array<{ type?: string; logs?: string }>;
+          outputs?: Array<{ type?: string; logs?: string; url?: string }>;
         };
         const itemId = codeInterpreterItem.id || idGenerators.generateToolCallId();
         const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
@@ -206,6 +206,10 @@ export function processStreamEvent(
           ?.filter((o) => o.type === 'logs')
           .map((o) => o.logs || '')
           .join('\n');
+        // Extract images from outputs
+        const images: CodeInterpreterImage[] = codeInterpreterItem.outputs
+          ?.filter((o) => o.type === 'image' && o.url)
+          .map((o) => ({ url: o.url! })) || [];
 
         if (existingIndex >= 0) {
           // Update existing tool call
@@ -215,6 +219,7 @@ export function processStreamEvent(
             ...(code && { code }),
             ...(containerId && { containerId }),
             ...(outputLogs && { output: outputLogs }),
+            ...(images.length > 0 && { codeInterpreterImages: images }),
           };
         } else {
           // Add new code interpreter call
@@ -227,6 +232,7 @@ export function processStreamEvent(
             code: code || '',
             containerId,
             output: outputLogs,
+            ...(images.length > 0 && { codeInterpreterImages: images }),
           });
         }
 
@@ -664,8 +670,8 @@ export function processStreamEvent(
       // Capture code interpreter output (supports both singular and plural event names)
       const outputEvent = event as {
         item_id?: string;
-        output?: Array<{ type?: string; logs?: string }>;
-        outputs?: Array<{ type?: string; logs?: string }>;
+        output?: Array<{ type?: string; logs?: string; url?: string }>;
+        outputs?: Array<{ type?: string; logs?: string; url?: string }>;
       };
       const itemId = outputEvent.item_id;
       if (!itemId) return accumulator;
@@ -675,15 +681,23 @@ export function processStreamEvent(
 
       // Support both 'output' and 'outputs' property names
       const outputArray = outputEvent.outputs || outputEvent.output;
+      
+      // Extract logs from output
       const logs = outputArray
         ?.filter((o) => o.type === 'logs')
         .map((o) => o.logs || '')
         .join('\n') || '';
+      
+      // Extract images from output
+      const images: CodeInterpreterImage[] = outputArray
+        ?.filter((o) => o.type === 'image' && o.url)
+        .map((o) => ({ url: o.url! })) || [];
 
       const newToolCalls = [...accumulator.toolCalls];
       newToolCalls[existingIndex] = {
         ...newToolCalls[existingIndex],
         output: logs,
+        ...(images.length > 0 && { codeInterpreterImages: images }),
       };
 
       return {

@@ -73,8 +73,8 @@ describe('AttachmentButton file validation', () => {
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    // Create a mock file with unsupported type
-    const unsupportedFile = new File(['content'], 'test.txt', { type: 'text/plain' });
+    // Create a mock file with unsupported type (video files are not supported)
+    const unsupportedFile = new File(['content'], 'test.mp4', { type: 'video/mp4' });
     
     // Simulate file selection
     Object.defineProperty(input, 'files', {
@@ -90,7 +90,7 @@ describe('AttachmentButton file validation', () => {
           attachments: [],
           rejectedFiles: [
             expect.objectContaining({
-              name: 'test.txt',
+              name: 'test.mp4',
               reason: 'unsupported-type',
             }),
           ],
@@ -156,8 +156,9 @@ describe('AttachmentButton file validation', () => {
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const unsupportedFile = new File(['content'], 'document.docx', { 
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // Use an audio file which is not supported
+    const unsupportedFile = new File(['content'], 'audio.mp3', { 
+      type: 'audio/mpeg',
     });
     
     Object.defineProperty(input, 'files', {
@@ -169,9 +170,10 @@ describe('AttachmentButton file validation', () => {
     
     await waitFor(() => {
       const result = onAttachResult.mock.calls[0][0];
-      expect(result.rejectedFiles[0].message).toContain('document.docx');
+      expect(result.rejectedFiles[0].message).toContain('audio.mp3');
       expect(result.rejectedFiles[0].message).toContain('unsupported file type');
-      expect(result.rejectedFiles[0].message).toContain('PNG, JPEG, WebP, and PDF');
+      // Updated message now references expanded supported types
+      expect(result.rejectedFiles[0].message).toContain('images, PDF, CSV, JSON, Excel, Word, and text files');
     });
   });
 

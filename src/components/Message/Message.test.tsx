@@ -471,6 +471,7 @@ describe('attachments', () => {
       mimeType: 'image/png',
       base64: 'abc123',
       previewUrl: 'data:image/png;base64,abc123',
+      size: 1024,
     };
 
     const fileAttachment: Attachment = {
@@ -479,6 +480,7 @@ describe('attachments', () => {
       type: 'file',
       mimeType: 'application/pdf',
       base64: 'def456',
+      size: 2048,
     };
 
     it('renders image attachments with preview', () => {

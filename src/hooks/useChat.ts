@@ -122,10 +122,16 @@ export function useChat(): UseChatReturn {
       const client = createAzureClient(settings);
       const deployment = settings.deploymentName || settings.modelName;
 
+      // Separate attachments by type
+      const imageAttachments = attachments?.filter(isImageAttachment) || [];
+      const fileAttachments = attachments?.filter((a) => !isImageAttachment(a)) || [];
+
       // Build input: either simple string or structured content with attachments
       let input: string | Record<string, unknown>[];
-      if (attachments && attachments.length > 0) {
-        // Build content array with text and attachments
+      const hasAttachments = imageAttachments.length > 0 || fileAttachments.length > 0;
+      
+      if (hasAttachments) {
+        // Build content array with text, images, and files
         const contentParts: Record<string, unknown>[] = [];
         
         // Add text content if present
@@ -133,22 +139,22 @@ export function useChat(): UseChatReturn {
           contentParts.push({ type: 'input_text', text: content.trim() });
         }
         
-        // Add attachments
-        for (const attachment of attachments) {
-          if (isImageAttachment(attachment)) {
-            // Image attachment
-            contentParts.push({
-              type: 'input_image',
-              image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
-            });
-          } else {
-            // File attachment (PDF)
-            contentParts.push({
-              type: 'input_file',
-              filename: attachment.name,
-              file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
-            });
-          }
+        // Add image attachments as input_image
+        for (const attachment of imageAttachments) {
+          contentParts.push({
+            type: 'input_image',
+            image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
+          });
+        }
+
+        // Add file attachments as input_file
+        // These are automatically available to code interpreter when that tool is enabled
+        for (const attachment of fileAttachments) {
+          contentParts.push({
+            type: 'input_file',
+            filename: attachment.name,
+            file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
+          });
         }
         
         // Wrap in message format
