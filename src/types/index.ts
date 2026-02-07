@@ -291,6 +291,16 @@ export interface Citation {
   endIndex: number;
 }
 
+/** File citation from file search results */
+export interface FileCitation {
+  /** File ID in the vector store */
+  fileId: string;
+  /** Original filename */
+  filename: string;
+  /** Position index in the content where this citation applies */
+  index: number;
+}
+
 /** A message in the conversation */
 export interface Message {
   /** Unique message identifier */
@@ -305,6 +315,8 @@ export interface Message {
   toolCalls?: ToolCall[];
   /** URL citations from web search */
   citations?: Citation[];
+  /** File citations from file search */
+  fileCitations?: FileCitation[];
   /** Whether this message is currently streaming */
   isStreaming?: boolean;
   /** Whether this message represents an error */

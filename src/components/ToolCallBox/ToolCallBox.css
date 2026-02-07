@@ -297,6 +297,19 @@
   border: 1px solid #e8f0f8;
 }
 
+/* File citation result (simpler, no score/text) */
+.tool-call-box__file-result--citation {
+  padding: 8px 12px;
+}
+
+.tool-call-box__file-result--citation .tool-call-box__file-result-header {
+  margin-bottom: 0;
+}
+
+.tool-call-box__file-result-icon {
+  font-size: 14px;
+}
+
 /* Code interpreter code section */
 .tool-call-box__code {
   padding: 0;

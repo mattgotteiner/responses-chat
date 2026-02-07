@@ -3,7 +3,7 @@
  */
 
 import { useState } from 'react';
-import type { ToolCall } from '../../types';
+import type { ToolCall, FileCitation } from '../../types';
 import './ToolCallBox.css';
 
 interface ToolCallBoxProps {
@@ -13,6 +13,8 @@ interface ToolCallBoxProps {
   onApprove?: (approvalRequestId: string) => void;
   /** Handler when user denies an MCP tool call */
   onDeny?: (approvalRequestId: string) => void;
+  /** File citations from file search (for hit count display) */
+  fileCitations?: FileCitation[];
 }
 
 /**
@@ -220,9 +222,10 @@ function formatScore(score: number): string {
 /**
  * Renders a file search call with query and results
  */
-function FileSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
+function FileSearchCallContent({ toolCall, fileCitations }: { toolCall: ToolCall; fileCitations?: FileCitation[] }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const hitCount = toolCall.fileSearchResults?.length ?? 0;
+  // Use file citations count if available (more reliable than direct results which can be null)
+  const hitCount = fileCitations?.length ?? toolCall.fileSearchResults?.length ?? 0;
   const statusLabels: Record<string, string> = {
     in_progress: 'Searching...',
     searching: 'Searching...',
@@ -230,7 +233,8 @@ function FileSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
     aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Searching...';
-  const hasContent = toolCall.query || toolCall.fileSearchResults?.length;
+  // Show content if we have query, file search results, or file citations
+  const hasContent = toolCall.query || toolCall.fileSearchResults?.length || (fileCitations && fileCitations.length > 0);
 
   return (
     <>
@@ -259,6 +263,7 @@ function FileSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
               <span className="tool-call-box__query-text">{toolCall.query}</span>
             </div>
           )}
+          {/* Show file search results if available (includes score and text) */}
           {toolCall.fileSearchResults && toolCall.fileSearchResults.length > 0 && (
             <div className="tool-call-box__file-results">
               <div className="tool-call-box__file-results-label">Results</div>
@@ -275,6 +280,25 @@ function FileSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
                     </div>
                     <div className="tool-call-box__file-result-text">
                       {truncateText(result.text, 200)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Fallback: show file citations if results are null (API returns citations separately) */}
+          {(!toolCall.fileSearchResults || toolCall.fileSearchResults.length === 0) && 
+           fileCitations && fileCitations.length > 0 && (
+            <div className="tool-call-box__file-results">
+              <div className="tool-call-box__file-results-label">Files Referenced</div>
+              <div className="tool-call-box__file-results-list">
+                {fileCitations.map((citation, idx) => (
+                  <div key={`${citation.fileId}-${idx}`} className="tool-call-box__file-result tool-call-box__file-result--citation">
+                    <div className="tool-call-box__file-result-header">
+                      <span className="tool-call-box__file-result-icon">📄</span>
+                      <span className="tool-call-box__file-result-name" title={citation.filename}>
+                        {citation.filename}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -393,7 +417,7 @@ function McpApprovalContent({
 /**
  * Box that displays a tool call with name and arguments
  */
-export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
+export function ToolCallBox({ toolCall, onApprove, onDeny, fileCitations }: ToolCallBoxProps) {
   const isWebSearch = toolCall.type === 'web_search';
   const isCodeInterpreter = toolCall.type === 'code_interpreter';
   const isFileSearch = toolCall.type === 'file_search';
@@ -423,7 +447,7 @@ export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
       ) : isCodeInterpreter ? (
         <CodeInterpreterCallContent toolCall={toolCall} />
       ) : isFileSearch ? (
-        <FileSearchCallContent toolCall={toolCall} />
+        <FileSearchCallContent toolCall={toolCall} fileCitations={fileCitations} />
       ) : isMcpApproval ? (
         <McpApprovalContent toolCall={toolCall} onApprove={onApprove} onDeny={onDeny} />
       ) : isMcp ? (

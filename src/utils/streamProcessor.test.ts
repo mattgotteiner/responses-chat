@@ -1224,6 +1224,7 @@ describe('streamProcessor', () => {
         reasoning: [],
         toolCalls: [],
         citations: [],
+        fileCitations: [],
         responseId: null,
         responseJson: null,
         isTruncated: false,
@@ -1261,9 +1262,9 @@ describe('streamProcessor', () => {
         ],
       };
 
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toHaveLength(1);
-      expect(citations[0]).toEqual({
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(1);
+      expect(result.citations[0]).toEqual({
         url: 'https://example.com/article',
         title: 'Example Article',
         startIndex: 0,
@@ -1309,10 +1310,10 @@ describe('streamProcessor', () => {
         ],
       };
 
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toHaveLength(2);
-      expect(citations[0].url).toBe('https://example.com/1');
-      expect(citations[1].url).toBe('https://example.com/2');
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(2);
+      expect(result.citations[0].url).toBe('https://example.com/1');
+      expect(result.citations[1].url).toBe('https://example.com/2');
     });
 
     it('deduplicates citations by URL', () => {
@@ -1347,29 +1348,31 @@ describe('streamProcessor', () => {
         ],
       };
 
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toHaveLength(1);
-      expect(citations[0].url).toBe('https://example.com/same');
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(1);
+      expect(result.citations[0].url).toBe('https://example.com/same');
     });
 
-    it('returns empty array when response has no output', () => {
+    it('returns empty arrays when response has no output', () => {
       const response = { id: 'resp_123' };
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toEqual([]);
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toEqual([]);
+      expect(result.fileCitations).toEqual([]);
     });
 
-    it('returns empty array when output has no message items', () => {
+    it('returns empty arrays when output has no message items', () => {
       const response = {
         id: 'resp_123',
         output: [
           { type: 'web_search_call', action: { type: 'search', query: 'test' } },
         ],
       };
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toEqual([]);
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toEqual([]);
+      expect(result.fileCitations).toEqual([]);
     });
 
-    it('returns empty array when message has no annotations', () => {
+    it('returns empty arrays when message has no annotations', () => {
       const response = {
         id: 'resp_123',
         output: [
@@ -1384,8 +1387,9 @@ describe('streamProcessor', () => {
           },
         ],
       };
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toEqual([]);
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toEqual([]);
+      expect(result.fileCitations).toEqual([]);
     });
 
     it('ignores non-url_citation annotations', () => {
@@ -1417,9 +1421,9 @@ describe('streamProcessor', () => {
         ],
       };
 
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toHaveLength(1);
-      expect(citations[0].url).toBe('https://example.com/valid');
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(1);
+      expect(result.citations[0].url).toBe('https://example.com/valid');
     });
 
     it('skips malformed annotations with missing fields', () => {
@@ -1452,9 +1456,115 @@ describe('streamProcessor', () => {
         ],
       };
 
-      const citations = extractCitationsFromResponse(response);
-      expect(citations).toHaveLength(1);
-      expect(citations[0].url).toBe('https://example.com/valid');
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(1);
+      expect(result.citations[0].url).toBe('https://example.com/valid');
+    });
+
+    it('extracts file_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content with file citations',
+                annotations: [
+                  {
+                    type: 'file_citation',
+                    file_id: 'file_123',
+                    filename: 'document.pdf',
+                    index: 42,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.fileCitations).toHaveLength(1);
+      expect(result.fileCitations[0]).toEqual({
+        fileId: 'file_123',
+        filename: 'document.pdf',
+        index: 42,
+      });
+    });
+
+    it('deduplicates file citations by fileId', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content',
+                annotations: [
+                  {
+                    type: 'file_citation',
+                    file_id: 'file_same',
+                    filename: 'document.pdf',
+                    index: 10,
+                  },
+                  {
+                    type: 'file_citation',
+                    file_id: 'file_same',
+                    filename: 'document.pdf',
+                    index: 50,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.fileCitations).toHaveLength(1);
+      expect(result.fileCitations[0].fileId).toBe('file_same');
+    });
+
+    it('extracts both url_citation and file_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Mixed citations',
+                annotations: [
+                  {
+                    type: 'url_citation',
+                    url: 'https://example.com',
+                    title: 'Web Source',
+                    start_index: 0,
+                    end_index: 10,
+                  },
+                  {
+                    type: 'file_citation',
+                    file_id: 'file_123',
+                    filename: 'uploaded.pdf',
+                    index: 20,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.citations).toHaveLength(1);
+      expect(result.fileCitations).toHaveLength(1);
+      expect(result.citations[0].url).toBe('https://example.com');
+      expect(result.fileCitations[0].fileId).toBe('file_123');
     });
   });
 });

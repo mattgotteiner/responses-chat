@@ -263,6 +263,7 @@ export function useChat(): UseChatReturn {
                     reasoning: [...acc.reasoning],
                     toolCalls: [...acc.toolCalls],
                     ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
+                    ...(acc.fileCitations.length > 0 && { fileCitations: [...acc.fileCitations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                     ...(acc.isTruncated && { isTruncated: true }),
                     ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
@@ -486,6 +487,7 @@ export function useChat(): UseChatReturn {
       );
       const existingReasoning = targetMessage.reasoning || [];
       const existingCitations = targetMessage.citations || [];
+      const existingFileCitations = targetMessage.fileCitations || [];
       const targetMessageId = targetMessage.id;
 
       // Mark the target message as streaming again
@@ -530,6 +532,7 @@ export function useChat(): UseChatReturn {
           // Merge reasoning and citations
           const mergedReasoning = [...existingReasoning, ...acc.reasoning];
           const mergedCitations = [...existingCitations, ...acc.citations];
+          const mergedFileCitations = [...existingFileCitations, ...acc.fileCitations];
 
           setMessages((prev) =>
             prev.map((msg) =>
@@ -540,6 +543,7 @@ export function useChat(): UseChatReturn {
                     reasoning: mergedReasoning,
                     toolCalls: mergedToolCalls,
                     ...(mergedCitations.length > 0 && { citations: mergedCitations }),
+                    ...(mergedFileCitations.length > 0 && { fileCitations: mergedFileCitations }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg

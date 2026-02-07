@@ -118,6 +118,7 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny }: M
   const hasReasoning = message.reasoning && message.reasoning.length > 0;
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
   const hasCitations = message.citations && message.citations.length > 0;
+  const hasFileCitations = message.fileCitations && message.fileCitations.length > 0;
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const showThinking = message.isStreaming && !message.content && !hasReasoning;
   const isTruncated = message.isTruncated ?? false;
@@ -229,6 +230,7 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny }: M
               toolCall={toolCall}
               onApprove={onMcpApprove}
               onDeny={onMcpDeny}
+              fileCitations={toolCall.type === 'file_search' ? message.fileCitations : undefined}
             />
           ))}
 
@@ -303,6 +305,23 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny }: M
                   </li>
                 );
               })}
+            </ul>
+          </div>
+        )}
+
+        {/* Citations from file search */}
+        {hasFileCitations && !message.isStreaming && (
+          <div className="message__citations message__citations--files">
+            <div className="message__citations-header">Files Referenced</div>
+            <ul className="message__citations-list">
+              {message.fileCitations!.map((citation) => (
+                <li key={citation.fileId} className="message__citation message__citation--file">
+                  <span className="message__citation-file-icon" aria-hidden="true">📄</span>
+                  <span className="message__citation-filename" title={citation.filename}>
+                    {citation.filename}
+                  </span>
+                </li>
+              ))}
             </ul>
           </div>
         )}
