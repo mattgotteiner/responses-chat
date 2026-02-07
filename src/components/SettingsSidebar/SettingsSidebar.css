@@ -20,6 +20,9 @@
   display: flex;
   flex-direction: column;
   animation: slideIn 0.2s ease-out;
+  padding-top: var(--safe-area-top);
+  padding-bottom: var(--safe-area-bottom);
+  padding-right: var(--safe-area-right);
 }
 
 @keyframes slideIn {
@@ -50,13 +53,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 44px;
+  height: 44px;
   padding: 0;
   background: none;
   border: none;
   border-radius: var(--radius-md);
-  font-size: 18px;
+  font-size: 20px;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
@@ -133,7 +136,7 @@
   border: 1px solid var(--color-border-muted);
   border-radius: var(--radius-md);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 16px; /* Prevents iOS zoom on focus */
   color: var(--color-text);
   background-color: var(--color-bg);
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -236,5 +239,22 @@
 @media (max-width: 480px) {
   .settings-sidebar {
     width: 100%;
+    padding-left: var(--safe-area-left);
+  }
+
+  .settings-sidebar__header {
+    padding: 12px 16px;
+  }
+
+  .settings-sidebar__content {
+    padding: 16px;
+  }
+
+  .settings-section {
+    margin-bottom: 20px;
+  }
+
+  .settings-field {
+    margin-bottom: 14px;
   }
 }

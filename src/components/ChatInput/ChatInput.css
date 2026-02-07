@@ -1,5 +1,8 @@
 .chat-input {
   padding: 16px;
+  padding-bottom: calc(16px + var(--safe-area-bottom));
+  padding-left: calc(16px + var(--safe-area-left));
+  padding-right: calc(16px + var(--safe-area-right));
   border-top: 1px solid var(--color-border);
   background-color: var(--color-bg);
 }
@@ -18,7 +21,7 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   font-family: inherit;
-  font-size: 15px;
+  font-size: 16px; /* Prevents iOS zoom on focus */
   line-height: 1.4;
   resize: none;
   outline: none;
@@ -178,4 +181,44 @@
 .chat-input__hint {
   font-size: 11px;
   color: var(--color-text-hint);
+}
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .chat-input {
+    padding: 10px;
+    padding-bottom: calc(10px + var(--safe-area-bottom));
+    padding-left: calc(10px + var(--safe-area-left));
+    padding-right: calc(10px + var(--safe-area-right));
+  }
+
+  .chat-input__container {
+    gap: 8px;
+  }
+
+  .chat-input__textarea {
+    min-height: 44px;
+    padding: 10px 14px;
+  }
+
+  .chat-input__actions {
+    margin-top: 6px;
+  }
+
+  .chat-input__actions-left {
+    gap: 10px;
+  }
+
+  .chat-input__clear {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+
+  .chat-input__hint {
+    display: none;
+  }
+
+  .chat-input__copy-json {
+    font-size: 10px;
+  }
 }

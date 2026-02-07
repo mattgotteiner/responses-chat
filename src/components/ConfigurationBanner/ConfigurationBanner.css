@@ -41,3 +41,24 @@
 .configuration-banner__button:active {
   opacity: 0.8;
 }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .configuration-banner {
+    flex-wrap: wrap;
+    margin: 0 12px 12px 12px;
+    padding: 10px 14px;
+    gap: 10px;
+  }
+
+  .configuration-banner__text {
+    font-size: 13px;
+    flex-basis: calc(100% - 30px);
+  }
+
+  .configuration-banner__button {
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 14px;
+  }
+}
