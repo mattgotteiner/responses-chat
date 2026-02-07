@@ -13,7 +13,7 @@ interface ToolCallBoxProps {
   onApprove?: (approvalRequestId: string) => void;
   /** Handler when user denies an MCP tool call */
   onDeny?: (approvalRequestId: string) => void;
-  /** File citations from file search (for hit count display) */
+  /** File citations from file search (for result count display) */
   fileCitations?: FileCitation[];
 }
 
@@ -224,12 +224,20 @@ function formatScore(score: number): string {
  */
 function FileSearchCallContent({ toolCall, fileCitations }: { toolCall: ToolCall; fileCitations?: FileCitation[] }) {
   const [isExpanded, setIsExpanded] = useState(false);
-  // Use file citations count if available (more reliable than direct results which can be null)
-  const hitCount = fileCitations?.length ?? toolCall.fileSearchResults?.length ?? 0;
+  // File search results come from file_citation annotations, not from the tool call itself
+  // (the API always returns results: null in the streamed data)
+  const hasCitations = fileCitations !== undefined && fileCitations.length > 0;
+  const resultCount = fileCitations?.length ?? 0;
+  
+  const getCompletedLabel = (): string => {
+    if (!hasCitations) return 'Completed'; // No citations yet, just show completed
+    return `${resultCount} result${resultCount !== 1 ? 's' : ''}`;
+  };
+  
   const statusLabels: Record<string, string> = {
     in_progress: 'Searching...',
     searching: 'Searching...',
-    completed: hitCount > 0 ? `${hitCount} hit${hitCount !== 1 ? 's' : ''}` : 'No results',
+    completed: getCompletedLabel(),
     aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Searching...';

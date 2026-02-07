@@ -152,31 +152,20 @@ export async function uploadFileToVectorStore(
   storeId: string,
   file: File
 ): Promise<VectorStoreFile> {
-  // First, upload the file to the Files API
-  const uploadedFile = await client.files.create({
-    file,
-    purpose: 'assistants', // Required for vector store usage
-  });
+  // Use the SDK's uploadAndPoll helper which handles:
+  // 1. Uploading the file to the Files API
+  // 2. Attaching it to the vector store
+  // 3. Polling until processing completes
+  const vsFile = await client.vectorStores.files.uploadAndPoll(storeId, file);
 
-  // Then, add it to the vector store and poll until processing completes
-  let vsFile = await client.vectorStores.files.create(storeId, {
-    file_id: uploadedFile.id,
-  });
-
-  // Poll for completion (max ~30 seconds)
-  const maxAttempts = 30;
-  let attempts = 0;
-  while (vsFile.status === 'in_progress' && attempts < maxAttempts) {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    vsFile = await client.vectorStores.files.retrieve(storeId, uploadedFile.id);
-    attempts++;
-  }
+  // Get file details for filename and size
+  const fileDetails = await client.files.retrieve(vsFile.id);
 
   return {
-    id: uploadedFile.id,
-    filename: uploadedFile.filename,
-    bytes: uploadedFile.bytes,
-    createdAt: uploadedFile.created_at,
+    id: vsFile.id,
+    filename: fileDetails.filename,
+    bytes: fileDetails.bytes,
+    createdAt: fileDetails.created_at,
     status: mapFileStatus(vsFile.status),
   };
 }
@@ -192,7 +181,7 @@ export async function deleteFileFromVectorStore(
   storeId: string,
   fileId: string
 ): Promise<void> {
-  // Remove from vector store first
+  // Remove from vector store first (SDK expects fileId, then params with vector_store_id)
   await client.vectorStores.files.delete(fileId, { vector_store_id: storeId });
   
   // Then delete the file itself
