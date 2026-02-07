@@ -577,3 +577,67 @@
     color: #d47474;
   }
 }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .tool-call-box__header {
+    padding: 10px 12px;
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .tool-call-box__name {
+    font-size: 12px;
+  }
+
+  .tool-call-box__status {
+    font-size: 10px;
+    padding: 2px 6px;
+  }
+
+  .tool-call-box__query {
+    padding: 8px 10px;
+  }
+
+  .tool-call-box__query-label {
+    font-size: 10px;
+  }
+
+  .tool-call-box__query-text {
+    font-size: 12px;
+  }
+
+  .tool-call-box__arguments,
+  .tool-call-box__result {
+    padding: 10px;
+  }
+
+  .tool-call-box__arguments pre,
+  .tool-call-box__result pre {
+    font-size: 11px;
+  }
+
+  .tool-call-box__code-label,
+  .tool-call-box__arguments-label,
+  .tool-call-box__result-label,
+  .tool-call-box__output-label {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+
+  .tool-call-box__code-block,
+  .tool-call-box__output-block {
+    padding: 10px;
+    font-size: 11px;
+  }
+
+  .tool-call-box__approval-actions {
+    padding: 10px;
+    gap: 10px;
+  }
+
+  .tool-call-box__approve-btn,
+  .tool-call-box__deny-btn {
+    min-height: 44px; /* Touch target minimum */
+    font-size: 14px;
+  }
+}

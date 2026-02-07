@@ -10,6 +10,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
   plugins: [react()],
   base: './',
+  server: {
+    host: true, // Expose on local network for mobile testing
+  },
   resolve: {
     alias: {
       '/favicon.svg': resolve(__dirname, 'public/favicon.svg'),
