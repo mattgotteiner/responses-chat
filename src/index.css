@@ -1,5 +1,13 @@
 * {
   box-sizing: border-box;
+}
+
+/* Remove tap highlight only on elements with explicit active/focus styles */
+button,
+.chat-input__clear,
+.chat-input__copy-json,
+.reasoning-box__header,
+.tool-call-box__header--clickable {
   -webkit-tap-highlight-color: transparent;
 }
 

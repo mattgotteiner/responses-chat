@@ -11,7 +11,8 @@ export default defineConfig({
   plugins: [react()],
   base: './',
   server: {
-    host: true, // Expose on local network for mobile testing
+    // Expose on local network for mobile testing: VITE_MOBILE_TESTING=1 npm run dev
+    host: !!process.env.VITE_MOBILE_TESTING,
   },
   resolve: {
     alias: {

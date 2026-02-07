@@ -48,6 +48,22 @@ Open http://localhost:5173 and configure your Azure OpenAI settings to start cha
 | `npm run test:run` | Run tests once |
 | `npm run lint` | Lint code with ESLint |
 
+## Mobile Testing
+
+To test on a mobile device connected to the same network:
+
+```bash
+# Windows PowerShell
+$env:VITE_MOBILE_TESTING="1"; npm run dev
+
+# macOS/Linux
+VITE_MOBILE_TESTING=1 npm run dev
+```
+
+This exposes the dev server on your local network. The terminal will display a `Network:` URL (e.g., `http://192.168.x.x:5173`) that you can open on your phone.
+
+**Note:** Network hosting is opt-in to avoid accidentally exposing the dev server on shared/corporate networks.
+
 ## Project Structure
 
 ```
