@@ -78,6 +78,20 @@ src/
 | `npm run lint` | Run ESLint |
 | `npm run typecheck` | Type-check without emitting |
 
+### Mobile Testing
+
+To test on a mobile device (e.g., iPhone Safari), expose the dev server on your local network:
+
+```bash
+# Windows PowerShell
+$env:VITE_MOBILE_TESTING="1"; npm run dev
+
+# macOS/Linux
+VITE_MOBILE_TESTING=1 npm run dev
+```
+
+Open the `Network:` URL shown in the terminal on your phone. Network hosting is opt-in via env var to avoid exposing the dev server on shared/corporate networks.
+
 > **Important:** Always use `npm run` scripts instead of `npx` for dev tools. Use `npm run lint` (not `npx eslint`), `npm run typecheck` (not `npx tsc`), and `npm run test:run` (not `npx vitest`). The npm scripts ensure consistent configuration and avoid PATH/version issues.
 
 ## Code Style

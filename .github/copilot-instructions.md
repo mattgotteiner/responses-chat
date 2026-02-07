@@ -2,6 +2,8 @@
 
 This is a React + TypeScript chat interface for Azure OpenAI's Responses API.
 
+For detailed coding guidelines, architecture, and patterns, see [AGENTS.md](../AGENTS.md) in the repository root.
+
 ## Quick Reference
 
 - **Build:** `npm run build` (TypeScript + Vite build to `dist/`)

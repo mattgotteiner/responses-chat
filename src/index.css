@@ -2,7 +2,22 @@
   box-sizing: border-box;
 }
 
+/* Remove tap highlight only on elements with explicit active/focus styles */
+button,
+.chat-input__clear,
+.chat-input__copy-json,
+.reasoning-box__header,
+.tool-call-box__header--clickable {
+  -webkit-tap-highlight-color: transparent;
+}
+
 :root {
+  /* Safe area insets for notched devices */
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
     'Helvetica Neue', Arial, sans-serif;
   line-height: 1.5;
@@ -149,7 +164,9 @@ body {
   margin: 0;
   padding: 0;
   height: 100%;
+  height: 100dvh; /* Dynamic viewport height for mobile */
   width: 100%;
+  overscroll-behavior: none; /* Prevent pull-to-refresh interference */
 }
 
 #root {

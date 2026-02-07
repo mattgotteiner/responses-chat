@@ -66,3 +66,16 @@
 .reasoning-box__step:last-child {
   margin-bottom: 0;
 }
+
+/* Mobile responsive */
+@media (max-width: 600px) {
+  .reasoning-box__header {
+    padding: 10px 12px;
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .reasoning-box__content {
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+}
