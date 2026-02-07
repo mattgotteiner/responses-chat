@@ -28,6 +28,13 @@ describe('vectorStore utilities', () => {
     it('formats gigabytes', () => {
       expect(formatFileSize(1073741824)).toBe('1 GB');
     });
+
+    it('clamps terabytes to gigabytes (max supported)', () => {
+      // 1 TB = 1024 GB - should be clamped to GB unit
+      expect(formatFileSize(1099511627776)).toBe('1024 GB');
+      // 2 TB
+      expect(formatFileSize(2199023255552)).toBe('2048 GB');
+    });
   });
 
   describe('getExpirationStatus', () => {

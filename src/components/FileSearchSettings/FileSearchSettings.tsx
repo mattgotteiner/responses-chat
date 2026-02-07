@@ -15,6 +15,7 @@ import {
   deleteFileFromVectorStore,
   formatFileSize,
   getExpirationStatus,
+  MAX_VECTOR_STORE_FILE_SIZE,
 } from '../../utils/vectorStore';
 import './FileSearchSettings.css';
 
@@ -293,6 +294,17 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
     if (!inputFiles || inputFiles.length === 0 || !settings.fileSearchVectorStoreId) return;
 
     const filesToUpload = Array.from(inputFiles);
+    
+    // Validate file sizes (max 1 GB)
+    const oversizedFiles = filesToUpload.filter(f => f.size > MAX_VECTOR_STORE_FILE_SIZE);
+    if (oversizedFiles.length > 0) {
+      const names = oversizedFiles.map(f => `"${f.name}" (${formatFileSize(f.size)})`).join(', ');
+      setUploadError(`Files exceed 1 GB limit: ${names}`);
+      if (uploadInputRef.current) {
+        uploadInputRef.current.value = '';
+      }
+      return;
+    }
     
     setIsUploading(true);
     setUploadError(null);

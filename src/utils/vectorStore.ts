@@ -3,6 +3,9 @@
  */
 
 import OpenAI from 'openai';
+
+/** Maximum supported file size for vector store uploads (1 GB) */
+export const MAX_VECTOR_STORE_FILE_SIZE = 1024 * 1024 * 1024;
 import type { VectorStore, VectorStoreFile, VectorStoreStatus, VectorStoreFileStatus } from '../types';
 
 /**
@@ -100,6 +103,54 @@ export async function deleteVectorStore(client: OpenAI, storeId: string): Promis
 }
 
 /**
+ * Fetches file details with a concurrency limit to avoid overwhelming the API
+ * @param client - OpenAI client
+ * @param vsFiles - Vector store file references
+ * @param concurrencyLimit - Maximum concurrent requests (default: 5)
+ * @returns Array of file details
+ */
+async function fetchFileDetailsWithConcurrency(
+  client: OpenAI,
+  vsFiles: Array<{ id: string; status: string; created_at?: number }>,
+  concurrencyLimit = 5
+): Promise<VectorStoreFile[]> {
+  const results: VectorStoreFile[] = [];
+  
+  // Process files in batches to respect rate limits
+  for (let i = 0; i < vsFiles.length; i += concurrencyLimit) {
+    const batch = vsFiles.slice(i, i + concurrencyLimit);
+    
+    const batchResults = await Promise.all(
+      batch.map(async (vsFile) => {
+        try {
+          const fileDetails = await client.files.retrieve(vsFile.id);
+          return {
+            id: vsFile.id,
+            filename: fileDetails.filename,
+            bytes: fileDetails.bytes,
+            createdAt: fileDetails.created_at,
+            status: mapFileStatus(vsFile.status),
+          };
+        } catch {
+          // If we can't fetch file details, use placeholder data
+          return {
+            id: vsFile.id,
+            filename: 'Unknown file',
+            bytes: 0,
+            createdAt: vsFile.created_at ?? 0,
+            status: mapFileStatus(vsFile.status),
+          };
+        }
+      })
+    );
+    
+    results.push(...batchResults);
+  }
+  
+  return results;
+}
+
+/**
  * Gets all files in a vector store
  * @param client - OpenAI client
  * @param storeId - ID of the vector store
@@ -113,31 +164,8 @@ export async function getVectorStoreFiles(
   
   // The vector store files list only returns file IDs and status
   // We need to fetch file details for each to get filename and size
-  const files: VectorStoreFile[] = [];
-  
-  for (const vsFile of response.data) {
-    try {
-      const fileDetails = await client.files.retrieve(vsFile.id);
-      files.push({
-        id: vsFile.id,
-        filename: fileDetails.filename,
-        bytes: fileDetails.bytes,
-        createdAt: fileDetails.created_at,
-        status: mapFileStatus(vsFile.status),
-      });
-    } catch {
-      // If we can't fetch file details, use placeholder data
-      files.push({
-        id: vsFile.id,
-        filename: 'Unknown file',
-        bytes: 0,
-        createdAt: vsFile.created_at ?? 0,
-        status: mapFileStatus(vsFile.status),
-      });
-    }
-  }
-  
-  return files;
+  // Use parallel fetching with concurrency limit to avoid long UI waits
+  return fetchFileDetailsWithConcurrency(client, response.data);
 }
 
 /**
@@ -196,13 +224,15 @@ export async function deleteFileFromVectorStore(
  * Formats bytes as human-readable size
  * @param bytes - Number of bytes
  * @returns Formatted string (e.g., "1.5 MB")
+ * @remarks Maximum supported size is 1 GB - larger values are clamped
  */
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
   
   const units = ['B', 'KB', 'MB', 'GB'];
   const k = 1024;
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  // Clamp to GB max (index 3) since we only support files up to 1 GB
+  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
   
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${units[i]}`;
 }

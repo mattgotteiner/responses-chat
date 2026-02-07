@@ -26,6 +26,7 @@ vi.mock('../../utils/vectorStore', () => ({
   deleteFileFromVectorStore: (...args: unknown[]) => mockDeleteFileFromVectorStore(...args),
   formatFileSize: (bytes: number) => `${bytes} B`,
   getExpirationStatus: () => 'No expiration',
+  MAX_VECTOR_STORE_FILE_SIZE: 1024 * 1024 * 1024, // 1 GB
 }));
 
 // Mock the api utility
