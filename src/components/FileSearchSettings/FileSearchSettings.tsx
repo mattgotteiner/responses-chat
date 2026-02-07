@@ -507,7 +507,7 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
               id="newStoreExpiration"
               className="file-search-settings__select"
               value={newStoreExpiration}
-              onChange={(e) => setNewStoreExpiration(Number(e.target.value))}
+              onChange={(e) => setNewStoreExpiration(Number(e.target.value) as typeof FILE_SEARCH_EXPIRATION_OPTIONS[number]['value'])}
               disabled={isSubmitting}
             >
               {FILE_SEARCH_EXPIRATION_OPTIONS.map(({ value, label }) => (
