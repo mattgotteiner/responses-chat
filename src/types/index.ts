@@ -92,6 +92,67 @@ export interface McpServerConfig {
 /** Maximum number of MCP servers allowed */
 export const MAX_MCP_SERVERS = 5;
 
+/** Status of a vector store */
+export type VectorStoreStatus = 'expired' | 'in_progress' | 'completed';
+
+/** Vector store for file search */
+export interface VectorStore {
+  /** Unique identifier */
+  id: string;
+  /** Display name */
+  name: string;
+  /** Creation timestamp */
+  createdAt: number;
+  /** When the store expires (Unix timestamp), or null if no expiration */
+  expiresAt: number | null;
+  /** Number of files in the store */
+  fileCount: number;
+  /** Processing status */
+  status: VectorStoreStatus;
+}
+
+/** Status of a file in a vector store */
+export type VectorStoreFileStatus = 'in_progress' | 'completed' | 'failed' | 'cancelled';
+
+/** File within a vector store */
+export interface VectorStoreFile {
+  /** Unique file identifier */
+  id: string;
+  /** Original filename */
+  filename: string;
+  /** File size in bytes */
+  bytes: number;
+  /** Creation timestamp */
+  createdAt: number;
+  /** Processing status */
+  status: VectorStoreFileStatus;
+}
+
+/** Cache for vector store data to persist across sidebar open/close */
+export interface VectorStoreCache {
+  /** Cached list of vector stores */
+  stores: VectorStore[];
+  /** Cached files per store ID */
+  storeFiles: Record<string, VectorStoreFile[]>;
+  /** Timestamp when stores were last fetched */
+  storesFetchedAt: number | null;
+  /** Whether stores are currently being loaded */
+  isStoresLoading: boolean;
+  /** Set of store IDs whose files are currently being loaded */
+  loadingStoreFiles: Set<string>;
+}
+
+/** Expiration policy options in minutes (API clamps to days) */
+export const FILE_SEARCH_EXPIRATION_OPTIONS = [
+  { value: 1440, label: '1 day' },
+  { value: 2880, label: '2 days' },
+  { value: 4320, label: '3 days' },
+  { value: 10080, label: '7 days' },
+] as const;
+
+/** Default expiration in minutes (1 day) */
+export const DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES = 1440;
+
 /** Application settings stored in localStorage */
 export interface Settings {
   /** Azure OpenAI endpoint URL */
@@ -126,6 +187,12 @@ export interface Settings {
   maxOutputTokens?: number;
   /** Disable localStorage persistence - settings will not be saved between sessions */
   noLocalStorage?: boolean;
+  /** Enable file search tool for searching uploaded documents */
+  fileSearchEnabled?: boolean;
+  /** Selected vector store ID for file search */
+  fileSearchVectorStoreId?: string;
+  /** Expiration time in minutes for new vector stores (default: 30) */
+  fileSearchExpirationMinutes?: number;
 }
 
 /** Default settings values */
@@ -144,6 +211,9 @@ export const DEFAULT_SETTINGS: Settings = {
   maxOutputTokensEnabled: false,
   maxOutputTokens: 16000,
   noLocalStorage: false,
+  fileSearchEnabled: false,
+  fileSearchVectorStoreId: undefined,
+  fileSearchExpirationMinutes: 30,
 };
 
 /** Tool call status types */
@@ -157,14 +227,26 @@ export type ToolCallStatus =
   | 'approved'
   | 'denied';
 
+/** File search result from vector store */
+export interface FileSearchResult {
+  /** File ID */
+  fileId: string;
+  /** Filename */
+  filename: string;
+  /** Relevance score (0-1) */
+  score: number;
+  /** Retrieved text snippet */
+  text: string;
+}
+
 /** Tool call information */
 export interface ToolCall {
   /** Unique identifier for the tool call */
   id: string;
   /** Name of the tool being called (e.g., 'web_search', function name, 'code_interpreter', 'mcp') */
   name: string;
-  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution, 'mcp' for MCP server calls, 'mcp_approval' for pending MCP approval */
-  type: 'function' | 'web_search' | 'code_interpreter' | 'mcp' | 'mcp_approval';
+  /** Type of tool call: 'function' for function calls, 'web_search' for web search, 'code_interpreter' for code execution, 'mcp' for MCP server calls, 'mcp_approval' for pending MCP approval, 'file_search' for file search */
+  type: 'function' | 'web_search' | 'code_interpreter' | 'mcp' | 'mcp_approval' | 'file_search';
   /** JSON arguments passed to the tool (for function calls) */
   arguments: string;
   /** Result from the tool execution, if any */
@@ -185,6 +267,8 @@ export interface ToolCall {
   serverLabel?: string;
   /** Approval request ID for MCP approval requests */
   approvalRequestId?: string;
+  /** Structured file search results */
+  fileSearchResults?: FileSearchResult[];
 }
 
 /** Reasoning step from the model */

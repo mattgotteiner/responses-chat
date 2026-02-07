@@ -326,6 +326,72 @@ export function processStreamEvent(
         };
       }
 
+      // Handle file_search_call output items
+      if (itemEvent.item?.type === 'file_search_call') {
+        const fileSearchItem = itemEvent.item as {
+          id?: string;
+          type?: string;
+          status?: string;
+          queries?: string[];
+          results?: Array<{
+            file_id?: string;
+            filename?: string;
+            score?: number;
+            text?: string;
+          }>;
+        };
+        const itemId = fileSearchItem.id || idGenerators.generateToolCallId();
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        const newToolCalls = [...accumulator.toolCalls];
+
+        const status = fileSearchItem.status as 'in_progress' | 'searching' | 'completed' | undefined;
+        const queries = fileSearchItem.queries || [];
+        const results = fileSearchItem.results || [];
+        
+        // Map results to structured format
+        const fileSearchResults = results.length > 0
+          ? results.map((r) => ({
+              fileId: r.file_id || '',
+              filename: r.filename || 'unknown',
+              score: r.score ?? 0,
+              text: r.text || '',
+            }))
+          : undefined;
+        
+        // Keep legacy text format for backwards compatibility
+        const resultText = results.length > 0
+          ? results.map((r) => `[${r.filename || 'unknown'}]: ${r.text || ''}`).join('\n\n')
+          : undefined;
+
+        if (existingIndex >= 0) {
+          // Update existing tool call
+          newToolCalls[existingIndex] = {
+            ...newToolCalls[existingIndex],
+            ...(status && { status }),
+            ...(queries.length > 0 && { query: queries.join(', ') }),
+            ...(resultText && { result: resultText }),
+            ...(fileSearchResults && { fileSearchResults }),
+          };
+        } else {
+          // Add new file search call
+          newToolCalls.push({
+            id: itemId,
+            name: 'file_search',
+            type: 'file_search',
+            arguments: queries.length > 0 ? JSON.stringify({ queries }) : '',
+            status: status || 'in_progress',
+            query: queries.join(', '),
+            result: resultText,
+            fileSearchResults,
+          });
+        }
+
+        return {
+          ...accumulator,
+          toolCalls: newToolCalls,
+        };
+      }
+
       return accumulator;
     }
 
@@ -400,6 +466,35 @@ export function processStreamEvent(
       const newStatus: ToolCallStatus = event.type === 'response.mcp_call.completed'
         ? 'completed'
         : 'in_progress';
+
+      const newToolCalls = [...accumulator.toolCalls];
+      newToolCalls[existingIndex] = {
+        ...newToolCalls[existingIndex],
+        status: newStatus,
+      };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.file_search_call.in_progress':
+    case 'response.file_search_call.searching':
+    case 'response.file_search_call.completed': {
+      // Update file search call status
+      const fileSearchEvent = event as { item_id?: string };
+      const itemId = fileSearchEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      if (existingIndex < 0) return accumulator;
+
+      const newStatus: ToolCallStatus = event.type === 'response.file_search_call.completed'
+        ? 'completed'
+        : event.type === 'response.file_search_call.searching'
+          ? 'searching'
+          : 'in_progress';
 
       const newToolCalls = [...accumulator.toolCalls];
       newToolCalls[existingIndex] = {

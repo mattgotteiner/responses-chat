@@ -203,6 +203,91 @@ function McpCallContent({ toolCall }: { toolCall: ToolCall }) {
 }
 
 /**
+ * Truncates text to a maximum length with ellipsis
+ */
+function truncateText(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text;
+  return text.slice(0, maxLength).trim() + '...';
+}
+
+/**
+ * Formats a relevance score as a percentage
+ */
+function formatScore(score: number): string {
+  return `${Math.round(score * 100)}%`;
+}
+
+/**
+ * Renders a file search call with query and results
+ */
+function FileSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const hitCount = toolCall.fileSearchResults?.length ?? 0;
+  const statusLabels: Record<string, string> = {
+    in_progress: 'Searching...',
+    searching: 'Searching...',
+    completed: hitCount > 0 ? `${hitCount} hit${hitCount !== 1 ? 's' : ''}` : 'No results',
+    aborted: 'Aborted',
+  };
+  const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Searching...';
+  const hasContent = toolCall.query || toolCall.fileSearchResults?.length;
+
+  return (
+    <>
+      <button
+        className="tool-call-box__header tool-call-box__header--clickable"
+        onClick={() => setIsExpanded(prev => !prev)}
+        aria-expanded={isExpanded}
+        disabled={!hasContent}
+      >
+        <span className="tool-call-box__icon">📁</span>
+        <span className="tool-call-box__name">File Search</span>
+        <span className={`tool-call-box__status tool-call-box__status--${toolCall.status || 'in_progress'}`}>
+          {statusLabel}
+        </span>
+        {hasContent && (
+          <span className={`tool-call-box__chevron ${isExpanded ? 'expanded' : ''}`}>
+            ▶
+          </span>
+        )}
+      </button>
+      {isExpanded && (
+        <>
+          {toolCall.query && (
+            <div className="tool-call-box__query">
+              <span className="tool-call-box__query-label">Query:</span>
+              <span className="tool-call-box__query-text">{toolCall.query}</span>
+            </div>
+          )}
+          {toolCall.fileSearchResults && toolCall.fileSearchResults.length > 0 && (
+            <div className="tool-call-box__file-results">
+              <div className="tool-call-box__file-results-label">Results</div>
+              <div className="tool-call-box__file-results-list">
+                {toolCall.fileSearchResults.map((result, idx) => (
+                  <div key={`${result.fileId}-${idx}`} className="tool-call-box__file-result">
+                    <div className="tool-call-box__file-result-header">
+                      <span className="tool-call-box__file-result-name" title={result.filename}>
+                        {result.filename}
+                      </span>
+                      <span className="tool-call-box__file-result-score">
+                        {formatScore(result.score)}
+                      </span>
+                    </div>
+                    <div className="tool-call-box__file-result-text">
+                      {truncateText(result.text, 200)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+}
+
+/**
  * Renders an MCP approval request with approve/deny buttons
  */
 function McpApprovalContent({
@@ -311,6 +396,7 @@ function McpApprovalContent({
 export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
   const isWebSearch = toolCall.type === 'web_search';
   const isCodeInterpreter = toolCall.type === 'code_interpreter';
+  const isFileSearch = toolCall.type === 'file_search';
   const isMcp = toolCall.type === 'mcp';
   const isMcpApproval = toolCall.type === 'mcp_approval';
 
@@ -324,9 +410,11 @@ export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
         ? 'tool-call-box--web-search'
         : isCodeInterpreter
           ? 'tool-call-box--code-interpreter'
-          : isMcp || isMcpApproval
-            ? 'tool-call-box--mcp'
-            : '';
+          : isFileSearch
+            ? 'tool-call-box--file-search'
+            : isMcp || isMcpApproval
+              ? 'tool-call-box--mcp'
+              : '';
 
   return (
     <div className={`tool-call-box ${variantClass}`}>
@@ -334,6 +422,8 @@ export function ToolCallBox({ toolCall, onApprove, onDeny }: ToolCallBoxProps) {
         <WebSearchCallContent toolCall={toolCall} />
       ) : isCodeInterpreter ? (
         <CodeInterpreterCallContent toolCall={toolCall} />
+      ) : isFileSearch ? (
+        <FileSearchCallContent toolCall={toolCall} />
       ) : isMcpApproval ? (
         <McpApprovalContent toolCall={toolCall} onApprove={onApprove} onDeny={onDeny} />
       ) : isMcp ? (

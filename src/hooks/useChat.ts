@@ -33,6 +33,13 @@ function buildToolsConfiguration(settings: Settings): {
     // Request code interpreter outputs to get execution results (logs)
     include.push('code_interpreter_call.outputs');
   }
+  // Add file search tool if enabled with a vector store selected
+  if (settings.fileSearchEnabled && settings.fileSearchVectorStoreId) {
+    tools.push({
+      type: 'file_search',
+      vector_store_ids: [settings.fileSearchVectorStoreId],
+    });
+  }
   // Add enabled MCP servers as tools
   if (settings.mcpServers && settings.mcpServers.length > 0) {
     for (const server of settings.mcpServers) {

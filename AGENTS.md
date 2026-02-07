@@ -19,6 +19,7 @@ src/
 │   ├── Button/              # Reusable button
 │   ├── ChatContainer/       # Main chat layout with header
 │   ├── ChatInput/           # Message input and send button
+│   ├── FileSearchSettings/  # File search vector store management
 │   ├── JsonSidePanel/       # JSON viewer side panel
 │   ├── McpServerSettings/   # MCP server configuration
 │   ├── Message/             # Individual message display
@@ -42,7 +43,8 @@ src/
 │   ├── recording.ts         # Recording file utilities
 │   ├── recordingReplay.ts   # Recording replay for tests
 │   ├── streamProcessor.ts   # Streaming response processor
-│   └── tokenUsage.ts        # Token usage calculations
+│   ├── tokenUsage.ts        # Token usage calculations
+│   └── vectorStore.ts       # Vector store API utilities
 ├── test/
 │   ├── setup.ts             # Vitest setup
 │   ├── helpers.ts           # Test helper utilities

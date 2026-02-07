@@ -2,8 +2,8 @@
  * Hook for managing application settings with localStorage persistence
  */
 
-import { useState, useCallback, useEffect } from 'react';
-import type { Settings } from '../types';
+import { useState, useCallback, useEffect, useRef } from 'react';
+import type { Settings, VectorStoreCache, VectorStore, VectorStoreFile } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import {
   getStoredValue,
@@ -12,6 +12,8 @@ import {
   clearAllStoredValues,
   SETTINGS_STORAGE_KEY,
 } from '../utils/localStorage';
+import { createAzureClient } from '../utils/api';
+import { listVectorStores } from '../utils/vectorStore';
 
 /** Return type for the useSettings hook */
 export interface UseSettingsReturn {
@@ -25,6 +27,16 @@ export interface UseSettingsReturn {
   clearStoredData: () => void;
   /** Whether required settings are configured */
   isConfigured: boolean;
+  /** Vector store cache for persisting data across sidebar open/close */
+  vectorStoreCache: VectorStoreCache;
+  /** Update the cached vector stores list */
+  setVectorStores: (stores: VectorStore[]) => void;
+  /** Update cached files for a specific store */
+  setStoreFiles: (storeId: string, files: VectorStoreFile[]) => void;
+  /** Set loading state for a store's files */
+  setStoreFilesLoading: (storeId: string, isLoading: boolean) => void;
+  /** Clear the vector store cache */
+  clearVectorStoreCache: () => void;
 }
 
 /**
@@ -41,7 +53,61 @@ export interface UseSettingsReturn {
  *   // Can make API calls
  * }
  */
+const EMPTY_CACHE: VectorStoreCache = {
+  stores: [],
+  storeFiles: {},
+  storesFetchedAt: null,
+  isStoresLoading: false,
+  loadingStoreFiles: new Set(),
+};
+
 export function useSettings(): UseSettingsReturn {
+  // Vector store cache (not persisted to localStorage, just in-memory)
+  const [vectorStoreCache, setVectorStoreCache] = useState<VectorStoreCache>(EMPTY_CACHE);
+
+  const setVectorStores = useCallback((stores: VectorStore[]) => {
+    setVectorStoreCache(prev => ({
+      ...prev,
+      stores,
+      storesFetchedAt: Date.now(),
+      isStoresLoading: false,
+    }));
+  }, []);
+
+  const setStoreFiles = useCallback((storeId: string, files: VectorStoreFile[]) => {
+    setVectorStoreCache(prev => {
+      const newLoadingStoreFiles = new Set(prev.loadingStoreFiles);
+      newLoadingStoreFiles.delete(storeId);
+      return {
+        ...prev,
+        storeFiles: {
+          ...prev.storeFiles,
+          [storeId]: files,
+        },
+        loadingStoreFiles: newLoadingStoreFiles,
+      };
+    });
+  }, []);
+
+  const setStoreFilesLoading = useCallback((storeId: string, isLoading: boolean) => {
+    setVectorStoreCache(prev => {
+      const newLoadingStoreFiles = new Set(prev.loadingStoreFiles);
+      if (isLoading) {
+        newLoadingStoreFiles.add(storeId);
+      } else {
+        newLoadingStoreFiles.delete(storeId);
+      }
+      return {
+        ...prev,
+        loadingStoreFiles: newLoadingStoreFiles,
+      };
+    });
+  }, []);
+
+  const clearVectorStoreCache = useCallback(() => {
+    setVectorStoreCache(EMPTY_CACHE);
+  }, []);
+
   const [settings, setSettings] = useState<Settings>(() => {
     const stored = getStoredValue(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
     // Merge with defaults to ensure new fields have default values
@@ -80,11 +146,67 @@ export function useSettings(): UseSettingsReturn {
   const isConfigured =
     settings.endpoint.trim() !== '' && settings.apiKey.trim() !== '';
 
+  // Track the last endpoint/apiKey to detect credential changes  
+  const lastCredentialsRef = useRef<{ endpoint: string; apiKey: string } | null>(null);
+
+  // Pre-fetch vector stores in the background when credentials are available
+  useEffect(() => {
+    const currentCredentials = { endpoint: settings.endpoint, apiKey: settings.apiKey };
+    const credentialsChanged = 
+      lastCredentialsRef.current === null ||
+      lastCredentialsRef.current.endpoint !== currentCredentials.endpoint ||
+      lastCredentialsRef.current.apiKey !== currentCredentials.apiKey;
+
+    // Update the ref tracking
+    lastCredentialsRef.current = currentCredentials;
+
+    // Skip if no valid credentials
+    if (!isConfigured) {
+      return;
+    }
+
+    // Skip if we've already fetched (unless credentials changed)
+    if (vectorStoreCache.storesFetchedAt !== null && !credentialsChanged) {
+      return;
+    }
+
+    // Skip if already loading
+    if (vectorStoreCache.isStoresLoading) {
+      return;
+    }
+
+    // Use IIFE to avoid lint warning about sync setState in effect
+    (async () => {
+      setVectorStoreCache(prev => ({ ...prev, isStoresLoading: true }));
+
+      try {
+        const client = createAzureClient(settings);
+        const stores = await listVectorStores(client);
+        // Sort by creation date, newest first
+        stores.sort((a, b) => b.createdAt - a.createdAt);
+        setVectorStoreCache(prev => ({
+          ...prev,
+          stores,
+          storesFetchedAt: Date.now(),
+          isStoresLoading: false,
+        }));
+      } catch {
+        // Silently fail - the component will retry when opened
+        setVectorStoreCache(prev => ({ ...prev, isStoresLoading: false }));
+      }
+    })();
+  }, [isConfigured, settings.endpoint, settings.apiKey, vectorStoreCache.storesFetchedAt, vectorStoreCache.isStoresLoading, settings]);
+
   return {
     settings,
     updateSettings,
     resetSettings,
     clearStoredData,
     isConfigured,
+    vectorStoreCache,
+    setVectorStores,
+    setStoreFiles,
+    setStoreFilesLoading,
+    clearVectorStoreCache,
   };
 }

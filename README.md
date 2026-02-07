@@ -8,6 +8,7 @@ A React + TypeScript chat interface for Azure OpenAI's Responses API with stream
 - **Conversation Continuity** - Maintains context via `previous_response_id`
 - **Reasoning Display** - Shows model reasoning steps in collapsible boxes
 - **Tool Call Support** - Displays function calls made by the model
+- **File Search** - Upload documents to vector stores for RAG-style retrieval
 - **Settings Sidebar** - Configure endpoint, API key, model, reasoning effort, and more
 - **Local Storage** - Settings persist across sessions
 - **React 19 + TypeScript** - Modern stack with strict type checking
@@ -80,6 +81,7 @@ This exposes the dev server on your local network. The terminal will display a `
 │   │   ├── Button/                  # Reusable button component
 │   │   ├── ChatContainer/           # Main chat layout
 │   │   ├── ChatInput/               # Message input with send button
+│   │   ├── FileSearchSettings/      # File search vector store management
 │   │   ├── JsonSidePanel/           # JSON viewer side panel
 │   │   ├── McpServerSettings/       # MCP server configuration
 │   │   ├── Message/                 # Individual message display
@@ -107,7 +109,8 @@ This exposes the dev server on your local network. The terminal will display a `
 │   │   ├── recording.ts             # Recording file utilities
 │   │   ├── recordingReplay.ts       # Recording replay for tests
 │   │   ├── streamProcessor.ts       # Streaming response processor
-│   │   └── tokenUsage.ts            # Token usage calculations
+│   │   ├── tokenUsage.ts            # Token usage calculations
+│   │   └── vectorStore.ts           # Vector store API utilities
 │   ├── App.tsx                      # Root component
 │   ├── main.tsx                     # Entry point
 │   └── index.css                    # Global styles
@@ -141,6 +144,7 @@ Open the settings sidebar (gear icon) to configure:
 | Reasoning Summary | auto, concise, detailed |
 | Verbosity | low, medium, high |
 | Developer Instructions | System-level instructions for the model |
+| File Search | Enable file search and select a vector store |
 
 ## Record Mode
 
