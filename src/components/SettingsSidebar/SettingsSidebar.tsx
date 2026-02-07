@@ -3,7 +3,7 @@
  */
 
 import { useCallback, type ChangeEvent } from 'react';
-import type { Settings, ModelName, McpServerConfig } from '../../types';
+import type { Settings, ModelName, McpServerConfig, VectorStoreCache, VectorStore, VectorStoreFile } from '../../types';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
@@ -14,6 +14,7 @@ import {
   DEFAULT_SETTINGS,
 } from '../../types';
 import { McpServerSettings } from '../McpServerSettings';
+import { FileSearchSettings } from '../FileSearchSettings';
 import './SettingsSidebar.css';
 
 /** Handler type for checkbox change events */
@@ -30,6 +31,14 @@ interface SettingsSidebarProps {
   onUpdateSettings: (updates: Partial<Settings>) => void;
   /** Handler to clear all stored data */
   onClearStoredData: () => void;
+  /** Vector store cache */
+  vectorStoreCache: VectorStoreCache;
+  /** Update cached vector stores list */
+  setVectorStores: (stores: VectorStore[]) => void;
+  /** Update cached files for a store */
+  setStoreFiles: (storeId: string, files: VectorStoreFile[]) => void;
+  /** Set loading state for a store's files */
+  setStoreFilesLoading: (storeId: string, isLoading: boolean) => void;
 }
 
 /**
@@ -41,6 +50,10 @@ export function SettingsSidebar({
   settings,
   onUpdateSettings,
   onClearStoredData,
+  vectorStoreCache,
+  setVectorStores,
+  setStoreFiles,
+  setStoreFilesLoading,
 }: SettingsSidebarProps) {
   const availableReasoningEfforts = MODEL_REASONING_EFFORTS[settings.modelName];
 
@@ -282,6 +295,33 @@ export function SettingsSidebar({
                 Execute Python code in a sandboxed environment. Incurs additional costs.
               </span>
             </div>
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="fileSearchEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.fileSearchEnabled || false}
+                  onChange={handleCheckboxChange('fileSearchEnabled')}
+                />
+                <span className="settings-field__checkbox-label">File Search</span>
+              </label>
+              <span className="settings-field__hint">
+                Search uploaded documents using vector stores. Incurs additional costs.
+              </span>
+            </div>
+
+            {settings.fileSearchEnabled && (
+              <FileSearchSettings
+                settings={settings}
+                onUpdateSettings={onUpdateSettings}
+                vectorStoreCache={vectorStoreCache}
+                setVectorStores={setVectorStores}
+                setStoreFiles={setStoreFiles}
+                setStoreFilesLoading={setStoreFilesLoading}
+              />
+            )}
           </section>
 
           {/* MCP Servers */}

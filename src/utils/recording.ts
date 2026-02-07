@@ -7,7 +7,8 @@
 
 /** Check if record mode is enabled via environment variable */
 export function isRecordModeEnabled(): boolean {
-  return import.meta.env.VITE_RECORD_MODE === 'true';
+  // Support both VITE_RECORD_MODE and VITE_RECORDING for convenience
+  return import.meta.env.VITE_RECORD_MODE === 'true' || import.meta.env.VITE_RECORDING === '1';
 }
 
 /** Generate a UUID v4 for recording filenames */

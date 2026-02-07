@@ -21,7 +21,7 @@ import './ChatContainer.css';
 export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
-  const { settings, updateSettings, clearStoredData, isConfigured } = useSettingsContext();
+  const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
   const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval } = useChat();
 
   const handleOpenSettings = useCallback(() => {
@@ -107,6 +107,10 @@ export function ChatContainer() {
         settings={settings}
         onUpdateSettings={updateSettings}
         onClearStoredData={clearStoredData}
+        vectorStoreCache={vectorStoreCache}
+        setVectorStores={setVectorStores}
+        setStoreFiles={setStoreFiles}
+        setStoreFilesLoading={setStoreFilesLoading}
       />
 
       <JsonSidePanel

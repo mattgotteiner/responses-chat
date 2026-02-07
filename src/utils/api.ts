@@ -26,18 +26,24 @@ function normalizeEndpoint(endpoint: string): string {
   return url;
 }
 
+/** Credentials required for Azure OpenAI client */
+export interface AzureCredentials {
+  endpoint: string;
+  apiKey: string;
+}
+
 /**
  * Creates an OpenAI client configured for Azure OpenAI
  * Uses the standard OpenAI client with Azure endpoint as baseURL
- * @param settings - Application settings containing endpoint and API key
+ * @param credentials - Object containing endpoint and API key (can be full Settings or just credentials)
  * @returns Configured OpenAI client
  */
-export function createAzureClient(settings: Settings): OpenAI {
-  const baseURL = normalizeEndpoint(settings.endpoint);
+export function createAzureClient(credentials: AzureCredentials): OpenAI {
+  const baseURL = normalizeEndpoint(credentials.endpoint);
 
   return new OpenAI({
     baseURL,
-    apiKey: settings.apiKey,
+    apiKey: credentials.apiKey,
     dangerouslyAllowBrowser: true, // Required for browser usage
   });
 }

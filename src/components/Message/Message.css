@@ -338,6 +338,26 @@
   text-decoration: underline;
 }
 
+/* File citation styles */
+.message__citation--file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.message__citation-file-icon {
+  flex-shrink: 0;
+  font-size: 14px;
+}
+
+.message__citation-filename {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+}
+
 @media (max-width: 600px) {
   .message {
     max-width: 95%;

@@ -33,6 +33,13 @@ function buildToolsConfiguration(settings: Settings): {
     // Request code interpreter outputs to get execution results (logs)
     include.push('code_interpreter_call.outputs');
   }
+  // Add file search tool if enabled with a vector store selected
+  if (settings.fileSearchEnabled && settings.fileSearchVectorStoreId) {
+    tools.push({
+      type: 'file_search',
+      vector_store_ids: [settings.fileSearchVectorStoreId],
+    });
+  }
   // Add enabled MCP servers as tools
   if (settings.mcpServers && settings.mcpServers.length > 0) {
     for (const server of settings.mcpServers) {
@@ -256,6 +263,7 @@ export function useChat(): UseChatReturn {
                     reasoning: [...acc.reasoning],
                     toolCalls: [...acc.toolCalls],
                     ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
+                    ...(acc.fileCitations.length > 0 && { fileCitations: [...acc.fileCitations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                     ...(acc.isTruncated && { isTruncated: true }),
                     ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
@@ -479,6 +487,7 @@ export function useChat(): UseChatReturn {
       );
       const existingReasoning = targetMessage.reasoning || [];
       const existingCitations = targetMessage.citations || [];
+      const existingFileCitations = targetMessage.fileCitations || [];
       const targetMessageId = targetMessage.id;
 
       // Mark the target message as streaming again
@@ -523,6 +532,7 @@ export function useChat(): UseChatReturn {
           // Merge reasoning and citations
           const mergedReasoning = [...existingReasoning, ...acc.reasoning];
           const mergedCitations = [...existingCitations, ...acc.citations];
+          const mergedFileCitations = [...existingFileCitations, ...acc.fileCitations];
 
           setMessages((prev) =>
             prev.map((msg) =>
@@ -533,6 +543,7 @@ export function useChat(): UseChatReturn {
                     reasoning: mergedReasoning,
                     toolCalls: mergedToolCalls,
                     ...(mergedCitations.length > 0 && { citations: mergedCitations }),
+                    ...(mergedFileCitations.length > 0 && { fileCitations: mergedFileCitations }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg

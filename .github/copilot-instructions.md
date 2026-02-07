@@ -35,9 +35,9 @@ dist/            - Build output (gitignored)
 
 ## Before Committing
 
-1. `npm run lint` - Fix any linting errors
-2. `npm run test:run` - All tests must pass
-3. `npm run typecheck` - No type errors
+1. `npm run build` - TypeScript check + production build
+2. `npm run lint` - Fix any linting errors
+3. `npm run test:run` - All tests must pass
 
 ## Deployment
 

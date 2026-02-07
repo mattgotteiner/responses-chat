@@ -5,7 +5,7 @@
  * enabling both real-time UI updates and offline replay of recorded sessions.
  */
 
-import type { ReasoningStep, ToolCall, Citation, ToolCallStatus } from '../types';
+import type { ReasoningStep, ToolCall, Citation, FileCitation, ToolCallStatus } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
 /** ID generator functions for customizable ID generation */
@@ -38,6 +38,8 @@ export interface StreamAccumulator {
   toolCalls: ToolCall[];
   /** URL citations from web search annotations */
   citations: Citation[];
+  /** File citations from file search annotations */
+  fileCitations: FileCitation[];
   /** Response ID from response.completed event (for conversation continuity) */
   responseId: string | null;
   /** Full response JSON from response.completed event */
@@ -55,6 +57,7 @@ export function createInitialAccumulator(): StreamAccumulator {
     reasoning: [],
     toolCalls: [],
     citations: [],
+    fileCitations: [],
     responseId: null,
     responseJson: null,
     isTruncated: false,
@@ -326,6 +329,72 @@ export function processStreamEvent(
         };
       }
 
+      // Handle file_search_call output items
+      if (itemEvent.item?.type === 'file_search_call') {
+        const fileSearchItem = itemEvent.item as {
+          id?: string;
+          type?: string;
+          status?: string;
+          queries?: string[];
+          results?: Array<{
+            file_id?: string;
+            filename?: string;
+            score?: number;
+            text?: string;
+          }>;
+        };
+        const itemId = fileSearchItem.id || idGenerators.generateToolCallId();
+        const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+        const newToolCalls = [...accumulator.toolCalls];
+
+        const status = fileSearchItem.status as 'in_progress' | 'searching' | 'completed' | undefined;
+        const queries = fileSearchItem.queries || [];
+        const results = fileSearchItem.results || [];
+        
+        // Map results to structured format
+        const fileSearchResults = results.length > 0
+          ? results.map((r) => ({
+              fileId: r.file_id || '',
+              filename: r.filename || 'unknown',
+              score: r.score ?? 0,
+              text: r.text || '',
+            }))
+          : undefined;
+        
+        // Keep legacy text format for backwards compatibility
+        const resultText = results.length > 0
+          ? results.map((r) => `[${r.filename || 'unknown'}]: ${r.text || ''}`).join('\n\n')
+          : undefined;
+
+        if (existingIndex >= 0) {
+          // Update existing tool call
+          newToolCalls[existingIndex] = {
+            ...newToolCalls[existingIndex],
+            ...(status && { status }),
+            ...(queries.length > 0 && { query: queries.join(', ') }),
+            ...(resultText && { result: resultText }),
+            ...(fileSearchResults && { fileSearchResults }),
+          };
+        } else {
+          // Add new file search call
+          newToolCalls.push({
+            id: itemId,
+            name: 'file_search',
+            type: 'file_search',
+            arguments: queries.length > 0 ? JSON.stringify({ queries }) : '',
+            status: status || 'in_progress',
+            query: queries.join(', '),
+            result: resultText,
+            fileSearchResults,
+          });
+        }
+
+        return {
+          ...accumulator,
+          toolCalls: newToolCalls,
+        };
+      }
+
       return accumulator;
     }
 
@@ -400,6 +469,35 @@ export function processStreamEvent(
       const newStatus: ToolCallStatus = event.type === 'response.mcp_call.completed'
         ? 'completed'
         : 'in_progress';
+
+      const newToolCalls = [...accumulator.toolCalls];
+      newToolCalls[existingIndex] = {
+        ...newToolCalls[existingIndex],
+        status: newStatus,
+      };
+
+      return {
+        ...accumulator,
+        toolCalls: newToolCalls,
+      };
+    }
+
+    case 'response.file_search_call.in_progress':
+    case 'response.file_search_call.searching':
+    case 'response.file_search_call.completed': {
+      // Update file search call status
+      const fileSearchEvent = event as { item_id?: string };
+      const itemId = fileSearchEvent.item_id;
+      if (!itemId) return accumulator;
+
+      const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
+      if (existingIndex < 0) return accumulator;
+
+      const newStatus: ToolCallStatus = event.type === 'response.file_search_call.completed'
+        ? 'completed'
+        : event.type === 'response.file_search_call.searching'
+          ? 'searching'
+          : 'in_progress';
 
       const newToolCalls = [...accumulator.toolCalls];
       newToolCalls[existingIndex] = {
@@ -702,13 +800,14 @@ export function processStreamEvent(
         const truncationReason = incompleteDetails?.reason || null;
         
         // Extract citations from output items
-        const citations = extractCitationsFromResponse(response);
+        const { citations, fileCitations } = extractCitationsFromResponse(response);
         
         return {
           ...accumulator,
           responseId,
           responseJson: response,
           citations: citations.length > 0 ? citations : accumulator.citations,
+          fileCitations: fileCitations.length > 0 ? fileCitations : accumulator.fileCitations,
           isTruncated,
           truncationReason,
         };
@@ -742,21 +841,30 @@ export async function processStream(
   return accumulator;
 }
 
+/** Result of extracting citations from a response */
+export interface ExtractedCitations {
+  /** URL citations from web search */
+  citations: Citation[];
+  /** File citations from file search */
+  fileCitations: FileCitation[];
+}
+
 /**
  * Extract citations from a completed response
  * Citations are found in output items with type "message" that have annotations
  * 
  * @param response - The completed response object
- * @returns Array of extracted citations
+ * @returns Object containing URL citations and file citations
  */
 export function extractCitationsFromResponse(
   response: Record<string, unknown>
-): Citation[] {
+): ExtractedCitations {
   const citations: Citation[] = [];
+  const fileCitations: FileCitation[] = [];
   
   const output = response.output;
   if (!Array.isArray(output)) {
-    return citations;
+    return { citations, fileCitations };
   }
   
   for (const item of output) {
@@ -782,31 +890,58 @@ export function extractCitationsFromResponse(
           if (!annotation || typeof annotation !== 'object') continue;
           
           const a = annotation as Record<string, unknown>;
-          if (a.type !== 'url_citation') continue;
           
-          if (
-            typeof a.url === 'string' &&
-            typeof a.title === 'string' &&
-            typeof a.start_index === 'number' &&
-            typeof a.end_index === 'number'
-          ) {
-            citations.push({
-              url: a.url,
-              title: a.title,
-              startIndex: a.start_index,
-              endIndex: a.end_index,
-            });
+          // Handle URL citations (from web search)
+          if (a.type === 'url_citation') {
+            if (
+              typeof a.url === 'string' &&
+              typeof a.title === 'string' &&
+              typeof a.start_index === 'number' &&
+              typeof a.end_index === 'number'
+            ) {
+              citations.push({
+                url: a.url,
+                title: a.title,
+                startIndex: a.start_index,
+                endIndex: a.end_index,
+              });
+            }
+          }
+          
+          // Handle file citations (from file search)
+          if (a.type === 'file_citation') {
+            if (
+              typeof a.file_id === 'string' &&
+              typeof a.filename === 'string' &&
+              typeof a.index === 'number'
+            ) {
+              fileCitations.push({
+                fileId: a.file_id,
+                filename: a.filename,
+                index: a.index,
+              });
+            }
           }
         }
       }
     }
   }
   
-  // Deduplicate by URL
-  const seen = new Set<string>();
-  return citations.filter((c) => {
-    if (seen.has(c.url)) return false;
-    seen.add(c.url);
+  // Deduplicate URL citations by URL
+  const seenUrls = new Set<string>();
+  const uniqueCitations = citations.filter((c) => {
+    if (seenUrls.has(c.url)) return false;
+    seenUrls.add(c.url);
     return true;
   });
+  
+  // Deduplicate file citations by fileId
+  const seenFileIds = new Set<string>();
+  const uniqueFileCitations = fileCitations.filter((c) => {
+    if (seenFileIds.has(c.fileId)) return false;
+    seenFileIds.add(c.fileId);
+    return true;
+  });
+  
+  return { citations: uniqueCitations, fileCitations: uniqueFileCitations };
 }

@@ -19,6 +19,7 @@ src/
 │   ├── Button/              # Reusable button
 │   ├── ChatContainer/       # Main chat layout with header
 │   ├── ChatInput/           # Message input and send button
+│   ├── FileSearchSettings/  # File search vector store management
 │   ├── JsonSidePanel/       # JSON viewer side panel
 │   ├── McpServerSettings/   # MCP server configuration
 │   ├── Message/             # Individual message display
@@ -42,7 +43,8 @@ src/
 │   ├── recording.ts         # Recording file utilities
 │   ├── recordingReplay.ts   # Recording replay for tests
 │   ├── streamProcessor.ts   # Streaming response processor
-│   └── tokenUsage.ts        # Token usage calculations
+│   ├── tokenUsage.ts        # Token usage calculations
+│   └── vectorStore.ts       # Vector store API utilities
 ├── test/
 │   ├── setup.ts             # Vitest setup
 │   ├── helpers.ts           # Test helper utilities
@@ -153,7 +155,7 @@ Follow the existing structure in `src/`. See examples:
 
 - Tests use Vitest + React Testing Library
 - Test files should be co-located with source files or in `src/test/`
-- Run `npm run test:run` before committing
+- Run `npm run build` and `npm run test:run` before committing
 - All tests must pass before merging
 - **Always add unit tests when implementing new features** – new utilities, hooks, and components should have corresponding `.test.ts` or `.test.tsx` files
 
@@ -185,7 +187,7 @@ describe('Button', () => {
 
 - Write TypeScript (never plain JavaScript)
 - Add tests for new components and utilities
-- Run `npm run lint` and `npm run test:run` before commits
+- Run `npm run build`, `npm run lint`, and `npm run test:run` before commits
 - Use semantic HTML elements
 - Follow existing code patterns and file structure
 

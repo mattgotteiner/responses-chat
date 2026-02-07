@@ -6,12 +6,23 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SettingsSidebar } from './SettingsSidebar';
 import { DEFAULT_SETTINGS } from '../../types';
-import type { Settings } from '../../types';
+import type { Settings, VectorStoreCache } from '../../types';
 
 describe('SettingsSidebar', () => {
   const mockOnClose = vi.fn();
   const mockOnUpdateSettings = vi.fn();
   const mockOnClearStoredData = vi.fn();
+  const mockSetVectorStores = vi.fn();
+  const mockSetStoreFiles = vi.fn();
+  const mockSetStoreFilesLoading = vi.fn();
+
+  const defaultVectorStoreCache: VectorStoreCache = {
+    stores: [],
+    storeFiles: {},
+    storesFetchedAt: null,
+    isStoresLoading: false,
+    loadingStoreFiles: new Set(),
+  };
 
   const defaultProps = {
     isOpen: true,
@@ -19,6 +30,10 @@ describe('SettingsSidebar', () => {
     settings: { ...DEFAULT_SETTINGS },
     onUpdateSettings: mockOnUpdateSettings,
     onClearStoredData: mockOnClearStoredData,
+    vectorStoreCache: defaultVectorStoreCache,
+    setVectorStores: mockSetVectorStores,
+    setStoreFiles: mockSetStoreFiles,
+    setStoreFilesLoading: mockSetStoreFilesLoading,
   };
 
   beforeEach(() => {

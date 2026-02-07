@@ -1390,6 +1390,189 @@ describe('Recording Replay E2E', () => {
     });
   });
 
+  describe('single-turn-file-search.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-file-search.jsonl';
+
+    it('loads the recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toBeDefined();
+      expect(Array.isArray(recording.events)).toBe(true);
+    });
+
+    it('has correct request metadata with file search tool', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      expect(recording.request.type).toBe('request');
+      expect(recording.request.data.model).toBe('gpt-5-mini');
+      expect(recording.request.data.input).toBe("What's my hello world document say?");
+      // Verify file search tool is configured
+      expect(recording.request.data.tools).toBeDefined();
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        vector_store_ids?: string[];
+      }>;
+      const fileSearchTool = tools.find((t) => t.type === 'file_search');
+      expect(fileSearchTool).toBeDefined();
+      expect(fileSearchTool?.vector_store_ids).toBeDefined();
+      expect(fileSearchTool?.vector_store_ids?.length).toBeGreaterThan(0);
+    });
+
+    it('contains file search call events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have file search call events
+      expect(stats.eventTypes['response.file_search_call.in_progress']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.file_search_call.searching']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.file_search_call.completed']).toBeGreaterThan(0);
+    });
+
+    it('contains file citation annotation events', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have annotation events from file citations
+      expect(stats.eventTypes['response.output_text.annotation.added']).toBeGreaterThan(0);
+    });
+
+    it('contains expected event types', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // This recording should have response lifecycle events
+      expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
+      expect(stats.eventTypes['response.completed']).toBe(1);
+      
+      // Should have output text deltas for the response content
+      expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
+    });
+
+    it('replays to produce accumulated content', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have accumulated text content from the response
+      expect(result.content).toBeDefined();
+      expect(result.content.length).toBeGreaterThan(0);
+      
+      // Content should contain information about the hello world file
+      expect(result.content).toContain('Hello world');
+    });
+
+    it('extracts response ID for conversation continuity', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have captured the response ID from response.completed
+      expect(result.responseId).toBeDefined();
+      expect(result.responseId).not.toBeNull();
+      expect(result.responseId).toMatch(/^resp_/);
+    });
+
+    it('captures full response JSON', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // Should have the full response object
+      expect(result.responseJson).toBeDefined();
+      expect(result.responseJson).not.toBeNull();
+      expect(result.responseJson!.id).toBe(result.responseId);
+      expect(result.responseJson!.status).toBe('completed');
+    });
+
+    it('captures file search tool calls in response output', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // The response should contain file_search_call items in output
+      expect(result.responseJson).toBeDefined();
+      const output = result.responseJson?.output;
+      if (!Array.isArray(output)) {
+        throw new Error('Expected responseJson.output to be an array');
+      }
+      
+      const fileSearchCalls = output.filter(
+        (item): item is { type: string; status?: string; queries?: string[] } =>
+          typeof item === 'object' && item !== null && (item as { type?: unknown }).type === 'file_search_call'
+      );
+      expect(fileSearchCalls.length).toBeGreaterThan(0);
+      
+      // Verify file search calls have completed status
+      fileSearchCalls.forEach((call) => {
+        expect(call.status).toBe('completed');
+      });
+      
+      // Verify queries were generated for "hello world"
+      const allQueries = fileSearchCalls.flatMap((call) => call.queries || []);
+      const hasHelloWorldQuery = allQueries.some((q) => 
+        q.toLowerCase().includes('hello') && q.toLowerCase().includes('world')
+      );
+      expect(hasHelloWorldQuery).toBe(true);
+    });
+
+    it('captures file citation annotations in message', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+      
+      // The response should contain message items with file citation annotations
+      expect(result.responseJson).toBeDefined();
+      const output = result.responseJson?.output;
+      if (!Array.isArray(output)) {
+        throw new Error('Expected responseJson.output to be an array');
+      }
+      
+      // Find message items with content that has annotations
+      const messageItems = output.filter(
+        (item): item is { type: string; content?: Array<{ annotations?: unknown[] }> } =>
+          typeof item === 'object' && 
+          item !== null && 
+          (item as { type?: unknown }).type === 'message'
+      );
+      expect(messageItems.length).toBeGreaterThan(0);
+      
+      // Find annotations in the message content
+      const annotations = messageItems.flatMap((msg) => 
+        (msg.content || []).flatMap((c) => (c.annotations || []))
+      );
+      expect(annotations.length).toBeGreaterThan(0);
+      
+      // Verify annotations are file citations
+      const fileCitations = annotations.filter(
+        (a): a is { type: string; file_id?: string; filename?: string } =>
+          typeof a === 'object' && a !== null && (a as { type?: unknown }).type === 'file_citation'
+      );
+      expect(fileCitations.length).toBeGreaterThan(0);
+      
+      // Should cite "Hello world!.txt"
+      const helloWorldCitation = fileCitations.find((c) => 
+        c.filename?.includes('Hello world')
+      );
+      expect(helloWorldCitation).toBeDefined();
+    });
+
+    it('produces consistent results on multiple replays', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      
+      const result1 = replayRecording(recording);
+      const result2 = replayRecording(recording);
+      
+      expect(result1.content).toBe(result2.content);
+      expect(result1.responseId).toBe(result2.responseId);
+    });
+
+    it('has reasonable recording duration', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      
+      // Recording should be between 1 second and 60 seconds
+      expect(stats.durationMs).toBeGreaterThan(1000);
+      expect(stats.durationMs).toBeLessThan(60000);
+    });
+  });
+
   describe('Recording stats utility', () => {
     it('provides accurate event counts', () => {
       const recording = loadRecordingFixture('single-turn-reasoning.jsonl');
