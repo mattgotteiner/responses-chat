@@ -155,7 +155,7 @@ Follow the existing structure in `src/`. See examples:
 
 - Tests use Vitest + React Testing Library
 - Test files should be co-located with source files or in `src/test/`
-- Run `npm run test:run` before committing
+- Run `npm run build` and `npm run test:run` before committing
 - All tests must pass before merging
 - **Always add unit tests when implementing new features** – new utilities, hooks, and components should have corresponding `.test.ts` or `.test.tsx` files
 
@@ -187,7 +187,7 @@ describe('Button', () => {
 
 - Write TypeScript (never plain JavaScript)
 - Add tests for new components and utilities
-- Run `npm run lint` and `npm run test:run` before commits
+- Run `npm run build`, `npm run lint`, and `npm run test:run` before commits
 - Use semantic HTML elements
 - Follow existing code patterns and file structure
 
