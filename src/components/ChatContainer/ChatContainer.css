@@ -18,10 +18,28 @@
   background-color: var(--color-bg);
 }
 
+.chat-container__title-area {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .chat-container__title {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
+  color: var(--color-text);
+}
+
+.chat-container__github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-secondary);
+  transition: color 0.15s ease;
+}
+
+.chat-container__github-link:hover {
   color: var(--color-text);
 }
 
