@@ -135,11 +135,13 @@ export function useSettings(): UseSettingsReturn {
 
   const resetSettings = useCallback(() => {
     setSettings(DEFAULT_SETTINGS);
+    setVectorStoreCache(EMPTY_CACHE);
   }, []);
 
   const clearStoredData = useCallback(() => {
     clearAllStoredValues();
     setSettings(DEFAULT_SETTINGS);
+    setVectorStoreCache(EMPTY_CACHE);
   }, []);
 
   // Check if required fields are configured
@@ -150,6 +152,7 @@ export function useSettings(): UseSettingsReturn {
   const lastCredentialsRef = useRef<{ endpoint: string; apiKey: string } | null>(null);
 
   // Pre-fetch vector stores in the background when credentials are available
+  // Also clears cache when credentials change or become invalid
   useEffect(() => {
     const currentCredentials = { endpoint: settings.endpoint, apiKey: settings.apiKey };
     const credentialsChanged = 
@@ -160,13 +163,23 @@ export function useSettings(): UseSettingsReturn {
     // Update the ref tracking
     lastCredentialsRef.current = currentCredentials;
 
-    // Skip if no valid credentials
+    // Skip if no valid credentials (but clear cache asynchronously via IIFE first)
     if (!isConfigured) {
+      // Clear stale cache when credentials become invalid
+      if (credentialsChanged) {
+        (async () => setVectorStoreCache(EMPTY_CACHE))();
+      }
       return;
     }
 
-    // Skip if we've already fetched (unless credentials changed)
-    if (vectorStoreCache.storesFetchedAt !== null && !credentialsChanged) {
+    // Clear cache and re-fetch when credentials change
+    if (credentialsChanged) {
+      // Reset cache state before fetching
+      (async () => {
+        setVectorStoreCache(EMPTY_CACHE);
+      })();
+    } else if (vectorStoreCache.storesFetchedAt !== null) {
+      // Skip if we've already fetched and credentials haven't changed
       return;
     }
 
@@ -175,12 +188,16 @@ export function useSettings(): UseSettingsReturn {
       return;
     }
 
+    // Capture values for the async closure
+    const endpoint = settings.endpoint;
+    const apiKey = settings.apiKey;
+
     // Use IIFE to avoid lint warning about sync setState in effect
     (async () => {
       setVectorStoreCache(prev => ({ ...prev, isStoresLoading: true }));
 
       try {
-        const client = createAzureClient(settings);
+        const client = createAzureClient({ endpoint, apiKey });
         const stores = await listVectorStores(client);
         // Sort by creation date, newest first
         stores.sort((a, b) => b.createdAt - a.createdAt);
@@ -195,7 +212,7 @@ export function useSettings(): UseSettingsReturn {
         setVectorStoreCache(prev => ({ ...prev, isStoresLoading: false }));
       }
     })();
-  }, [isConfigured, settings.endpoint, settings.apiKey, vectorStoreCache.storesFetchedAt, vectorStoreCache.isStoresLoading, settings]);
+  }, [isConfigured, settings.endpoint, settings.apiKey, vectorStoreCache.storesFetchedAt, vectorStoreCache.isStoresLoading]);
 
   return {
     settings,

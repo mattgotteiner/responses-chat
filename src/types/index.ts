@@ -191,7 +191,7 @@ export interface Settings {
   fileSearchEnabled?: boolean;
   /** Selected vector store ID for file search */
   fileSearchVectorStoreId?: string;
-  /** Expiration time in minutes for new vector stores (default: 30) */
+  /** Expiration time in minutes for new vector stores (default: 1440 = 1 day) */
   fileSearchExpirationMinutes?: number;
 }
 
@@ -213,7 +213,7 @@ export const DEFAULT_SETTINGS: Settings = {
   noLocalStorage: false,
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
-  fileSearchExpirationMinutes: 30,
+  fileSearchExpirationMinutes: DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES,
 };
 
 /** Tool call status types */

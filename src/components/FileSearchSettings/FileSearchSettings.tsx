@@ -91,9 +91,13 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
   // Create store form state
   const [isCreating, setIsCreating] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
-  const [newStoreExpiration, setNewStoreExpiration] = useState(
-    settings.fileSearchExpirationMinutes ?? DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES
-  );
+  // Normalize expiration to valid option values (API only supports days)
+  const [newStoreExpiration, setNewStoreExpiration] = useState(() => {
+    const value = settings.fileSearchExpirationMinutes ?? DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES;
+    // Find the matching option or fall back to default
+    const validOption = FILE_SEARCH_EXPIRATION_OPTIONS.find(opt => opt.value === value);
+    return validOption ? validOption.value : DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES;
+  });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -144,24 +148,41 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
     }
 
     const storeId = settings.fileSearchVectorStoreId;
+    // Capture endpoint/apiKey for the async closure
+    const endpoint = settings.endpoint;
+    const apiKey = settings.apiKey;
+    let cancelled = false;
 
     const loadFiles = async () => {
       setIsLoadingFilesLocal(true);
       setStoreFilesLoading(storeId, true);
       setFilesError(null);
       try {
-        const client = createAzureClient(settings);
+        const client = createAzureClient({ endpoint, apiKey });
         const storeFiles = await getVectorStoreFiles(client, storeId);
-        setFiles(storeFiles);
+        // Only update state if this request is still current
+        if (!cancelled) {
+          setFilesLocal(storeFiles);
+          setCachedStoreFiles(storeId, storeFiles);
+        }
       } catch (err) {
-        setFilesError(err instanceof Error ? err.message : 'Failed to load files');
-        setStoreFilesLoading(storeId, false);
+        if (!cancelled) {
+          setFilesError(err instanceof Error ? err.message : 'Failed to load files');
+          setStoreFilesLoading(storeId, false);
+        }
       } finally {
-        setIsLoadingFilesLocal(false);
+        if (!cancelled) {
+          setIsLoadingFilesLocal(false);
+        }
       }
     };
 
     loadFiles();
+
+    // Cleanup: cancel pending request when store changes or component unmounts
+    return () => {
+      cancelled = true;
+    };
     // We intentionally only depend on credential and store ID changes, not the entire settings object
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.fileSearchVectorStoreId, hasValidCredentials, settings.endpoint, settings.apiKey]);
