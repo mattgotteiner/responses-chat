@@ -1301,6 +1301,7 @@ describe('streamProcessor', () => {
         toolCalls: [],
         citations: [],
         fileCitations: [],
+        containerFileCitations: [],
         responseId: null,
         responseJson: null,
         isTruncated: false,

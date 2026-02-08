@@ -4,7 +4,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import type { Message, Settings, Attachment } from '../types';
-import { createAzureClient, generateMessageId } from '../utils/api';
+import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
 import { isImageAttachment } from '../utils/attachment';
 import {
@@ -18,7 +18,7 @@ import {
  * Build tools array and include list from settings
  * Extracted to avoid duplication between sendMessage and handleMcpApproval
  */
-function buildToolsConfiguration(settings: Settings): {
+function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: string[]): {
   tools: Array<Record<string, unknown>>;
   include: string[];
 } {
@@ -29,7 +29,12 @@ function buildToolsConfiguration(settings: Settings): {
     tools.push({ type: 'web_search_preview' });
   }
   if (settings.codeInterpreterEnabled) {
-    tools.push({ type: 'code_interpreter', container: { type: 'auto' } });
+    // Include file_ids if any were uploaded for code interpreter
+    const container: Record<string, unknown> = { type: 'auto' };
+    if (codeInterpreterFileIds && codeInterpreterFileIds.length > 0) {
+      container.file_ids = codeInterpreterFileIds;
+    }
+    tools.push({ type: 'code_interpreter', container });
     // Request code interpreter outputs to get execution results (logs)
     include.push('code_interpreter_call.outputs');
   }
@@ -125,13 +130,130 @@ export function useChat(): UseChatReturn {
       // Separate attachments by type
       const imageAttachments = attachments?.filter(isImageAttachment) || [];
       const fileAttachments = attachments?.filter((a) => !isImageAttachment(a)) || [];
+      
+      // PDFs go to both vision (input_file) AND code interpreter (file_ids) when enabled
+      const pdfAttachments = fileAttachments.filter((a) => a.mimeType === 'application/pdf');
+
+      // When code interpreter is enabled, upload ALL attachments (images + files) to Files API
+      // This allows code interpreter to analyze images and process files
+      const attachmentsForCodeInterpreter = settings.codeInterpreterEnabled 
+        ? [...imageAttachments, ...fileAttachments] 
+        : [];
+      
+      // Determine which attachments need uploading (any attachments when code interpreter is enabled)
+      const needsUpload = attachmentsForCodeInterpreter.length > 0;
+      
+      // Mark attachments as "uploading" if they need to be uploaded to code interpreter
+      const attachmentsWithStatus = attachments?.map((a) => {
+        if (needsUpload) {
+          return { ...a, uploadStatus: 'uploading' as const };
+        }
+        return a;
+      });
+
+      // Generate message ID for user message so we can update it later
+      const userMessageId = generateMessageId();
+
+      // Add user message immediately (before uploads) so user sees their message
+      const userMessage: Message = {
+        id: userMessageId,
+        role: 'user',
+        content: content.trim(),
+        attachments: attachmentsWithStatus && attachmentsWithStatus.length > 0 ? attachmentsWithStatus : undefined,
+        timestamp: new Date(),
+        // Request JSON will be updated after uploads complete
+        requestJson: undefined,
+      };
+
+      // Create placeholder for assistant message
+      const assistantMessage: Message = {
+        id: generateMessageId(),
+        role: 'assistant',
+        content: '',
+        reasoning: [],
+        toolCalls: [],
+        isStreaming: true,
+        timestamp: new Date(),
+      };
+
+      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setIsStreaming(true);
+
+      // Upload files for code interpreter (if enabled) - now happens after message is shown
+      let codeInterpreterFileIds: string[] = [];
+      // Map attachment names to their uploaded file_ids (for referencing in input content)
+      const uploadedFileIdMap = new Map<string, string>();
+      if (needsUpload) {
+        try {
+          const uploadPromises = attachmentsForCodeInterpreter.map((a) =>
+            uploadFileForCodeInterpreter(client, {
+              filename: a.name,
+              base64: a.base64,
+              mimeType: a.mimeType,
+            })
+          );
+          codeInterpreterFileIds = await Promise.all(uploadPromises);
+          
+          // Build mapping of attachment name to file_id
+          attachmentsForCodeInterpreter.forEach((a, index) => {
+            uploadedFileIdMap.set(a.name, codeInterpreterFileIds[index]);
+          });
+          
+          // Update user message attachments to show "uploaded" status
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId && msg.attachments
+                ? {
+                    ...msg,
+                    attachments: msg.attachments.map((a) =>
+                      a.uploadStatus === 'uploading'
+                        ? { ...a, uploadStatus: 'uploaded' as const }
+                        : a
+                    ),
+                  }
+                : msg
+            )
+          );
+        } catch (uploadError) {
+          const errorMessage = uploadError instanceof Error ? uploadError.message : 'Failed to upload files';
+          setError(`File upload failed: ${errorMessage}`);
+          
+          // Update user message attachments to show "failed" status
+          setMessages((prev) =>
+            prev.map((msg) => {
+              if (msg.id === userMessageId && msg.attachments) {
+                return {
+                  ...msg,
+                  attachments: msg.attachments.map((a) =>
+                    a.uploadStatus === 'uploading'
+                      ? { ...a, uploadStatus: 'failed' as const }
+                      : a
+                  ),
+                };
+              }
+              if (msg.id === assistantMessage.id) {
+                return {
+                  ...msg,
+                  content: `Error: ${errorMessage}`,
+                  isStreaming: false,
+                  isError: true,
+                };
+              }
+              return msg;
+            })
+          );
+          setIsStreaming(false);
+          return;
+        }
+      }
 
       // Build input: either simple string or structured content with attachments
       let input: string | Record<string, unknown>[];
-      const hasAttachments = imageAttachments.length > 0 || fileAttachments.length > 0;
+      // Include images and PDFs in content parts (PDFs for vision, also uploaded to code interpreter above)
+      const hasContentAttachments = imageAttachments.length > 0 || pdfAttachments.length > 0;
       
-      if (hasAttachments) {
-        // Build content array with text, images, and files
+      if (hasContentAttachments || (content.trim() && attachments && attachments.length > 0)) {
+        // Build content array with text, images, and PDFs
         const contentParts: Record<string, unknown>[] = [];
         
         // Add text content if present
@@ -140,21 +262,42 @@ export function useChat(): UseChatReturn {
         }
         
         // Add image attachments as input_image
+        // When uploaded to code interpreter, use file_id reference; otherwise use base64
         for (const attachment of imageAttachments) {
-          contentParts.push({
-            type: 'input_image',
-            image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
-          });
+          const uploadedFileId = uploadedFileIdMap.get(attachment.name);
+          if (uploadedFileId) {
+            // Use file_id reference (avoids sending large base64 + potential conflicts)
+            contentParts.push({
+              type: 'input_file',
+              file_id: uploadedFileId,
+            });
+          } else {
+            // Send as base64 inline
+            contentParts.push({
+              type: 'input_image',
+              image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
+            });
+          }
         }
 
-        // Add file attachments as input_file
-        // These are automatically available to code interpreter when that tool is enabled
-        for (const attachment of fileAttachments) {
-          contentParts.push({
-            type: 'input_file',
-            filename: attachment.name,
-            file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
-          });
+        // Add PDF attachments as input_file (for vision/model context)
+        // When uploaded to code interpreter, use file_id reference; otherwise use base64
+        for (const attachment of pdfAttachments) {
+          const uploadedFileId = uploadedFileIdMap.get(attachment.name);
+          if (uploadedFileId) {
+            // Use file_id reference (avoids sending large base64 + potential conflicts)
+            contentParts.push({
+              type: 'input_file',
+              file_id: uploadedFileId,
+            });
+          } else {
+            // Send as base64 inline
+            contentParts.push({
+              type: 'input_file',
+              filename: attachment.name,
+              file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
+            });
+          }
         }
         
         // Wrap in message format
@@ -199,8 +342,8 @@ export function useChat(): UseChatReturn {
         requestParams.max_output_tokens = settings.maxOutputTokens;
       }
 
-      // Add tools configuration
-      const { tools, include } = buildToolsConfiguration(settings);
+      // Add tools configuration (with file_ids for code interpreter if any)
+      const { tools, include } = buildToolsConfiguration(settings, codeInterpreterFileIds);
       if (tools.length > 0) {
         requestParams.tools = tools;
       }
@@ -208,29 +351,14 @@ export function useChat(): UseChatReturn {
         requestParams.include = include;
       }
 
-      // Add user message with request JSON
-      const userMessage: Message = {
-        id: generateMessageId(),
-        role: 'user',
-        content: content.trim(),
-        attachments: attachments && attachments.length > 0 ? attachments : undefined,
-        timestamp: new Date(),
-        requestJson: { ...requestParams, stream: true },
-      };
-
-      // Create placeholder for assistant message
-      const assistantMessage: Message = {
-        id: generateMessageId(),
-        role: 'assistant',
-        content: '',
-        reasoning: [],
-        toolCalls: [],
-        isStreaming: true,
-        timestamp: new Date(),
-      };
-
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
-      setIsStreaming(true);
+      // Update user message with the final request JSON (now that we know file IDs)
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === userMessageId
+            ? { ...msg, requestJson: { ...requestParams, stream: true } }
+            : msg
+        )
+      );
 
       // Start recording session if RECORD mode is enabled
       // Store in ref so handleMcpApproval can continue using it
@@ -270,6 +398,7 @@ export function useChat(): UseChatReturn {
                     toolCalls: [...acc.toolCalls],
                     ...(acc.citations.length > 0 && { citations: [...acc.citations] }),
                     ...(acc.fileCitations.length > 0 && { fileCitations: [...acc.fileCitations] }),
+                    ...(acc.containerFileCitations.length > 0 && { containerFileCitations: [...acc.containerFileCitations] }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                     ...(acc.isTruncated && { isTruncated: true }),
                     ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
@@ -494,6 +623,7 @@ export function useChat(): UseChatReturn {
       const existingReasoning = targetMessage.reasoning || [];
       const existingCitations = targetMessage.citations || [];
       const existingFileCitations = targetMessage.fileCitations || [];
+      const existingContainerFileCitations = targetMessage.containerFileCitations || [];
       const targetMessageId = targetMessage.id;
 
       // Mark the target message as streaming again
@@ -539,6 +669,7 @@ export function useChat(): UseChatReturn {
           const mergedReasoning = [...existingReasoning, ...acc.reasoning];
           const mergedCitations = [...existingCitations, ...acc.citations];
           const mergedFileCitations = [...existingFileCitations, ...acc.fileCitations];
+          const mergedContainerFileCitations = [...existingContainerFileCitations, ...acc.containerFileCitations];
 
           setMessages((prev) =>
             prev.map((msg) =>
@@ -550,6 +681,7 @@ export function useChat(): UseChatReturn {
                     toolCalls: mergedToolCalls,
                     ...(mergedCitations.length > 0 && { citations: mergedCitations }),
                     ...(mergedFileCitations.length > 0 && { fileCitations: mergedFileCitations }),
+                    ...(mergedContainerFileCitations.length > 0 && { containerFileCitations: mergedContainerFileCitations }),
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg

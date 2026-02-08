@@ -70,7 +70,9 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
     aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Running...';
-  const hasContent = toolCall.code || toolCall.output || (toolCall.codeInterpreterImages && toolCall.codeInterpreterImages.length > 0);
+  const hasContent = toolCall.code || toolCall.output || 
+    (toolCall.codeInterpreterImages && toolCall.codeInterpreterImages.length > 0) ||
+    (toolCall.codeInterpreterFiles && toolCall.codeInterpreterFiles.length > 0);
 
   const handleImageClick = (index: number) => {
     setExpandedImageIndex(expandedImageIndex === index ? null : index);
@@ -138,6 +140,29 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
                       className="tool-call-box__image"
                     />
                   </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {toolCall.codeInterpreterFiles && toolCall.codeInterpreterFiles.length > 0 && (
+            <div className="tool-call-box__files">
+              <div className="tool-call-box__files-label">Generated Files</div>
+              <div className="tool-call-box__files-list">
+                {toolCall.codeInterpreterFiles.map((file, idx) => (
+                  <a
+                    key={idx}
+                    href={file.url}
+                    download={file.filename || `file-${idx + 1}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tool-call-box__file-download"
+                  >
+                    <span className="tool-call-box__file-icon">📄</span>
+                    <span className="tool-call-box__file-name">
+                      {file.filename || `Download file ${idx + 1}`}
+                    </span>
+                    <span className="tool-call-box__file-download-icon">⬇</span>
+                  </a>
                 ))}
               </div>
             </div>
