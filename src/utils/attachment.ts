@@ -27,10 +27,29 @@ export function isCodeInterpreterMimeType(mimeType: string): boolean {
 }
 
 /**
- * Check if a MIME type is supported for attachments
+ * Check if a MIME type is supported for attachments (when all tools are available)
  */
 export function isSupportedMimeType(mimeType: string): boolean {
   return isImageMimeType(mimeType) || isCodeInterpreterMimeType(mimeType);
+}
+
+/**
+ * Check if a MIME type is supported given the current tool context.
+ * Images and PDFs are always supported.
+ * Other file types (CSV, Excel, code files, etc.) require code interpreter.
+ */
+export function isSupportedMimeTypeForContext(
+  mimeType: string,
+  codeInterpreterEnabled: boolean
+): boolean {
+  if (isImageMimeType(mimeType)) {
+    return true;
+  }
+  // PDFs are always supported (for vision/document understanding)
+  if (mimeType === 'application/pdf') {
+    return true;
+  }
+  return codeInterpreterEnabled && isCodeInterpreterMimeType(mimeType);
 }
 
 /**
@@ -177,12 +196,29 @@ export async function createAttachmentFromFile(file: File): Promise<Attachment> 
 }
 
 /**
- * Get the accept string for file input
+ * Get the accept string for file input (all supported types)
  */
 export function getAcceptString(): string {
   const imageTypes = SUPPORTED_IMAGE_TYPES.join(',');
   const codeInterpreterTypes = SUPPORTED_CODE_INTERPRETER_TYPES.join(',');
   // Also add common file extensions for better browser compatibility
+  const extensions = '.pdf,.csv,.json,.txt,.md,.xml,.js,.ts,.py,.xlsx,.xls,.docx,.doc';
+  return `${imageTypes},${codeInterpreterTypes},${extensions}`;
+}
+
+/**
+ * Get the accept string for file input based on tool context.
+ * Images and PDFs are always accepted.
+ * Other file types require code interpreter to be enabled.
+ */
+export function getAcceptStringForContext(codeInterpreterEnabled: boolean): string {
+  const imageTypes = SUPPORTED_IMAGE_TYPES.join(',');
+  if (!codeInterpreterEnabled) {
+    // Accept images and PDFs when code interpreter is disabled
+    return `${imageTypes},application/pdf,.pdf`;
+  }
+  // Include all types when code interpreter is enabled
+  const codeInterpreterTypes = SUPPORTED_CODE_INTERPRETER_TYPES.join(',');
   const extensions = '.pdf,.csv,.json,.txt,.md,.xml,.js,.ts,.py,.xlsx,.xls,.docx,.doc';
   return `${imageTypes},${codeInterpreterTypes},${extensions}`;
 }

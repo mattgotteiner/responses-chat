@@ -26,6 +26,8 @@ interface ChatInputProps {
   tokenUsage?: TokenUsage;
   /** Messages array for conversation JSON export */
   messages?: Message[];
+  /** Whether code interpreter is enabled (affects allowed attachment types) */
+  codeInterpreterEnabled?: boolean;
 }
 
 /**
@@ -40,6 +42,7 @@ export function ChatInput({
   placeholder = 'Type a message...',
   tokenUsage,
   messages = [],
+  codeInterpreterEnabled = false,
 }: ChatInputProps) {
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -149,7 +152,7 @@ export function ChatInput({
             </svg>
           </button>
         )}
-        <AttachmentButton onAttach={handleAttach} disabled={disabled} />
+        <AttachmentButton onAttach={handleAttach} disabled={disabled} codeInterpreterEnabled={codeInterpreterEnabled} />
       </div>
       <div className="chat-input__actions">
         <div className="chat-input__actions-left">

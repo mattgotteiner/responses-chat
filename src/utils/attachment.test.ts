@@ -8,9 +8,11 @@ import {
   isImageMimeType,
   isCodeInterpreterMimeType,
   isSupportedMimeType,
+  isSupportedMimeTypeForContext,
   getAttachmentType,
   isImageAttachment,
   getAcceptString,
+  getAcceptStringForContext,
   formatFileSize,
   getFileCategory,
   getFileTypeDescription,
@@ -108,6 +110,55 @@ describe('attachment utilities', () => {
     });
   });
 
+  describe('isSupportedMimeTypeForContext', () => {
+    describe('without code interpreter', () => {
+      it('returns true for images', () => {
+        expect(isSupportedMimeTypeForContext('image/png', false)).toBe(true);
+        expect(isSupportedMimeTypeForContext('image/jpeg', false)).toBe(true);
+        expect(isSupportedMimeTypeForContext('image/webp', false)).toBe(true);
+      });
+
+      it('returns true for PDF', () => {
+        expect(isSupportedMimeTypeForContext('application/pdf', false)).toBe(true);
+      });
+
+      it('returns false for CSV, Excel, and other code interpreter types', () => {
+        expect(isSupportedMimeTypeForContext('text/csv', false)).toBe(false);
+        expect(isSupportedMimeTypeForContext('application/json', false)).toBe(false);
+        expect(isSupportedMimeTypeForContext('text/x-python', false)).toBe(false);
+        expect(isSupportedMimeTypeForContext('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', false)).toBe(false);
+      });
+
+      it('returns false for unsupported types', () => {
+        expect(isSupportedMimeTypeForContext('video/mp4', false)).toBe(false);
+        expect(isSupportedMimeTypeForContext('audio/mpeg', false)).toBe(false);
+      });
+    });
+
+    describe('with code interpreter', () => {
+      it('returns true for images', () => {
+        expect(isSupportedMimeTypeForContext('image/png', true)).toBe(true);
+        expect(isSupportedMimeTypeForContext('image/jpeg', true)).toBe(true);
+      });
+
+      it('returns true for PDF', () => {
+        expect(isSupportedMimeTypeForContext('application/pdf', true)).toBe(true);
+      });
+
+      it('returns true for CSV, Excel, and other code interpreter types', () => {
+        expect(isSupportedMimeTypeForContext('text/csv', true)).toBe(true);
+        expect(isSupportedMimeTypeForContext('application/json', true)).toBe(true);
+        expect(isSupportedMimeTypeForContext('text/x-python', true)).toBe(true);
+        expect(isSupportedMimeTypeForContext('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', true)).toBe(true);
+      });
+
+      it('returns false for unsupported types', () => {
+        expect(isSupportedMimeTypeForContext('video/mp4', true)).toBe(false);
+        expect(isSupportedMimeTypeForContext('audio/mpeg', true)).toBe(false);
+      });
+    });
+  });
+
   describe('getAttachmentType', () => {
     it('returns image for image mime types', () => {
       expect(getAttachmentType('image/png')).toBe('image');
@@ -172,6 +223,52 @@ describe('attachment utilities', () => {
       expect(accept).toContain('.json');
       expect(accept).toContain('.xlsx');
       expect(accept).toContain('.py');
+    });
+  });
+
+  describe('getAcceptStringForContext', () => {
+    describe('without code interpreter', () => {
+      it('includes image types', () => {
+        const accept = getAcceptStringForContext(false);
+        expect(accept).toContain('image/png');
+        expect(accept).toContain('image/jpeg');
+        expect(accept).toContain('image/webp');
+      });
+
+      it('includes PDF', () => {
+        const accept = getAcceptStringForContext(false);
+        expect(accept).toContain('application/pdf');
+        expect(accept).toContain('.pdf');
+      });
+
+      it('does not include CSV, Excel, or other code interpreter types', () => {
+        const accept = getAcceptStringForContext(false);
+        expect(accept).not.toContain('text/csv');
+        expect(accept).not.toContain('.csv');
+        expect(accept).not.toContain('.xlsx');
+        expect(accept).not.toContain('application/json');
+      });
+    });
+
+    describe('with code interpreter', () => {
+      it('includes image types', () => {
+        const accept = getAcceptStringForContext(true);
+        expect(accept).toContain('image/png');
+        expect(accept).toContain('image/jpeg');
+      });
+
+      it('includes PDF', () => {
+        const accept = getAcceptStringForContext(true);
+        expect(accept).toContain('application/pdf');
+      });
+
+      it('includes CSV, Excel, and other code interpreter types', () => {
+        const accept = getAcceptStringForContext(true);
+        expect(accept).toContain('text/csv');
+        expect(accept).toContain('.csv');
+        expect(accept).toContain('.xlsx');
+        expect(accept).toContain('application/json');
+      });
     });
   });
 
