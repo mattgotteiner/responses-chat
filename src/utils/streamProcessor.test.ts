@@ -712,6 +712,252 @@ describe('streamProcessor', () => {
         expect(result.toolCalls[0].output).toBe('hello');
       });
 
+      it('captures images from output event', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_img',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'import matplotlib; plt.plot([1,2,3])',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_img',
+          outputs: [
+            { type: 'logs', logs: 'Plot created' },
+            { type: 'image', url: 'https://example.com/chart.png' },
+            { type: 'image', url: 'data:image/png;base64,iVBORw0KGgo=' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].output).toBe('Plot created');
+        expect(result.toolCalls[0].codeInterpreterImages).toHaveLength(2);
+        expect(result.toolCalls[0].codeInterpreterImages![0].url).toBe('https://example.com/chart.png');
+        expect(result.toolCalls[0].codeInterpreterImages![1].url).toBe('data:image/png;base64,iVBORw0KGgo=');
+      });
+
+      it('extracts images from output_item.done with code_interpreter_call', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ci_full',
+            type: 'code_interpreter_call',
+            status: 'completed',
+            code: 'plt.savefig("chart.png")',
+            outputs: [
+              { type: 'logs', logs: 'Saved' },
+              { type: 'image', url: 'https://example.com/generated.png' },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].codeInterpreterImages).toHaveLength(1);
+        expect(result.toolCalls[0].codeInterpreterImages![0].url).toBe('https://example.com/generated.png');
+        expect(result.toolCalls[0].output).toBe('Saved');
+      });
+
+      it('does not create codeInterpreterImages if no images in output', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_text_only',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'print("text only")',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_text_only',
+          outputs: [
+            { type: 'logs', logs: 'text only' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].output).toBe('text only');
+        expect(result.toolCalls[0].codeInterpreterImages).toBeUndefined();
+      });
+
+      it('extracts files from output_item.done with code_interpreter_call', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'ci_files_done',
+            type: 'code_interpreter_call',
+            status: 'completed',
+            code: 'df.to_csv("output.csv")',
+            outputs: [
+              { type: 'logs', logs: 'Saved!' },
+              { type: 'file', url: 'https://example.com/output.csv', mime_type: 'text/csv', filename: 'output.csv' },
+            ],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].codeInterpreterFiles).toHaveLength(1);
+        expect(result.toolCalls[0].codeInterpreterFiles![0].url).toBe('https://example.com/output.csv');
+        expect(result.toolCalls[0].codeInterpreterFiles![0].mimeType).toBe('text/csv');
+        expect(result.toolCalls[0].codeInterpreterFiles![0].filename).toBe('output.csv');
+        expect(result.toolCalls[0].output).toBe('Saved!');
+      });
+
+      it('captures files from code_interpreter_call_outputs.done event', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_file_out',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+              code: 'df.to_csv("data.csv")',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_file_out',
+          outputs: [
+            { type: 'file', url: 'https://example.com/data.csv', mime_type: 'text/csv', filename: 'data.csv' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].codeInterpreterFiles).toHaveLength(1);
+        expect(result.toolCalls[0].codeInterpreterFiles![0].url).toBe('https://example.com/data.csv');
+        expect(result.toolCalls[0].codeInterpreterFiles![0].mimeType).toBe('text/csv');
+        expect(result.toolCalls[0].codeInterpreterFiles![0].filename).toBe('data.csv');
+      });
+
+      it('extracts filename from URL when not explicitly provided', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_url_file',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_url_file',
+          outputs: [
+            { type: 'file', url: 'https://example.com/downloads/report.xlsx' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].codeInterpreterFiles![0].filename).toBe('report.xlsx');
+      });
+
+      it('does not create codeInterpreterFiles if no files in output', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_no_files',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'interpreting' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_outputs.done',
+          item_id: 'ci_no_files',
+          outputs: [
+            { type: 'logs', logs: 'only text' },
+          ],
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].codeInterpreterFiles).toBeUndefined();
+      });
+
+      it('captures final complete code from code.done event', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_done',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+              code: 'partial',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.code.done',
+          item_id: 'ci_done',
+          code: 'print("final complete code")',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].code).toBe('print("final complete code")');
+      });
+
+      it('creates tool call from code.done if not yet existing', () => {
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call.code.done',
+          item_id: 'ci_new_done',
+          code: 'x = 42',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ci_new_done');
+        expect(result.toolCalls[0].code).toBe('x = 42');
+        expect(result.toolCalls[0].type).toBe('code_interpreter');
+      });
+
+      it('handles code_interpreter_call_code.delta (underscore variant)', () => {
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_code.delta',
+          item_id: 'ci_underscore',
+          delta: 'print("underscore")',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('ci_underscore');
+        expect(result.toolCalls[0].code).toBe('print("underscore")');
+        expect(result.toolCalls[0].type).toBe('code_interpreter');
+      });
+
+      it('handles code_interpreter_call_code.done (underscore variant)', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'ci_us_done',
+              name: 'code_interpreter',
+              type: 'code_interpreter' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+              code: 'partial',
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.code_interpreter_call_code.done',
+          item_id: 'ci_us_done',
+          code: 'x = "final"',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].code).toBe('x = "final"');
+      });
+
       it('returns same accumulator for empty code delta when tool exists', () => {
         const initialAccumulator = {
           ...createInitialAccumulator(),
@@ -738,6 +984,127 @@ describe('streamProcessor', () => {
       it('ignores status event for unknown item_id', () => {
         const event: StreamEvent = {
           type: 'response.code_interpreter_call.interpreting',
+          item_id: 'unknown_id',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result).toBe(accumulator);
+      });
+    });
+
+    describe('file_search_call events', () => {
+      it('creates a file_search_call from output_item.added', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.added',
+          item: {
+            id: 'fs_123',
+            type: 'file_search_call',
+            status: 'in_progress',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('fs_123');
+        expect(result.toolCalls[0].type).toBe('file_search');
+        expect(result.toolCalls[0].name).toBe('file_search');
+        expect(result.toolCalls[0].status).toBe('in_progress');
+      });
+
+      it('updates file_search_call with queries and results from output_item.done', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'fs_456',
+              name: 'file_search',
+              type: 'file_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'fs_456',
+            type: 'file_search_call',
+            status: 'completed',
+            queries: ['what is Azure?'],
+            results: [
+              { file_id: 'file_1', filename: 'docs.pdf', score: 0.9, text: 'Azure is a cloud platform.' },
+            ],
+          },
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+        expect(result.toolCalls[0].query).toBe('what is Azure?');
+        expect(result.toolCalls[0].fileSearchResults).toHaveLength(1);
+        expect(result.toolCalls[0].fileSearchResults![0].filename).toBe('docs.pdf');
+        expect(result.toolCalls[0].fileSearchResults![0].score).toBe(0.9);
+      });
+
+      it('creates file_search_call directly from output_item.done when not yet existing', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'fs_new',
+            type: 'file_search_call',
+            status: 'completed',
+            queries: ['azure functions'],
+            results: [],
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls).toHaveLength(1);
+        expect(result.toolCalls[0].id).toBe('fs_new');
+        expect(result.toolCalls[0].type).toBe('file_search');
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('updates status to searching', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'fs_123',
+              name: 'file_search',
+              type: 'file_search' as const,
+              arguments: '',
+              status: 'in_progress' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.file_search_call.searching',
+          item_id: 'fs_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('searching');
+      });
+
+      it('updates status to completed', () => {
+        const initialAccumulator = {
+          ...createInitialAccumulator(),
+          toolCalls: [
+            {
+              id: 'fs_123',
+              name: 'file_search',
+              type: 'file_search' as const,
+              arguments: '',
+              status: 'searching' as const,
+            },
+          ],
+        };
+        const event: StreamEvent = {
+          type: 'response.file_search_call.completed',
+          item_id: 'fs_123',
+        };
+        const result = processStreamEvent(initialAccumulator, event);
+        expect(result.toolCalls[0].status).toBe('completed');
+      });
+
+      it('ignores file_search_call status event for unknown item_id', () => {
+        const event: StreamEvent = {
+          type: 'response.file_search_call.searching',
           item_id: 'unknown_id',
         };
         const result = processStreamEvent(accumulator, event);
@@ -1225,6 +1592,7 @@ describe('streamProcessor', () => {
         toolCalls: [],
         citations: [],
         fileCitations: [],
+        containerFileCitations: [],
         responseId: null,
         responseJson: null,
         isTruncated: false,
@@ -1565,6 +1933,188 @@ describe('streamProcessor', () => {
       expect(result.fileCitations).toHaveLength(1);
       expect(result.citations[0].url).toBe('https://example.com');
       expect(result.fileCitations[0].fileId).toBe('file_123');
+    });
+
+    it('extracts container_file_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Here is the data [output.csv]',
+                annotations: [
+                  {
+                    type: 'container_file_citation',
+                    container_id: 'container_abc',
+                    file_id: 'file_xyz',
+                    filename: 'output.csv',
+                    start_index: 18,
+                    end_index: 29,
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.containerFileCitations).toHaveLength(1);
+      expect(result.containerFileCitations[0]).toEqual({
+        containerId: 'container_abc',
+        fileId: 'file_xyz',
+        filename: 'output.csv',
+        startIndex: 18,
+        endIndex: 29,
+      });
+    });
+
+    it('deduplicates container file citations by fileId', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'text',
+                annotations: [
+                  { type: 'container_file_citation', container_id: 'c1', file_id: 'f_same', filename: 'a.csv', start_index: 0, end_index: 5 },
+                  { type: 'container_file_citation', container_id: 'c1', file_id: 'f_same', filename: 'a.csv', start_index: 10, end_index: 15 },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.containerFileCitations).toHaveLength(1);
+      expect(result.containerFileCitations[0].fileId).toBe('f_same');
+    });
+
+    it('filters out container_file_citations where startIndex === endIndex (inline image placeholders)', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'text',
+                annotations: [
+                  // Inline image placeholder (0-0) - should be filtered out
+                  { type: 'container_file_citation', container_id: 'c1', file_id: 'f_img', filename: 'chart.png', start_index: 0, end_index: 0 },
+                  // Real file reference - should be kept
+                  { type: 'container_file_citation', container_id: 'c1', file_id: 'f_csv', filename: 'data.csv', start_index: 5, end_index: 15 },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.containerFileCitations).toHaveLength(1);
+      expect(result.containerFileCitations[0].fileId).toBe('f_csv');
+    });
+
+    it('returns empty containerFileCitations when no container_file_citation annotations', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'No container citations here',
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.containerFileCitations).toEqual([]);
+    });
+
+    it('skips malformed container_file_citation annotations with missing fields', () => {
+      const response = {
+        id: 'resp_123',
+        output: [
+          {
+            type: 'message',
+            content: [
+              {
+                type: 'output_text',
+                text: 'Content',
+                annotations: [
+                  {
+                    type: 'container_file_citation',
+                    container_id: 'c1',
+                    file_id: 'f1',
+                    filename: 'valid.csv',
+                    start_index: 0,
+                    end_index: 10,
+                  },
+                  {
+                    type: 'container_file_citation',
+                    container_id: 'c2',
+                    // missing file_id, filename, start_index, end_index
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      };
+
+      const result = extractCitationsFromResponse(response);
+      expect(result.containerFileCitations).toHaveLength(1);
+      expect(result.containerFileCitations[0].fileId).toBe('f1');
+    });
+
+    it('propagates containerFileCitations through response.completed event', () => {
+      const event: StreamEvent = {
+        type: 'response.completed',
+        response: {
+          id: 'resp_with_container',
+          status: 'completed',
+          output: [
+            {
+              type: 'message',
+              content: [
+                {
+                  type: 'output_text',
+                  text: 'See [result.csv]',
+                  annotations: [
+                    {
+                      type: 'container_file_citation',
+                      container_id: 'cont_123',
+                      file_id: 'file_result',
+                      filename: 'result.csv',
+                      start_index: 4,
+                      end_index: 16,
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      };
+
+      const acc = createInitialAccumulator();
+      const result = processStreamEvent(acc, event);
+      expect(result.containerFileCitations).toHaveLength(1);
+      expect(result.containerFileCitations[0].containerId).toBe('cont_123');
+      expect(result.containerFileCitations[0].filename).toBe('result.csv');
     });
   });
 });

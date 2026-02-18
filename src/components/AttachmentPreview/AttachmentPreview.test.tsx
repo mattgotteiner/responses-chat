@@ -15,14 +15,16 @@ describe('AttachmentPreview', () => {
     mimeType: 'image/png',
     base64: 'abc123',
     previewUrl: 'data:image/png;base64,abc123',
+    size: 1024,
   });
 
-  const createFileAttachment = (id: string, name: string): Attachment => ({
+  const createFileAttachment = (id: string, name: string, mimeType = 'application/pdf'): Attachment => ({
     id,
     name,
     type: 'file',
-    mimeType: 'application/pdf',
+    mimeType,
     base64: 'abc123',
+    size: 2048,
   });
 
   it('renders nothing when attachments array is empty', () => {
@@ -45,13 +47,14 @@ describe('AttachmentPreview', () => {
     expect(img).toHaveAttribute('src', 'data:image/png;base64,abc123');
   });
 
-  it('renders file attachment with filename', () => {
+  it('renders file attachment with filename and size', () => {
     const onRemove = vi.fn();
     const attachments = [createFileAttachment('1', 'document.pdf')];
     
     render(<AttachmentPreview attachments={attachments} onRemove={onRemove} />);
     
     expect(screen.getByText('document.pdf')).toBeInTheDocument();
+    expect(screen.getByText('2.0 KB')).toBeInTheDocument();
   });
 
   it('renders multiple attachments', () => {
@@ -91,5 +94,21 @@ describe('AttachmentPreview', () => {
     
     const removeButton = screen.getByRole('button', { name: /remove test.png/i });
     expect(removeButton).toBeDisabled();
+  });
+
+  it('renders different file types with appropriate icons', () => {
+    const onRemove = vi.fn();
+    const attachments = [
+      createFileAttachment('1', 'data.csv', 'text/csv'),
+      createFileAttachment('2', 'config.json', 'application/json'),
+      createFileAttachment('3', 'script.py', 'text/x-python'),
+    ];
+    
+    render(<AttachmentPreview attachments={attachments} onRemove={onRemove} />);
+    
+    // All files should render with their names
+    expect(screen.getByText('data.csv')).toBeInTheDocument();
+    expect(screen.getByText('config.json')).toBeInTheDocument();
+    expect(screen.getByText('script.py')).toBeInTheDocument();
   });
 });

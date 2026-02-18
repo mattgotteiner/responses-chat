@@ -379,6 +379,133 @@
   background-color: #fafafa;
 }
 
+/* Code interpreter images section */
+.tool-call-box__images {
+  border-top: 1px solid #4a9d6a;
+}
+
+.tool-call-box__images-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #2b6a4a;
+  padding: 6px 12px;
+  background-color: #e8f5ec;
+  border-bottom: 1px solid #4a9d6a;
+}
+
+.tool-call-box__images-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  background-color: #f8fdf9;
+}
+
+.tool-call-box__image-container {
+  position: relative;
+  cursor: pointer;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  transition: border-color 0.2s, transform 0.2s;
+}
+
+.tool-call-box__image-container:hover {
+  border-color: #4a9d6a;
+}
+
+.tool-call-box__image-container:focus {
+  outline: none;
+  border-color: #4a9d6a;
+  box-shadow: 0 0 0 2px rgba(74, 157, 106, 0.3);
+}
+
+.tool-call-box__image-container.expanded {
+  flex: 1 1 100%;
+}
+
+.tool-call-box__image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 2px;
+}
+
+.tool-call-box__image-container:not(.expanded) .tool-call-box__image {
+  width: 150px;
+  height: 150px;
+  object-fit: cover;
+}
+
+.tool-call-box__image-container.expanded .tool-call-box__image {
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+}
+
+/* Code interpreter generated files section */
+.tool-call-box__files {
+  border-top: 1px solid #4a9d6a;
+}
+
+.tool-call-box__files-label {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: #2b6a4a;
+  padding: 6px 12px;
+  background-color: #e8f5ec;
+  border-bottom: 1px solid #4a9d6a;
+}
+
+.tool-call-box__files-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  background-color: #f8fdf9;
+}
+
+.tool-call-box__file-download {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background-color: #fff;
+  border: 1px solid #4a9d6a;
+  border-radius: 6px;
+  text-decoration: none;
+  color: #2b6a4a;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.tool-call-box__file-download:hover {
+  background-color: #e8f5ec;
+  border-color: #3d8a5a;
+}
+
+.tool-call-box__file-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.tool-call-box__file-name {
+  flex: 1;
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 12px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-call-box__file-download-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 /* Pending approval variant */
 .tool-call-box--pending-approval {
   border-color: #d4a574;
@@ -632,6 +759,56 @@
     background-color: #222;
   }
 
+  /* Code interpreter images dark mode */
+  .tool-call-box__images {
+    border-top-color: #3d8a5a;
+  }
+
+  .tool-call-box__images-label {
+    color: #74d494;
+    background-color: #1f3d2a;
+    border-bottom-color: #3d8a5a;
+  }
+
+  .tool-call-box__images-grid {
+    background-color: #1a2a20;
+  }
+
+  .tool-call-box__image-container:hover {
+    border-color: #74d494;
+  }
+
+  .tool-call-box__image-container:focus {
+    border-color: #74d494;
+    box-shadow: 0 0 0 2px rgba(116, 212, 148, 0.3);
+  }
+
+  /* Code interpreter files dark mode */
+  .tool-call-box__files {
+    border-top-color: #3d8a5a;
+  }
+
+  .tool-call-box__files-label {
+    color: #74d494;
+    background-color: #1f3d2a;
+    border-bottom-color: #3d8a5a;
+  }
+
+  .tool-call-box__files-list {
+    background-color: #1a2a20;
+  }
+
+  .tool-call-box__file-download {
+    background-color: #1a2a20;
+    border-color: #3d8a5a;
+    color: #74d494;
+  }
+
+  .tool-call-box__file-download:hover {
+    background-color: #253d2a;
+    border-color: #4a9d6a;
+  }
+
   /* File search results dark mode */
   .tool-call-box__file-results {
     border-top-color: #4a7ad4;
@@ -812,5 +989,42 @@
   .tool-call-box__file-result-text {
     font-size: 11px;
     padding: 6px;
+  }
+
+  .tool-call-box__images-label {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+
+  .tool-call-box__images-grid {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .tool-call-box__image-container:not(.expanded) .tool-call-box__image {
+    width: 100px;
+    height: 100px;
+  }
+
+  .tool-call-box__image-container.expanded .tool-call-box__image {
+    max-height: 300px;
+  }
+
+  .tool-call-box__files-label {
+    font-size: 10px;
+    padding: 5px 10px;
+  }
+
+  .tool-call-box__files-list {
+    padding: 6px 10px;
+  }
+
+  .tool-call-box__file-download {
+    padding: 10px;
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .tool-call-box__file-name {
+    font-size: 11px;
   }
 }

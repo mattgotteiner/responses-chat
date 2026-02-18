@@ -5,7 +5,7 @@
  * enabling both real-time UI updates and offline replay of recorded sessions.
  */
 
-import type { ReasoningStep, ToolCall, Citation, FileCitation, ToolCallStatus } from '../types';
+import type { ReasoningStep, ToolCall, Citation, FileCitation, ContainerFileCitation, ToolCallStatus, CodeInterpreterImage, CodeInterpreterFile } from '../types';
 import { generateReasoningId, generateToolCallId } from './api';
 
 /** ID generator functions for customizable ID generation */
@@ -40,6 +40,8 @@ export interface StreamAccumulator {
   citations: Citation[];
   /** File citations from file search annotations */
   fileCitations: FileCitation[];
+  /** Container file citations from code interpreter (for downloadable files) */
+  containerFileCitations: ContainerFileCitation[];
   /** Response ID from response.completed event (for conversation continuity) */
   responseId: string | null;
   /** Full response JSON from response.completed event */
@@ -58,6 +60,7 @@ export function createInitialAccumulator(): StreamAccumulator {
     toolCalls: [],
     citations: [],
     fileCitations: [],
+    containerFileCitations: [],
     responseId: null,
     responseJson: null,
     isTruncated: false,
@@ -192,7 +195,7 @@ export function processStreamEvent(
           status?: string;
           code?: string;
           container_id?: string;
-          outputs?: Array<{ type?: string; logs?: string }>;
+          outputs?: Array<{ type?: string; logs?: string; url?: string; mime_type?: string; filename?: string }>;
         };
         const itemId = codeInterpreterItem.id || idGenerators.generateToolCallId();
         const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
@@ -206,6 +209,30 @@ export function processStreamEvent(
           ?.filter((o) => o.type === 'logs')
           .map((o) => o.logs || '')
           .join('\n');
+        // Extract images from outputs
+        const images: CodeInterpreterImage[] = codeInterpreterItem.outputs
+          ?.filter((o) => o.type === 'image' && o.url)
+          .map((o) => ({ url: o.url! })) || [];
+        // Extract files from outputs (non-image files like CSV, Excel, etc.)
+        const files: CodeInterpreterFile[] = codeInterpreterItem.outputs
+          ?.filter((o) => o.type === 'file' && o.url)
+          .map((o) => {
+            // Try to extract filename from URL if not provided
+            let filename = o.filename;
+            if (!filename && o.url) {
+              try {
+                const urlPath = new URL(o.url).pathname;
+                filename = urlPath.split('/').pop() || undefined;
+              } catch {
+                console.warn('streamProcessor: could not extract filename from invalid URL:', o.url);
+              }
+            }
+            return {
+              url: o.url!,
+              mimeType: o.mime_type,
+              filename,
+            };
+          }) || [];
 
         if (existingIndex >= 0) {
           // Update existing tool call
@@ -215,6 +242,8 @@ export function processStreamEvent(
             ...(code && { code }),
             ...(containerId && { containerId }),
             ...(outputLogs && { output: outputLogs }),
+            ...(images.length > 0 && { codeInterpreterImages: images }),
+            ...(files.length > 0 && { codeInterpreterFiles: files }),
           };
         } else {
           // Add new code interpreter call
@@ -227,6 +256,8 @@ export function processStreamEvent(
             code: code || '',
             containerId,
             output: outputLogs,
+            ...(images.length > 0 && { codeInterpreterImages: images }),
+            ...(files.length > 0 && { codeInterpreterFiles: files }),
           });
         }
 
@@ -664,8 +695,8 @@ export function processStreamEvent(
       // Capture code interpreter output (supports both singular and plural event names)
       const outputEvent = event as {
         item_id?: string;
-        output?: Array<{ type?: string; logs?: string }>;
-        outputs?: Array<{ type?: string; logs?: string }>;
+        output?: Array<{ type?: string; logs?: string; url?: string; mime_type?: string; filename?: string }>;
+        outputs?: Array<{ type?: string; logs?: string; url?: string; mime_type?: string; filename?: string }>;
       };
       const itemId = outputEvent.item_id;
       if (!itemId) return accumulator;
@@ -675,15 +706,44 @@ export function processStreamEvent(
 
       // Support both 'output' and 'outputs' property names
       const outputArray = outputEvent.outputs || outputEvent.output;
+      
+      // Extract logs from output
       const logs = outputArray
         ?.filter((o) => o.type === 'logs')
         .map((o) => o.logs || '')
         .join('\n') || '';
+      
+      // Extract images from output
+      const images: CodeInterpreterImage[] = outputArray
+        ?.filter((o) => o.type === 'image' && o.url)
+        .map((o) => ({ url: o.url! })) || [];
+
+      // Extract files from output (non-image files)
+      const files: CodeInterpreterFile[] = outputArray
+        ?.filter((o) => o.type === 'file' && o.url)
+        .map((o) => {
+          let filename = o.filename;
+          if (!filename && o.url) {
+            try {
+              const urlPath = new URL(o.url).pathname;
+              filename = urlPath.split('/').pop() || undefined;
+            } catch {
+              // Invalid URL, skip filename extraction
+            }
+          }
+          return {
+            url: o.url!,
+            mimeType: o.mime_type,
+            filename,
+          };
+        }) || [];
 
       const newToolCalls = [...accumulator.toolCalls];
       newToolCalls[existingIndex] = {
         ...newToolCalls[existingIndex],
         output: logs,
+        ...(images.length > 0 && { codeInterpreterImages: images }),
+        ...(files.length > 0 && { codeInterpreterFiles: files }),
       };
 
       return {
@@ -800,7 +860,7 @@ export function processStreamEvent(
         const truncationReason = incompleteDetails?.reason || null;
         
         // Extract citations from output items
-        const { citations, fileCitations } = extractCitationsFromResponse(response);
+        const { citations, fileCitations, containerFileCitations } = extractCitationsFromResponse(response);
         
         return {
           ...accumulator,
@@ -808,6 +868,7 @@ export function processStreamEvent(
           responseJson: response,
           citations: citations.length > 0 ? citations : accumulator.citations,
           fileCitations: fileCitations.length > 0 ? fileCitations : accumulator.fileCitations,
+          containerFileCitations: containerFileCitations.length > 0 ? containerFileCitations : accumulator.containerFileCitations,
           isTruncated,
           truncationReason,
         };
@@ -847,6 +908,8 @@ export interface ExtractedCitations {
   citations: Citation[];
   /** File citations from file search */
   fileCitations: FileCitation[];
+  /** Container file citations from code interpreter */
+  containerFileCitations: ContainerFileCitation[];
 }
 
 /**
@@ -861,10 +924,11 @@ export function extractCitationsFromResponse(
 ): ExtractedCitations {
   const citations: Citation[] = [];
   const fileCitations: FileCitation[] = [];
+  const containerFileCitations: ContainerFileCitation[] = [];
   
   const output = response.output;
   if (!Array.isArray(output)) {
-    return { citations, fileCitations };
+    return { citations, fileCitations, containerFileCitations };
   }
   
   for (const item of output) {
@@ -922,6 +986,25 @@ export function extractCitationsFromResponse(
               });
             }
           }
+          
+          // Handle container file citations (from code interpreter)
+          if (a.type === 'container_file_citation') {
+            if (
+              typeof a.container_id === 'string' &&
+              typeof a.file_id === 'string' &&
+              typeof a.filename === 'string' &&
+              typeof a.start_index === 'number' &&
+              typeof a.end_index === 'number'
+            ) {
+              containerFileCitations.push({
+                containerId: a.container_id,
+                fileId: a.file_id,
+                filename: a.filename,
+                startIndex: a.start_index,
+                endIndex: a.end_index,
+              });
+            }
+          }
         }
       }
     }
@@ -943,5 +1026,17 @@ export function extractCitationsFromResponse(
     return true;
   });
   
-  return { citations: uniqueCitations, fileCitations: uniqueFileCitations };
+  // Deduplicate container file citations by fileId
+  // Also filter out citations where startIndex === endIndex (e.g., 0-0) as these are
+  // inline images already displayed in code interpreter output, not actual file references
+  const seenContainerFileIds = new Set<string>();
+  const uniqueContainerFileCitations = containerFileCitations.filter((c) => {
+    // Skip citations not actually referenced in text (inline display images)
+    if (c.startIndex === c.endIndex) return false;
+    if (seenContainerFileIds.has(c.fileId)) return false;
+    seenContainerFileIds.add(c.fileId);
+    return true;
+  });
+  
+  return { citations: uniqueCitations, fileCitations: uniqueFileCitations, containerFileCitations: uniqueContainerFileCitations };
 }

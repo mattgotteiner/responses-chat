@@ -33,7 +33,39 @@
   width: 24px;
   height: 24px;
   flex-shrink: 0;
-  color: var(--color-danger);
+  color: var(--color-text-muted, #666);
+}
+
+/* Type-specific icon colors */
+.attachment-preview__file-icon--pdf {
+  color: #dc3545;
+}
+
+.attachment-preview__file-icon--spreadsheet {
+  color: #28a745;
+}
+
+.attachment-preview__file-icon--document {
+  color: #007bff;
+}
+
+.attachment-preview__file-icon--code {
+  color: #6f42c1;
+}
+
+.attachment-preview__file-icon--data {
+  color: #fd7e14;
+}
+
+.attachment-preview__file-icon--text {
+  color: #6c757d;
+}
+
+.attachment-preview__file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .attachment-preview__filename {
@@ -42,6 +74,11 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.attachment-preview__filesize {
+  font-size: 10px;
+  color: var(--color-text-muted, #888);
 }
 
 .attachment-preview__remove {
@@ -86,4 +123,30 @@
 .attachment-preview__remove svg {
   width: 12px;
   height: 12px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .attachment-preview__file-icon--pdf {
+    color: #f87171;
+  }
+
+  .attachment-preview__file-icon--spreadsheet {
+    color: #4ade80;
+  }
+
+  .attachment-preview__file-icon--document {
+    color: #60a5fa;
+  }
+
+  .attachment-preview__file-icon--code {
+    color: #a78bfa;
+  }
+
+  .attachment-preview__file-icon--data {
+    color: #fb923c;
+  }
+
+  .attachment-preview__file-icon--text {
+    color: #9ca3af;
+  }
 }

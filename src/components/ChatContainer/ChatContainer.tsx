@@ -118,6 +118,7 @@ export function ChatContainer() {
         placeholder={inputPlaceholder}
         tokenUsage={conversationUsage}
         messages={messages}
+        codeInterpreterEnabled={settings.codeInterpreterEnabled}
       />
 
       <SettingsSidebar

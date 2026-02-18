@@ -62,6 +62,7 @@ function WebSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
  */
 function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [expandedImageIndex, setExpandedImageIndex] = useState<number | null>(null);
   const statusLabels: Record<string, string> = {
     in_progress: 'Running...',
     interpreting: 'Executing...',
@@ -69,7 +70,22 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
     aborted: 'Aborted',
   };
   const statusLabel = statusLabels[toolCall.status || 'in_progress'] || 'Running...';
-  const hasContent = toolCall.code || toolCall.output;
+  const hasContent = toolCall.code || toolCall.output || 
+    (toolCall.codeInterpreterImages && toolCall.codeInterpreterImages.length > 0) ||
+    (toolCall.codeInterpreterFiles && toolCall.codeInterpreterFiles.length > 0);
+
+  const handleImageClick = (index: number) => {
+    setExpandedImageIndex(expandedImageIndex === index ? null : index);
+  };
+
+  const handleImageKeyDown = (e: React.KeyboardEvent, index: number) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      handleImageClick(index);
+    } else if (e.key === 'Escape' && expandedImageIndex !== null) {
+      setExpandedImageIndex(null);
+    }
+  };
 
   return (
     <>
@@ -102,6 +118,53 @@ function CodeInterpreterCallContent({ toolCall }: { toolCall: ToolCall }) {
             <div className="tool-call-box__output">
               <div className="tool-call-box__output-label">Output</div>
               <pre className="tool-call-box__output-block">{toolCall.output}</pre>
+            </div>
+          )}
+          {toolCall.codeInterpreterImages && toolCall.codeInterpreterImages.length > 0 && (
+            <div className="tool-call-box__images">
+              <div className="tool-call-box__images-label">Generated Images</div>
+              <div className="tool-call-box__images-grid">
+                {toolCall.codeInterpreterImages.map((image, idx) => (
+                  <div
+                    key={idx}
+                    className={`tool-call-box__image-container ${expandedImageIndex === idx ? 'expanded' : ''}`}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleImageClick(idx)}
+                    onKeyDown={(e) => handleImageKeyDown(e, idx)}
+                    aria-label={`Generated image ${idx + 1}${expandedImageIndex === idx ? ' (expanded, press Escape to collapse)' : ' (click to expand)'}`}
+                  >
+                    <img
+                      src={image.url}
+                      alt={`Generated output ${idx + 1}`}
+                      className="tool-call-box__image"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {toolCall.codeInterpreterFiles && toolCall.codeInterpreterFiles.length > 0 && (
+            <div className="tool-call-box__files">
+              <div className="tool-call-box__files-label">Generated Files</div>
+              <div className="tool-call-box__files-list">
+                {toolCall.codeInterpreterFiles.map((file, idx) => (
+                  <a
+                    key={idx}
+                    href={file.url}
+                    download={file.filename || `file-${idx + 1}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="tool-call-box__file-download"
+                  >
+                    <span className="tool-call-box__file-icon">📄</span>
+                    <span className="tool-call-box__file-name">
+                      {file.filename || `Download file ${idx + 1}`}
+                    </span>
+                    <span className="tool-call-box__file-download-icon">⬇</span>
+                  </a>
+                ))}
+              </div>
             </div>
           )}
         </>

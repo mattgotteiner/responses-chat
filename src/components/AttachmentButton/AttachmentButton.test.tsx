@@ -73,8 +73,8 @@ describe('AttachmentButton file validation', () => {
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    // Create a mock file with unsupported type
-    const unsupportedFile = new File(['content'], 'test.txt', { type: 'text/plain' });
+    // Create a mock file with unsupported type (video files are not supported)
+    const unsupportedFile = new File(['content'], 'test.mp4', { type: 'video/mp4' });
     
     // Simulate file selection
     Object.defineProperty(input, 'files', {
@@ -90,7 +90,7 @@ describe('AttachmentButton file validation', () => {
           attachments: [],
           rejectedFiles: [
             expect.objectContaining({
-              name: 'test.txt',
+              name: 'test.mp4',
               reason: 'unsupported-type',
             }),
           ],
@@ -156,8 +156,9 @@ describe('AttachmentButton file validation', () => {
 
     const input = document.querySelector('input[type="file"]') as HTMLInputElement;
     
-    const unsupportedFile = new File(['content'], 'document.docx', { 
-      type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    // Use an audio file which is not supported
+    const unsupportedFile = new File(['content'], 'audio.mp3', { 
+      type: 'audio/mpeg',
     });
     
     Object.defineProperty(input, 'files', {
@@ -169,9 +170,10 @@ describe('AttachmentButton file validation', () => {
     
     await waitFor(() => {
       const result = onAttachResult.mock.calls[0][0];
-      expect(result.rejectedFiles[0].message).toContain('document.docx');
+      expect(result.rejectedFiles[0].message).toContain('audio.mp3');
       expect(result.rejectedFiles[0].message).toContain('unsupported file type');
-      expect(result.rejectedFiles[0].message).toContain('PNG, JPEG, WebP, and PDF');
+      // Without code interpreter, message should mention images and PDF only
+      expect(result.rejectedFiles[0].message).toContain('images and PDF only');
     });
   });
 
@@ -188,5 +190,135 @@ describe('AttachmentButton file validation', () => {
 
     // Component renders without error with custom max size
     expect(screen.getByRole('button', { name: /attach file/i })).toBeInTheDocument();
+  });
+});
+
+describe('AttachmentButton codeInterpreterEnabled behavior', () => {
+  describe('without code interpreter (default)', () => {
+    it('only accepts images and PDFs in file input', () => {
+      const onAttach = vi.fn();
+      render(<AttachmentButton onAttach={onAttach} />);
+      
+      const input = document.querySelector('input[type="file"]');
+      const accept = input?.getAttribute('accept') ?? '';
+      
+      // Should include images and PDF
+      expect(accept).toContain('image/png');
+      expect(accept).toContain('image/jpeg');
+      expect(accept).toContain('application/pdf');
+      
+      // Should NOT include CSV, Excel, etc.
+      expect(accept).not.toContain('text/csv');
+      expect(accept).not.toContain('.xlsx');
+    });
+
+    it('rejects CSV files when code interpreter is disabled', async () => {
+      const onAttach = vi.fn();
+      const onAttachResult = vi.fn();
+      render(
+        <AttachmentButton
+          onAttach={onAttach}
+          onAttachResult={onAttachResult}
+          codeInterpreterEnabled={false}
+        />
+      );
+
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      const csvFile = new File(['a,b,c'], 'data.csv', { type: 'text/csv' });
+      
+      Object.defineProperty(input, 'files', {
+        value: [csvFile],
+        writable: false,
+      });
+      
+      fireEvent.change(input);
+      
+      await waitFor(() => {
+        expect(onAttachResult).toHaveBeenCalledWith(
+          expect.objectContaining({
+            attachments: [],
+            rejectedFiles: [
+              expect.objectContaining({
+                name: 'data.csv',
+                reason: 'unsupported-type',
+              }),
+            ],
+          })
+        );
+      });
+      
+      expect(onAttach).not.toHaveBeenCalled();
+    });
+
+    it('shows appropriate tooltip without code interpreter', () => {
+      const onAttach = vi.fn();
+      render(<AttachmentButton onAttach={onAttach} codeInterpreterEnabled={false} />);
+      
+      const button = screen.getByRole('button', { name: /attach file/i });
+      expect(button).toHaveAttribute('title', 'Attach files (images, PDF)');
+    });
+  });
+
+  describe('with code interpreter enabled', () => {
+    it('accepts all supported file types in file input', () => {
+      const onAttach = vi.fn();
+      render(<AttachmentButton onAttach={onAttach} codeInterpreterEnabled={true} />);
+      
+      const input = document.querySelector('input[type="file"]');
+      const accept = input?.getAttribute('accept') ?? '';
+      
+      // Should include images
+      expect(accept).toContain('image/png');
+      expect(accept).toContain('image/jpeg');
+      
+      // Should include PDF
+      expect(accept).toContain('application/pdf');
+      
+      // Should include CSV, Excel, etc.
+      expect(accept).toContain('text/csv');
+      expect(accept).toContain('.xlsx');
+      expect(accept).toContain('.json');
+    });
+
+    it('shows appropriate tooltip with code interpreter', () => {
+      const onAttach = vi.fn();
+      render(<AttachmentButton onAttach={onAttach} codeInterpreterEnabled={true} />);
+      
+      const button = screen.getByRole('button', { name: /attach file/i });
+      expect(button).toHaveAttribute('title', 'Attach files (images, PDF, CSV, JSON, Excel, Word, code)');
+    });
+
+    it('provides appropriate rejection message when code interpreter is enabled', async () => {
+      const onAttach = vi.fn();
+      const onAttachResult = vi.fn();
+      
+      render(
+        <AttachmentButton
+          onAttach={onAttach}
+          onAttachResult={onAttachResult}
+          codeInterpreterEnabled={true}
+        />
+      );
+
+      const input = document.querySelector('input[type="file"]') as HTMLInputElement;
+      
+      // Use a video file which is never supported
+      const unsupportedFile = new File(['content'], 'video.mp4', { 
+        type: 'video/mp4',
+      });
+      
+      Object.defineProperty(input, 'files', {
+        value: [unsupportedFile],
+        writable: false,
+      });
+      
+      fireEvent.change(input);
+      
+      await waitFor(() => {
+        const result = onAttachResult.mock.calls[0][0];
+        // With code interpreter, message should mention all supported types
+        expect(result.rejectedFiles[0].message).toContain('images, PDF, CSV, JSON, Excel, Word, and text files');
+      });
+    });
   });
 });

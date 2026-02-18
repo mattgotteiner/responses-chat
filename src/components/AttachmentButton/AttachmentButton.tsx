@@ -5,8 +5,8 @@
 import { useRef, useCallback, type ChangeEvent } from 'react';
 import type { Attachment } from '../../types';
 import {
-  getAcceptString,
-  isSupportedMimeType,
+  getAcceptStringForContext,
+  isSupportedMimeTypeForContext,
   createAttachmentFromFile,
   formatFileSize,
 } from '../../utils/attachment';
@@ -42,6 +42,8 @@ interface AttachmentButtonProps {
   disabled?: boolean;
   /** Maximum file size in bytes (default: 10 MB) */
   maxFileSize?: number;
+  /** Whether code interpreter is enabled (affects supported file types) */
+  codeInterpreterEnabled?: boolean;
 }
 
 /**
@@ -52,6 +54,7 @@ export function AttachmentButton({
   onAttachResult,
   disabled = false,
   maxFileSize = MAX_FILE_SIZE_BYTES,
+  codeInterpreterEnabled = false,
 }: AttachmentButtonProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -67,13 +70,18 @@ export function AttachmentButton({
       const rejectedFiles: RejectedFile[] = [];
       const validFiles: File[] = [];
 
+      // Build the appropriate error message based on context
+      const supportedTypesMessage = codeInterpreterEnabled
+        ? 'Supported: images, PDF, CSV, JSON, Excel, Word, and text files.'
+        : 'Supported: images and PDF only. Enable Code Interpreter to attach other file types.';
+
       // Validate each file for type and size
       Array.from(files).forEach((file) => {
-        if (!isSupportedMimeType(file.type)) {
+        if (!isSupportedMimeTypeForContext(file.type, codeInterpreterEnabled)) {
           rejectedFiles.push({
             name: file.name,
             reason: 'unsupported-type',
-            message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). Supported types: PNG, JPEG, WebP, and PDF.`,
+            message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). ${supportedTypesMessage}`,
           });
         } else if (file.size > maxFileSize) {
           rejectedFiles.push({
@@ -106,15 +114,20 @@ export function AttachmentButton({
       // Reset input to allow selecting the same file again
       e.target.value = '';
     },
-    [onAttach, onAttachResult, maxFileSize]
+    [onAttach, onAttachResult, maxFileSize, codeInterpreterEnabled]
   );
+
+  // Generate title/tooltip based on context
+  const buttonTitle = codeInterpreterEnabled
+    ? 'Attach files (images, PDF, CSV, JSON, Excel, Word, code)'
+    : 'Attach files (images, PDF)';
 
   return (
     <>
       <input
         ref={inputRef}
         type="file"
-        accept={getAcceptString()}
+        accept={getAcceptStringForContext(codeInterpreterEnabled)}
         multiple
         onChange={handleChange}
         className="attachment-button__input"
@@ -127,7 +140,7 @@ export function AttachmentButton({
         onClick={handleClick}
         disabled={disabled}
         aria-label="Attach file"
-        title="Attach image or PDF"
+        title={buttonTitle}
       >
         <svg
           viewBox="0 0 24 24"
