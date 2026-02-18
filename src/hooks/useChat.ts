@@ -114,6 +114,8 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const previousResponseIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Accumulated file IDs across all turns, so code interpreter can access files uploaded before it was enabled
+  const allUploadedFileIdsRef = useRef<string[]>([]);
   // Recording session ref - persists across sendMessage and handleMcpApproval
   // to support recording approval flows as a single session
   const recordingSessionRef = useRef<ReturnType<typeof createRecordingSession>>(null);
@@ -196,6 +198,9 @@ export function useChat(): UseChatReturn {
           attachmentsToUpload.forEach((a, index) => {
             uploadedFileIdMap.set(a.name, uploadedFileIds[index]);
           });
+
+          // Accumulate file IDs across turns so code interpreter can access files from earlier turns
+          allUploadedFileIdsRef.current = [...allUploadedFileIdsRef.current, ...uploadedFileIds];
           
           // Update user message attachments to show "uploaded" status
           setMessages((prev) =>
@@ -324,8 +329,8 @@ export function useChat(): UseChatReturn {
       }
 
       // Add tools configuration (with file_ids for code interpreter if enabled)
-      // Only pass file_ids to code interpreter tool when code interpreter is enabled
-      const codeInterpreterFileIds = settings.codeInterpreterEnabled ? uploadedFileIds : undefined;
+      // Pass all accumulated file IDs so files uploaded before CI was enabled are still accessible
+      const codeInterpreterFileIds = settings.codeInterpreterEnabled ? allUploadedFileIdsRef.current : undefined;
       const { tools, include } = buildToolsConfiguration(settings, codeInterpreterFileIds);
       if (tools.length > 0) {
         requestParams.tools = tools;
@@ -499,6 +504,7 @@ export function useChat(): UseChatReturn {
   const clearConversation = useCallback(() => {
     setMessages([]);
     previousResponseIdRef.current = null;
+    allUploadedFileIdsRef.current = [];
     setError(null);
   }, []);
 
