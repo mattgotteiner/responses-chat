@@ -459,6 +459,20 @@
   cursor: wait;
 }
 
+.message__generated-file-button--error {
+  background-color: var(--color-error, #c0392b);
+}
+
+.message__generated-file-button--error:hover:not(:disabled) {
+  background-color: var(--color-error-hover, #a93226);
+}
+
+.message__generated-file-error {
+  font-size: 11px;
+  opacity: 0.9;
+  margin-left: 2px;
+}
+
 .message__generated-file-icon {
   font-size: 14px;
   flex-shrink: 0;

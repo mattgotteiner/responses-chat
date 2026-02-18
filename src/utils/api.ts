@@ -199,13 +199,15 @@ export async function triggerContainerFileDownload(
   
   // Create a blob URL and trigger download
   const blobUrl = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = blobUrl;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  
-  // Clean up the blob URL after a short delay
-  setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+  try {
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } finally {
+    // Clean up the blob URL after a delay to allow the download to start
+    setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+  }
 }

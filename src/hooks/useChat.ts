@@ -258,7 +258,7 @@ export function useChat(): UseChatReturn {
       // Include images and PDFs in content parts (PDFs for vision, also uploaded to code interpreter above)
       const hasContentAttachments = imageAttachments.length > 0 || pdfAttachments.length > 0;
       
-      if (hasContentAttachments || (content.trim() && attachments && attachments.length > 0)) {
+      if (hasContentAttachments) {
         // Build content array with text, images, and PDFs
         const contentParts: Record<string, unknown>[] = [];
         

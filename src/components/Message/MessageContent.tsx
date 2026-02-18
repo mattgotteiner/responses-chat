@@ -65,7 +65,10 @@ function createExternalLink(
     
     // Only handle sandbox paths specially when in code interpreter context
     if (isSandboxPath && enableSandboxHandling && onDownloadFile) {
-      // Try to find matching file citation by filename
+      // Try to find matching file citation by filename.
+      // Note: sandbox paths only contain the filename (e.g. /mnt/data/output.csv), not a
+      // containerId or fileId, so we match by filename alone. If multiple citations share the
+      // same filename we pick the first; in practice the code interpreter generates unique names.
       const filename = extractFilenameFromPath(href);
       const matchingFile = filename
         ? containerFileCitations.find((f) => f.filename === filename)
@@ -79,6 +82,7 @@ function createExternalLink(
             className="message-content__download-link"
             onClick={() => onDownloadFile(matchingFile)}
             title={`Download ${matchingFile.filename}`}
+            aria-label={`Download ${matchingFile.filename}`}
           >
             <span className="message-content__download-icon">📥</span>
             {children}

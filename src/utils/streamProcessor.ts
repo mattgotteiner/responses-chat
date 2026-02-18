@@ -224,7 +224,7 @@ export function processStreamEvent(
                 const urlPath = new URL(o.url).pathname;
                 filename = urlPath.split('/').pop() || undefined;
               } catch {
-                // Invalid URL, skip filename extraction
+                console.warn('streamProcessor: could not extract filename from invalid URL:', o.url);
               }
             }
             return {
