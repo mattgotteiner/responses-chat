@@ -131,17 +131,15 @@ export function useChat(): UseChatReturn {
       const imageAttachments = attachments?.filter(isImageAttachment) || [];
       const fileAttachments = attachments?.filter((a) => !isImageAttachment(a)) || [];
       
-      // PDFs go to both vision (input_file) AND code interpreter (file_ids) when enabled
+      // PDFs go to vision (input_file) and are also available to code interpreter when enabled
       const pdfAttachments = fileAttachments.filter((a) => a.mimeType === 'application/pdf');
 
-      // When code interpreter is enabled, upload ALL attachments (images + files) to Files API
-      // This allows code interpreter to analyze images and process files
-      const attachmentsForCodeInterpreter = settings.codeInterpreterEnabled 
-        ? [...imageAttachments, ...fileAttachments] 
-        : [];
+      // Always upload ALL attachments (images + files) to Files API
+      // This ensures consistent behavior regardless of code interpreter toggle state
+      const attachmentsToUpload = [...imageAttachments, ...fileAttachments];
       
-      // Determine which attachments need uploading (any attachments when code interpreter is enabled)
-      const needsUpload = attachmentsForCodeInterpreter.length > 0;
+      // Determine which attachments need uploading
+      const needsUpload = attachmentsToUpload.length > 0;
       
       // Mark attachments as "uploading" if they need to be uploaded to code interpreter
       const attachmentsWithStatus = attachments?.map((a) => {
@@ -179,24 +177,24 @@ export function useChat(): UseChatReturn {
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
 
-      // Upload files for code interpreter (if enabled) - now happens after message is shown
-      let codeInterpreterFileIds: string[] = [];
+      // Upload files to Files API - now happens after message is shown
+      let uploadedFileIds: string[] = [];
       // Map attachment names to their uploaded file_ids (for referencing in input content)
       const uploadedFileIdMap = new Map<string, string>();
       if (needsUpload) {
         try {
-          const uploadPromises = attachmentsForCodeInterpreter.map((a) =>
+          const uploadPromises = attachmentsToUpload.map((a) =>
             uploadFileForCodeInterpreter(client, {
               filename: a.name,
               base64: a.base64,
               mimeType: a.mimeType,
             })
           );
-          codeInterpreterFileIds = await Promise.all(uploadPromises);
+          uploadedFileIds = await Promise.all(uploadPromises);
           
           // Build mapping of attachment name to file_id
-          attachmentsForCodeInterpreter.forEach((a, index) => {
-            uploadedFileIdMap.set(a.name, codeInterpreterFileIds[index]);
+          attachmentsToUpload.forEach((a, index) => {
+            uploadedFileIdMap.set(a.name, uploadedFileIds[index]);
           });
           
           // Update user message attachments to show "uploaded" status
@@ -261,41 +259,24 @@ export function useChat(): UseChatReturn {
           contentParts.push({ type: 'input_text', text: content.trim() });
         }
         
-        // Add image attachments as input_image
-        // When uploaded to code interpreter, use file_id reference; otherwise use base64
+        // Add image attachments using file_id references
         for (const attachment of imageAttachments) {
           const uploadedFileId = uploadedFileIdMap.get(attachment.name);
           if (uploadedFileId) {
-            // Use file_id reference (avoids sending large base64 + potential conflicts)
             contentParts.push({
               type: 'input_file',
               file_id: uploadedFileId,
-            });
-          } else {
-            // Send as base64 inline
-            contentParts.push({
-              type: 'input_image',
-              image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
             });
           }
         }
 
-        // Add PDF attachments as input_file (for vision/model context)
-        // When uploaded to code interpreter, use file_id reference; otherwise use base64
+        // Add PDF attachments using file_id references (for vision/model context)
         for (const attachment of pdfAttachments) {
           const uploadedFileId = uploadedFileIdMap.get(attachment.name);
           if (uploadedFileId) {
-            // Use file_id reference (avoids sending large base64 + potential conflicts)
             contentParts.push({
               type: 'input_file',
               file_id: uploadedFileId,
-            });
-          } else {
-            // Send as base64 inline
-            contentParts.push({
-              type: 'input_file',
-              filename: attachment.name,
-              file_data: `data:${attachment.mimeType};base64,${attachment.base64}`,
             });
           }
         }
@@ -342,7 +323,9 @@ export function useChat(): UseChatReturn {
         requestParams.max_output_tokens = settings.maxOutputTokens;
       }
 
-      // Add tools configuration (with file_ids for code interpreter if any)
+      // Add tools configuration (with file_ids for code interpreter if enabled)
+      // Only pass file_ids to code interpreter tool when code interpreter is enabled
+      const codeInterpreterFileIds = settings.codeInterpreterEnabled ? uploadedFileIds : undefined;
       const { tools, include } = buildToolsConfiguration(settings, codeInterpreterFileIds);
       if (tools.length > 0) {
         requestParams.tools = tools;
