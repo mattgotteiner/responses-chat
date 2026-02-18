@@ -136,14 +136,17 @@ export function useChat(): UseChatReturn {
       // PDFs go to vision (input_file) and are also available to code interpreter when enabled
       const pdfAttachments = fileAttachments.filter((a) => a.mimeType === 'application/pdf');
 
-      // Always upload ALL attachments (images + files) to Files API
-      // This ensures consistent behavior regardless of code interpreter toggle state
+      // Upload all attachments to Files API.
+      // - Images go into the code interpreter container (file_ids) so CI can process them.
+      //   They are NOT referenced as input_file (context stuffing rejects images); instead
+      //   they are sent inline as input_image for vision.
+      // - PDFs/other files go into the container AND are referenced as input_file for context stuffing.
       const attachmentsToUpload = [...imageAttachments, ...fileAttachments];
       
       // Determine which attachments need uploading
       const needsUpload = attachmentsToUpload.length > 0;
       
-      // Mark attachments as "uploading" if they need to be uploaded to code interpreter
+      // Mark attachments as "uploading"
       const attachmentsWithStatus = attachments?.map((a) => {
         if (needsUpload) {
           return { ...a, uploadStatus: 'uploading' as const };
@@ -264,15 +267,13 @@ export function useChat(): UseChatReturn {
           contentParts.push({ type: 'input_text', text: content.trim() });
         }
         
-        // Add image attachments using file_id references
+        // Add image attachments as inline base64 (vision)
         for (const attachment of imageAttachments) {
-          const uploadedFileId = uploadedFileIdMap.get(attachment.name);
-          if (uploadedFileId) {
-            contentParts.push({
-              type: 'input_file',
-              file_id: uploadedFileId,
-            });
-          }
+          contentParts.push({
+            type: 'input_image',
+            image_url: `data:${attachment.mimeType};base64,${attachment.base64}`,
+            detail: 'auto',
+          });
         }
 
         // Add PDF attachments using file_id references (for vision/model context)
