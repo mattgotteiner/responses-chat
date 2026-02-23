@@ -21,6 +21,8 @@ interface MessageListProps {
   onMcpDeny?: (approvalRequestId: string) => void;
   /** Handler when user retries a failed message */
   onRetry?: (messageId: string) => void;
+  /** Whether a message is currently streaming — passed to each Message to disable retry */
+  isStreaming?: boolean;
 }
 
 /** Threshold in pixels for considering user "at bottom" */
@@ -37,6 +39,7 @@ export function MessageList({
   onMcpApprove,
   onMcpDeny,
   onRetry,
+  isStreaming,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -98,6 +101,7 @@ export function MessageList({
             onMcpApprove={onMcpApprove}
             onMcpDeny={onMcpDeny}
             onRetry={onRetry}
+            isStreaming={isStreaming}
           />
         ))}
         <div ref={bottomRef} />

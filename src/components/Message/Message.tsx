@@ -24,6 +24,8 @@ interface MessageProps {
   onMcpDeny?: (approvalRequestId: string) => void;
   /** Handler when user retries a failed message */
   onRetry?: (messageId: string) => void;
+  /** Whether a message is currently streaming — disables the retry button to prevent race conditions */
+  isStreaming?: boolean;
 }
 
 interface RenderModeToggleProps {
@@ -170,7 +172,7 @@ function GeneratedFiles({ files, onDownload, downloadingFiles, failedDownloads }
 /**
  * Renders a single chat message with appropriate styling based on role
  */
-export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onRetry }: MessageProps) {
+export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onRetry, isStreaming = false }: MessageProps) {
   const { settings } = useSettingsContext();
   const [overrideRenderMode, setOverrideRenderMode] = useState<MessageRenderMode | null>(null);
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
@@ -271,6 +273,7 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
               onClick={() => onRetry(message.id)}
               aria-label="Retry"
               title="Retry"
+              disabled={isStreaming}
             >
               ↺ Retry
             </button>

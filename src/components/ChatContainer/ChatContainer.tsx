@@ -111,6 +111,7 @@ export function ChatContainer() {
         onMcpApprove={handleMcpApprove}
         onMcpDeny={handleMcpDeny}
         onRetry={handleRetry}
+        isStreaming={isStreaming}
       />
 
       {!isConfigured && (

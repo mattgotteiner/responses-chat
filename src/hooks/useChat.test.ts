@@ -177,6 +177,7 @@ describe('useChat - retryMessage', () => {
       // First-turn message has no previous_response_id stored in requestJson
       expect(retryClient.responses.create).toHaveBeenCalledWith(
         expect.not.objectContaining({ previous_response_id: expect.anything() }),
+        expect.anything(),
       );
     });
 
@@ -216,6 +217,7 @@ describe('useChat - retryMessage', () => {
 
       expect(retryClient.responses.create).toHaveBeenCalledWith(
         expect.objectContaining({ previous_response_id: 'resp-first-turn' }),
+        expect.anything(),
       );
     });
   });

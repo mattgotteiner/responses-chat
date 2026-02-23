@@ -626,6 +626,46 @@ describe('attachments', () => {
       expect(mockOnRetry).toHaveBeenCalledOnce();
       expect(mockOnRetry).toHaveBeenCalledWith('error-msg-42');
     });
+
+    it('disables retry button while isStreaming is true', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: request failed',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={true}
+        />
+      );
+
+      expect(screen.getByLabelText('Retry')).toBeDisabled();
+    });
+
+    it('enables retry button when isStreaming is false', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: request failed',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={false}
+        />
+      );
+
+      expect(screen.getByLabelText('Retry')).not.toBeDisabled();
+    });
   });
 
   describe('copy button', () => {
