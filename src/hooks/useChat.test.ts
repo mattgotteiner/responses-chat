@@ -39,6 +39,7 @@ async function* completedStream(responseId = 'resp-mock-1') {
 }
 
 /** Async generator that throws immediately, simulating a network/API error */
+// eslint-disable-next-line require-yield
 async function* errorStream(): AsyncGenerator<never> {
   throw new Error('API request failed');
 }
