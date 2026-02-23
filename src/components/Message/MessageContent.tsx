@@ -4,6 +4,7 @@
 
 import { useMemo, type ComponentPropsWithoutRef } from 'react';
 import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type { MessageRenderMode, ContainerFileCitation } from '../../types';
 import './MessageContent.css';
 
@@ -136,6 +137,7 @@ export function MessageContent({ content, renderMode, containerFileCitations, on
       return (
         <div className="message-content message-content--markdown">
           <ReactMarkdown 
+            remarkPlugins={[remarkGfm]}
             urlTransform={customUrlTransform}
             components={{ a: ExternalLink }}
           >

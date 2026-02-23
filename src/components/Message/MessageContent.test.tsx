@@ -107,5 +107,38 @@ describe('MessageContent', () => {
       expect(link).toBeInTheDocument();
       expect(link).toHaveAttribute('href', 'https://example.com');
     });
+
+    it('renders GFM tables', () => {
+      const tableContent = '| Name | Age |\n| --- | --- |\n| Alice | 30 |\n| Bob | 25 |';
+      const { container } = render(
+        <MessageContent content={tableContent} renderMode="markdown" />
+      );
+      expect(container.querySelector('table')).toBeInTheDocument();
+      expect(container.querySelector('thead')).toBeInTheDocument();
+      expect(container.querySelector('tbody')).toBeInTheDocument();
+      expect(screen.getByText('Name')).toBeInTheDocument();
+      expect(screen.getByText('Age')).toBeInTheDocument();
+      expect(screen.getByText('Alice')).toBeInTheDocument();
+      expect(screen.getByText('Bob')).toBeInTheDocument();
+    });
+
+    it('renders GFM table header cells as th elements', () => {
+      const tableContent = '| Col A | Col B |\n| --- | --- |\n| val 1 | val 2 |';
+      const { container } = render(
+        <MessageContent content={tableContent} renderMode="markdown" />
+      );
+      const headers = container.querySelectorAll('th');
+      expect(headers).toHaveLength(2);
+      expect(headers[0].textContent).toBe('Col A');
+      expect(headers[1].textContent).toBe('Col B');
+    });
+
+    it('does not render GFM tables in plaintext mode', () => {
+      const tableContent = '| Name | Age |\n| --- | --- |\n| Alice | 30 |';
+      const { container } = render(
+        <MessageContent content={tableContent} renderMode="plaintext" />
+      );
+      expect(container.querySelector('table')).not.toBeInTheDocument();
+    });
   });
 });
