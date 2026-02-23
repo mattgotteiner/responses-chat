@@ -265,6 +265,9 @@ export function SettingsSidebar({
           {/* Tools Settings */}
           <section className="settings-section">
             <h3 className="settings-section__title">Tools</h3>
+            <span className="settings-section__notice">
+              Built-in tools may incur additional costs.
+            </span>
 
             <div className="settings-field">
               <label className="settings-field__checkbox-wrapper">
@@ -278,7 +281,7 @@ export function SettingsSidebar({
                 <span className="settings-field__checkbox-label">Web Search</span>
               </label>
               <span className="settings-field__hint">
-                Ground responses with real-time web data via Bing. Incurs additional costs.
+                Ground responses with real-time web data via Bing.
               </span>
             </div>
 
@@ -294,7 +297,7 @@ export function SettingsSidebar({
                 <span className="settings-field__checkbox-label">Code Interpreter</span>
               </label>
               <span className="settings-field__hint">
-                Execute Python code in a sandboxed environment. Incurs additional costs.
+                Execute Python code in a sandboxed environment.
               </span>
             </div>
 
@@ -310,7 +313,7 @@ export function SettingsSidebar({
                 <span className="settings-field__checkbox-label">File Search</span>
               </label>
               <span className="settings-field__hint">
-                Search uploaded documents using vector stores. Incurs additional costs.
+                Search uploaded documents using vector stores.
               </span>
             </div>
 
