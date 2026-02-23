@@ -2,10 +2,15 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatInput } from './ChatInput';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAudioInput } from '../../hooks/useAudioInput';
 import type { Message } from '../../types';
 
 vi.mock('../../hooks/useIsMobile', () => ({
   useIsMobile: vi.fn().mockReturnValue(false),
+}));
+
+vi.mock('../../hooks/useAudioInput', () => ({
+  useAudioInput: vi.fn(),
 }));
 
 describe('ChatInput', () => {
@@ -13,13 +18,24 @@ describe('ChatInput', () => {
   const mockOnClearConversation = vi.fn();
   const mockOnStopStreaming = vi.fn();
   const mockClipboardWriteText = vi.fn();
+  const mockAudioStart = vi.fn();
+  const mockAudioStop = vi.fn();
   let originalClipboard: Clipboard | undefined;
 
   beforeEach(() => {
     vi.mocked(useIsMobile).mockReturnValue(false);
+    vi.mocked(useAudioInput).mockReturnValue({
+      isSupported: true,
+      isRecording: false,
+      error: null,
+      start: mockAudioStart,
+      stop: mockAudioStop,
+    });
     mockOnSendMessage.mockClear();
     mockOnClearConversation.mockClear();
     mockOnStopStreaming.mockClear();
+    mockAudioStart.mockClear();
+    mockAudioStop.mockClear();
     mockClipboardWriteText.mockClear().mockResolvedValue(undefined);
     originalClipboard = navigator.clipboard;
     Object.defineProperty(navigator, 'clipboard', {
@@ -362,6 +378,73 @@ describe('ChatInput', () => {
           ], null, 2)
         );
       });
+    });
+  });
+
+  describe('voice input', () => {
+    it('shows voice input button when audio is supported', () => {
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      expect(screen.getByLabelText('Start voice input')).toBeInTheDocument();
+    });
+
+    it('does not show voice input button when audio is not supported', () => {
+      vi.mocked(useAudioInput).mockReturnValueOnce({
+        isSupported: false,
+        isRecording: false,
+        error: null,
+        start: mockAudioStart,
+        stop: mockAudioStop,
+      });
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      expect(screen.queryByLabelText('Start voice input')).not.toBeInTheDocument();
+    });
+
+    it('calls start with current input value when mic button is clicked', () => {
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.change(textarea, { target: { value: 'hello' } });
+      fireEvent.click(screen.getByLabelText('Start voice input'));
+      expect(mockAudioStart).toHaveBeenCalledWith('hello', expect.any(Function));
+    });
+
+    it('calls stop when mic button is clicked while recording', () => {
+      vi.mocked(useAudioInput).mockReturnValueOnce({
+        isSupported: true,
+        isRecording: true,
+        error: null,
+        start: mockAudioStart,
+        stop: mockAudioStop,
+      });
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      fireEvent.click(screen.getByLabelText('Stop voice input'));
+      expect(mockAudioStop).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops recording when message is sent while recording', () => {
+      // Use mockReturnValue (not Once) so all re-renders from state changes still see isRecording:true
+      vi.mocked(useAudioInput).mockReturnValue({
+        isSupported: true,
+        isRecording: true,
+        error: null,
+        start: mockAudioStart,
+        stop: mockAudioStop,
+      });
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      const textarea = screen.getByLabelText('Message input');
+      fireEvent.change(textarea, { target: { value: 'Hello world' } });
+      fireEvent.click(screen.getByLabelText('Send message'));
+      expect(mockAudioStop).toHaveBeenCalledTimes(1);
+      expect(mockOnSendMessage).toHaveBeenCalledWith('Hello world', undefined);
     });
   });
 });

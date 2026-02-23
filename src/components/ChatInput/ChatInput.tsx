@@ -5,9 +5,11 @@
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAudioInput } from '../../hooks/useAudioInput';
 import { AttachmentButton } from '../AttachmentButton';
 import { AttachmentPreview } from '../AttachmentPreview';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
+import { AudioInputButton } from '../AudioInputButton';
 import './ChatInput.css';
 
 interface ChatInputProps {
@@ -48,6 +50,7 @@ export function ChatInput({
   const isMobile = useIsMobile();
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const { isSupported: isAudioSupported, isRecording, start: startRecording, stop: stopRecording } = useAudioInput();
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
@@ -55,11 +58,22 @@ export function ChatInput({
 
   const handleSend = useCallback(() => {
     if (value.trim() && !disabled) {
+      if (isRecording) {
+        stopRecording();
+      }
       onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
       setValue('');
       setAttachments([]);
     }
-  }, [value, disabled, onSendMessage, attachments]);
+  }, [value, disabled, onSendMessage, attachments, isRecording, stopRecording]);
+
+  const handleToggleRecording = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording(value, (transcript) => setValue(transcript));
+    }
+  }, [isRecording, stopRecording, startRecording, value]);
 
   const handleAttach = useCallback((newAttachments: Attachment[]) => {
     setAttachments((prev) => [...prev, ...newAttachments]);
@@ -156,6 +170,12 @@ export function ChatInput({
           </button>
         )}
         <AttachmentButton onAttach={handleAttach} disabled={disabled} codeInterpreterEnabled={codeInterpreterEnabled} />
+        <AudioInputButton
+          isSupported={isAudioSupported}
+          isRecording={isRecording}
+          disabled={disabled}
+          onClick={handleToggleRecording}
+        />
       </div>
       <div className="chat-input__actions">
         <div className="chat-input__actions-left">

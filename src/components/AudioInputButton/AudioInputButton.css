@@ -1,0 +1,52 @@
+.audio-input-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  background-color: var(--color-surface-elevated);
+  border: none;
+  border-radius: var(--radius-round);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.audio-input-button:hover:not(:disabled) {
+  color: var(--color-primary);
+  background-color: var(--color-border);
+}
+
+.audio-input-button:disabled {
+  color: var(--color-text-hint);
+  background-color: var(--color-surface);
+  cursor: not-allowed;
+}
+
+.audio-input-button svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Recording state — red mic + CSS pulse ring */
+.audio-input-button--recording {
+  color: var(--color-danger);
+  animation: audio-input-pulse 1.5s ease-in-out infinite;
+}
+
+.audio-input-button--recording:hover:not(:disabled) {
+  color: var(--color-danger-hover);
+  background-color: var(--color-surface-elevated);
+}
+
+@keyframes audio-input-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(220, 53, 69, 0);
+  }
+}
