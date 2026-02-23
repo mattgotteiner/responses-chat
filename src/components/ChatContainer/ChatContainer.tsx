@@ -22,7 +22,7 @@ export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage } = useChat();
 
   const handleOpenSettings = useCallback(() => {
     setIsSettingsOpen(true);
@@ -59,6 +59,13 @@ export function ChatContainer() {
       handleMcpApproval(approvalRequestId, false, settings);
     },
     [handleMcpApproval, settings]
+  );
+
+  const handleRetry = useCallback(
+    (messageId: string) => {
+      retryMessage(messageId, settings);
+    },
+    [retryMessage, settings]
   );
 
   const inputPlaceholder = isConfigured
@@ -103,6 +110,7 @@ export function ChatContainer() {
         onOpenJsonPanel={handleOpenJsonPanel}
         onMcpApprove={handleMcpApprove}
         onMcpDeny={handleMcpDeny}
+        onRetry={handleRetry}
       />
 
       {!isConfigured && (

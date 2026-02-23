@@ -71,7 +71,7 @@ src/
 
 | Command | Purpose |
 |---------|---------|
-| `npm install` | Install dependencies |
+| `npm install` | Install dependencies — **run this first** before any other command |
 | `npm run dev` | Start dev server with HMR; serves unbundled source for fast iteration |
 | `npm run build` | TypeScript check + production build to `dist/` |
 | `npm run preview` | Serve built `dist/` locally for final QA (run `build` first) |

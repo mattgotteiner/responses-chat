@@ -19,6 +19,8 @@ interface MessageListProps {
   onMcpApprove?: (approvalRequestId: string) => void;
   /** Handler when user denies an MCP tool call */
   onMcpDeny?: (approvalRequestId: string) => void;
+  /** Handler when user retries a failed message */
+  onRetry?: (messageId: string) => void;
 }
 
 /** Threshold in pixels for considering user "at bottom" */
@@ -34,6 +36,7 @@ export function MessageList({
   onOpenJsonPanel,
   onMcpApprove,
   onMcpDeny,
+  onRetry,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -94,6 +97,7 @@ export function MessageList({
             onOpenJsonPanel={onOpenJsonPanel}
             onMcpApprove={onMcpApprove}
             onMcpDeny={onMcpDeny}
+            onRetry={onRetry}
           />
         ))}
         <div ref={bottomRef} />
