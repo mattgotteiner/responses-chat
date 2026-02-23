@@ -4,6 +4,7 @@
 
 import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { AttachmentButton } from '../AttachmentButton';
 import { AttachmentPreview } from '../AttachmentPreview';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
@@ -44,6 +45,7 @@ export function ChatInput({
   messages = [],
   codeInterpreterEnabled = false,
 }: ChatInputProps) {
+  const isMobile = useIsMobile();
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -69,12 +71,13 @@ export function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
+      if (isMobile) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [isMobile, handleSend]
   );
 
   const handleCopyConversation = useCallback(async () => {
@@ -177,7 +180,7 @@ export function ChatInput({
           )}
         </div>
         <span className="chat-input__hint">
-          Press Enter to send, Shift+Enter for new line
+          {isMobile ? 'Tap ↑ to send' : 'Press Enter to send, Shift+Enter for new line'}
         </span>
       </div>
     </div>
