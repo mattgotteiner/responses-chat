@@ -82,7 +82,15 @@ src/
 
 ### Mobile Testing
 
-To test on a mobile device (e.g., iPhone Safari), expose the dev server on your local network:
+**VS Code Port Forwarding** (remote machine or different network — preferred):
+
+```bash
+npm run dev:tunnel
+```
+
+Then in VS Code: open the **Ports** panel → Forward port `5173` → set visibility to **Public** → copy the `*.devtunnels.ms` URL to your phone. Requires a GitHub/Microsoft account, works from any network.
+
+**LAN** (phone on same Wi-Fi network only):
 
 ```bash
 # Windows PowerShell
