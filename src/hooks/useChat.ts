@@ -414,6 +414,11 @@ export function useChat(): UseChatReturn {
           // Track response ID for conversation continuity
           if (accumulator.responseId) {
             previousResponseIdRef.current = accumulator.responseId;
+            // Terminal event received (response.completed / response.incomplete / response.failed).
+            // Break immediately so we don't wait for the transport to close — on mobile or
+            // behind certain proxies the TCP connection can stay open indefinitely, which
+            // would leave isStreaming=true and the input permanently disabled.
+            break;
           }
         }
 
@@ -688,6 +693,8 @@ export function useChat(): UseChatReturn {
           }
           if (accumulator.responseId) {
             previousResponseIdRef.current = accumulator.responseId;
+            // Terminal event received — break so we don't hang waiting for transport close.
+            break;
           }
         }
 

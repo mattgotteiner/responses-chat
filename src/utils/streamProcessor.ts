@@ -845,10 +845,12 @@ export function processStreamEvent(
       };
     }
 
+    case 'response.failed':
     case 'response.completed':
     case 'response.incomplete': {
-      // Response completed or incomplete (e.g., truncated due to max_output_tokens)
-      // Both events have the same structure - extract response ID, full response, and citations
+      // Response completed, incomplete (truncated), or failed.
+      // All three are terminal events — extract the response ID so the streaming loop
+      // can break immediately rather than waiting for the transport to close.
       const completedEvent = event as { response?: Record<string, unknown> };
       if (completedEvent.response) {
         const response = completedEvent.response;

@@ -354,6 +354,30 @@ describe('streamProcessor', () => {
       });
     });
 
+    describe('response.failed', () => {
+      it('extracts response ID from failed response', () => {
+        const event: StreamEvent = {
+          type: 'response.failed',
+          response: {
+            id: 'resp_failed123',
+            status: 'failed',
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.responseId).toBe('resp_failed123');
+        expect(result.responseJson).toEqual({ id: 'resp_failed123', status: 'failed' });
+      });
+
+      it('returns accumulator unchanged when response is missing', () => {
+        const event: StreamEvent = {
+          type: 'response.failed',
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.responseId).toBeNull();
+        expect(result.responseJson).toBeNull();
+      });
+    });
+
     describe('response.output_item events', () => {
       it('extracts reasoning from output_item.done with summary', () => {
         const event: StreamEvent = {
