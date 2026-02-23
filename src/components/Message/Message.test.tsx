@@ -559,6 +559,115 @@ describe('attachments', () => {
     });
   });
 
+  describe('retry button', () => {
+    it('renders retry button for error assistant messages when onRetry provided', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: something went wrong',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} onRetry={mockOnRetry} />
+      );
+      expect(screen.getByLabelText('Retry')).toBeInTheDocument();
+    });
+
+    it('does not render retry button for non-error assistant messages', () => {
+      const assistantMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        content: 'Hello!',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} onRetry={mockOnRetry} />
+      );
+      expect(screen.queryByLabelText('Retry')).not.toBeInTheDocument();
+    });
+
+    it('does not render retry button for error messages when onRetry not provided', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: something went wrong',
+      };
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      expect(screen.queryByLabelText('Retry')).not.toBeInTheDocument();
+    });
+
+    it('does not render retry button for user messages', () => {
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} onRetry={mockOnRetry} />
+      );
+      expect(screen.queryByLabelText('Retry')).not.toBeInTheDocument();
+    });
+
+    it('calls onRetry with message id when retry button clicked', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        id: 'error-msg-42',
+        role: 'assistant',
+        isError: true,
+        content: 'Error: request failed',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} onRetry={mockOnRetry} />
+      );
+
+      fireEvent.click(screen.getByLabelText('Retry'));
+
+      expect(mockOnRetry).toHaveBeenCalledOnce();
+      expect(mockOnRetry).toHaveBeenCalledWith('error-msg-42');
+    });
+
+    it('disables retry button while isStreaming is true', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: request failed',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={true}
+        />
+      );
+
+      expect(screen.getByLabelText('Retry')).toBeDisabled();
+    });
+
+    it('enables retry button when isStreaming is false', () => {
+      const errorMessage: MessageType = {
+        ...baseMessage,
+        role: 'assistant',
+        isError: true,
+        content: 'Error: request failed',
+      };
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={false}
+        />
+      );
+
+      expect(screen.getByLabelText('Retry')).not.toBeDisabled();
+    });
+  });
+
   describe('copy button', () => {
     it('shows copy button for assistant messages with content', () => {
       const assistantMessage: MessageType = {

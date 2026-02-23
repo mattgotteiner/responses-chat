@@ -89,6 +89,8 @@ export interface UseChatReturn {
   clearConversation: () => void;
   /** Handle MCP tool call approval or denial */
   handleMcpApproval: (approvalRequestId: string, approve: boolean, settings: Settings) => Promise<void>;
+  /** Retry a failed message by its assistant message ID */
+  retryMessage: (failedAssistantMessageId: string, settings: Settings) => Promise<void>;
   /** Any error that occurred */
   error: string | null;
 }
@@ -747,6 +749,29 @@ export function useChat(): UseChatReturn {
     [messages]
   );
 
+  const retryMessage = useCallback(
+    async (failedAssistantMessageId: string, settings: Settings) => {
+      const failedIdx = messages.findIndex(
+        (m) => m.id === failedAssistantMessageId && m.isError
+      );
+      if (failedIdx < 0) return;
+
+      const userMessage = messages[failedIdx - 1];
+      if (!userMessage || userMessage.role !== 'user') return;
+
+      // Restore previousResponseIdRef to the value it held before this failed call
+      const priorResponseId =
+        (userMessage.requestJson?.previous_response_id as string | null | undefined) ?? null;
+      previousResponseIdRef.current = priorResponseId;
+
+      // Remove the failed assistant message and its preceding user message
+      setMessages((prev) => prev.slice(0, failedIdx - 1));
+
+      await sendMessage(userMessage.content, settings, userMessage.attachments);
+    },
+    [messages, sendMessage]
+  );
+
   return {
     messages,
     isStreaming,
@@ -754,6 +779,7 @@ export function useChat(): UseChatReturn {
     stopStreaming,
     clearConversation,
     handleMcpApproval,
+    retryMessage,
     error,
   };
 }

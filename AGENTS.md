@@ -71,7 +71,7 @@ src/
 
 | Command | Purpose |
 |---------|---------|
-| `npm install` | Install dependencies |
+| `npm install` | Install dependencies — **run this first** before any other command |
 | `npm run dev` | Start dev server with HMR; serves unbundled source for fast iteration |
 | `npm run build` | TypeScript check + production build to `dist/` |
 | `npm run preview` | Serve built `dist/` locally for final QA (run `build` first) |
@@ -165,6 +165,7 @@ Follow the existing structure in `src/`. See examples:
 - Test files should be co-located with source files or in `src/test/`
 - Run `npm run build` and `npm run test:run` before committing
 - All tests must pass before merging
+- **Before opening a PR, always run the full CI suite:** `npm run build`, `npm run lint`, and `npm run test:run` — all must pass
 - **Always add unit tests when implementing new features** – new utilities, hooks, and components should have corresponding `.test.ts` or `.test.tsx` files
 
 ```tsx
@@ -188,6 +189,7 @@ describe('Button', () => {
 - Production builds go to `dist/` directory
 - GitHub Actions automatically deploys to GitHub Pages on push to `main`
 - The build uses relative paths (`base: './'`) for GitHub Pages compatibility
+- **Before opening a PR:** run `npm run build && npm run lint && npm run test:run` and confirm all pass
 
 ## Boundaries
 

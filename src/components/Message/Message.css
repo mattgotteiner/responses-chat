@@ -26,6 +26,25 @@
   color: var(--color-error-text);
 }
 
+.message__retry-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  background-color: var(--color-error-border);
+  color: var(--color-error-text);
+  transition: opacity 0.15s;
+}
+
+.message__retry-button:hover {
+  opacity: 0.75;
+}
+
 .message__header {
   display: flex;
   align-items: center;
