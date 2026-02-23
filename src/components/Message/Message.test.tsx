@@ -131,9 +131,9 @@ describe('Message', () => {
     expect(screen.getByLabelText('View JSON')).toBeInTheDocument();
   });
 
-  it('does not show JSON button when no JSON data', () => {
+  it('hides JSON button when no JSON data', () => {
     renderWithSettings(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-    expect(screen.queryByLabelText('View JSON')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('View JSON')).toHaveClass('message__json-button--hidden');
   });
 
   it('calls onOpenJsonPanel with request data when user message button clicked', () => {
@@ -570,9 +570,22 @@ describe('attachments', () => {
       expect(screen.getByLabelText('Copy message')).toBeInTheDocument();
     });
 
-    it('does not show copy button for user messages', () => {
+    it('shows copy button for user messages with content', () => {
       renderWithSettings(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-      expect(screen.queryByLabelText('Copy message')).not.toBeInTheDocument();
+      const copyButton = screen.getByLabelText('Copy message');
+      expect(copyButton).toBeInTheDocument();
+      expect(copyButton).not.toHaveClass('message__copy-button--hidden');
+    });
+
+    it('copies message content when copy button clicked on user message', async () => {
+      renderWithSettings(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+
+      const copyButton = screen.getByLabelText('Copy message');
+      fireEvent.click(copyButton);
+
+      await vi.waitFor(() => {
+        expect(mockClipboardWriteText).toHaveBeenCalledWith(baseMessage.content);
+      });
     });
 
     it('does not show copy button for error messages', () => {
