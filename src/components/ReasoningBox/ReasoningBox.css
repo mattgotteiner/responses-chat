@@ -4,6 +4,12 @@
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   overflow: hidden;
+  animation: reasoningFadeIn 0.2s ease both;
+}
+
+@keyframes reasoningFadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .reasoning-box__header {
