@@ -285,16 +285,28 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny }: M
               </button>
             </>
           )}
-          {/* JSON button for user messages */}
-          {isUser && hasJsonData && (
-            <button
-              className="message__json-button"
-              onClick={handleJsonClick}
-              aria-label="View JSON"
-              title="View request JSON"
-            >
-              {'{ }'}
-            </button>
+          {/* JSON and Copy buttons for user messages */}
+          {isUser && (
+            <>
+              <button
+                className={`message__json-button ${!hasJsonData ? 'message__json-button--hidden' : ''}`}
+                onClick={handleJsonClick}
+                aria-label="View JSON"
+                title="View request JSON"
+                disabled={!hasJsonData}
+              >
+                {'{ }'}
+              </button>
+              <button
+                className={`message__copy-button ${!message.content ? 'message__copy-button--hidden' : ''}`}
+                onClick={handleCopyContent}
+                aria-label="Copy message"
+                title="Copy to clipboard"
+                disabled={!message.content}
+              >
+                📋
+              </button>
+            </>
           )}
         </div>
       </div>
