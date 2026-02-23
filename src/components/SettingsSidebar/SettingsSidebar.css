@@ -171,6 +171,13 @@
   color: var(--color-text-muted);
 }
 
+.settings-section__notice {
+  display: block;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .settings-field__hint--warning {
   color: var(--color-warning);
 }
