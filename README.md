@@ -43,6 +43,7 @@ Open http://localhost:5173 and configure your Azure OpenAI settings to start cha
 | Command | Description |
 |---------|-------------|
 | `npm run dev` | Start dev server with HMR; serves unbundled source for fast iteration |
+| `npm run dev:tunnel` | Start dev server for VS Code port-forwarding / tunnel-based mobile testing |
 | `npm run build` | Build for production to `dist/` |
 | `npm run preview` | Serve built `dist/` locally for final QA (run `build` first) |
 | `npm run test` | Run tests in watch mode |
@@ -51,7 +52,25 @@ Open http://localhost:5173 and configure your Azure OpenAI settings to start cha
 
 ## Mobile Testing
 
-To test on a mobile device connected to the same network:
+### VS Code Port Forwarding (remote machine or different network)
+
+If you're on a remote machine or your phone isn't on the same network, use VS Code's built-in tunnel:
+
+```bash
+npm run dev:tunnel
+```
+
+Then in VS Code:
+1. Open the **Ports** panel (bottom status bar, or `Ctrl+Shift+P` → "Focus on Ports View")
+2. Click **Forward a Port** → enter `5173`
+3. Right-click the forwarded port → **Port Visibility** → **Public**
+4. Copy the generated `*.devtunnels.ms` URL and open it on your phone
+
+Requires a GitHub or Microsoft account. Works from any network.
+
+### LAN (same network only)
+
+If your phone is on the same Wi-Fi network as the dev machine:
 
 ```bash
 # Windows PowerShell
@@ -61,7 +80,7 @@ $env:VITE_MOBILE_TESTING="1"; npm run dev
 VITE_MOBILE_TESTING=1 npm run dev
 ```
 
-This exposes the dev server on your local network. The terminal will display a `Network:` URL (e.g., `http://192.168.x.x:5173`) that you can open on your phone.
+The terminal will display a `Network:` URL (e.g., `http://192.168.x.x:5173`) to open on your phone.
 
 **Note:** Network hosting is opt-in to avoid accidentally exposing the dev server on shared/corporate networks.
 

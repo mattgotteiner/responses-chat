@@ -1,7 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ChatInput } from './ChatInput';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { Message } from '../../types';
+
+vi.mock('../../hooks/useIsMobile', () => ({
+  useIsMobile: vi.fn().mockReturnValue(false),
+}));
 
 describe('ChatInput', () => {
   const mockOnSendMessage = vi.fn();
@@ -11,6 +16,7 @@ describe('ChatInput', () => {
   let originalClipboard: Clipboard | undefined;
 
   beforeEach(() => {
+    vi.mocked(useIsMobile).mockReturnValue(false);
     mockOnSendMessage.mockClear();
     mockOnClearConversation.mockClear();
     mockOnStopStreaming.mockClear();
@@ -250,6 +256,35 @@ describe('ChatInput', () => {
     );
 
     expect(screen.getByText('Press Enter to send, Shift+Enter for new line')).toBeInTheDocument();
+  });
+
+  it('shows mobile hint on mobile', () => {
+    vi.mocked(useIsMobile).mockReturnValue(true);
+    render(
+      <ChatInput
+        onSendMessage={mockOnSendMessage}
+        onClearConversation={mockOnClearConversation}
+      />
+    );
+
+    expect(screen.getByText('Tap ↑ to send')).toBeInTheDocument();
+    expect(screen.queryByText('Press Enter to send, Shift+Enter for new line')).not.toBeInTheDocument();
+  });
+
+  it('does not send message on Enter key when on mobile', () => {
+    vi.mocked(useIsMobile).mockReturnValue(true);
+    render(
+      <ChatInput
+        onSendMessage={mockOnSendMessage}
+        onClearConversation={mockOnClearConversation}
+      />
+    );
+
+    const textarea = screen.getByLabelText('Message input');
+    fireEvent.change(textarea, { target: { value: 'Hello' } });
+    fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
+
+    expect(mockOnSendMessage).not.toHaveBeenCalled();
   });
 
   describe('copy conversation JSON button', () => {
