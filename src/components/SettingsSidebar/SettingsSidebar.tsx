@@ -59,8 +59,10 @@ export function SettingsSidebar({
 
   const handleInputChange = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-      const value = e.target.value;
-      onUpdateSettings({ [field]: value || undefined });
+      const { value } = e.target;
+      // Required string fields store empty string; optional fields convert empty to undefined
+      const requiredStringFields: Array<keyof Settings> = ['endpoint', 'apiKey', 'deploymentName'];
+      onUpdateSettings({ [field]: requiredStringFields.includes(field) ? value : value || undefined } as Partial<Settings>);
     },
     [onUpdateSettings]
   );

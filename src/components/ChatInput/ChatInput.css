@@ -198,6 +198,7 @@
 
   .chat-input__textarea {
     min-height: 44px;
+    max-height: 40vh;
     padding: 10px 14px;
   }
 
@@ -212,10 +213,6 @@
   .chat-input__clear {
     padding: 6px 10px;
     font-size: 12px;
-  }
-
-  .chat-input__hint {
-    display: none;
   }
 
   .chat-input__copy-json {

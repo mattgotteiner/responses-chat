@@ -146,7 +146,7 @@ export function useSettings(): UseSettingsReturn {
 
   // Check if required fields are configured
   const isConfigured =
-    settings.endpoint.trim() !== '' && settings.apiKey.trim() !== '';
+    (settings.endpoint || '').trim() !== '' && (settings.apiKey || '').trim() !== '';
 
   // Track the last endpoint/apiKey to detect credential changes  
   const lastCredentialsRef = useRef<{ endpoint: string; apiKey: string } | null>(null);
