@@ -175,8 +175,9 @@ describe('useChat - retryMessage', () => {
       await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
       // First-turn message has no previous_response_id stored in requestJson
-      const callArgs = retryClient.responses.create.mock.calls[0][0] as Record<string, unknown>;
-      expect(callArgs['previous_response_id']).toBeUndefined();
+      expect(retryClient.responses.create).toHaveBeenCalledWith(
+        expect.not.objectContaining({ previous_response_id: expect.anything() }),
+      );
     });
 
     it('restores previous_response_id from the user message requestJson when retrying a later-turn message', async () => {
@@ -213,8 +214,9 @@ describe('useChat - retryMessage', () => {
       });
       await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
-      const retryArgs = retryClient.responses.create.mock.calls[0][0] as Record<string, unknown>;
-      expect(retryArgs['previous_response_id']).toBe('resp-first-turn');
+      expect(retryClient.responses.create).toHaveBeenCalledWith(
+        expect.objectContaining({ previous_response_id: 'resp-first-turn' }),
+      );
     });
   });
 });
