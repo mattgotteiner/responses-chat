@@ -193,6 +193,8 @@ export interface Settings {
   fileSearchVectorStoreId?: string;
   /** Expiration time in minutes for new vector stores (default: 1440 = 1 day) */
   fileSearchExpirationMinutes?: number;
+  /** Allow the model to call multiple tools simultaneously in a single turn */
+  parallelToolCallsEnabled?: boolean;
 }
 
 /** Default settings values */
@@ -214,6 +216,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
   fileSearchExpirationMinutes: DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES,
+  parallelToolCallsEnabled: false,
 };
 
 /** Tool call status types */

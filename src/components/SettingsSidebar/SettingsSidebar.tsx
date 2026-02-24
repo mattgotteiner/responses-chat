@@ -327,6 +327,22 @@ export function SettingsSidebar({
                 setStoreFilesLoading={setStoreFilesLoading}
               />
             )}
+
+            <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="parallelToolCallsEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.parallelToolCallsEnabled || false}
+                  onChange={handleCheckboxChange('parallelToolCallsEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Parallel Tool Calls</span>
+              </label>
+              <span className="settings-field__hint">
+                Allow the model to call multiple tools at the same time.
+              </span>
+            </div>
           </section>
 
           {/* MCP Servers */}
