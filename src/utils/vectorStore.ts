@@ -52,42 +52,27 @@ export async function listVectorStores(client: OpenAI): Promise<VectorStore[]> {
     id: store.id,
     name: store.name || 'Unnamed Store',
     createdAt: store.created_at,
-    expiresAt: store.expires_at ?? null,
     fileCount: store.file_counts?.completed ?? 0,
     status: mapVectorStoreStatus(store.status),
   }));
 }
 
 /**
- * Creates a new vector store with expiration policy
+ * Creates a new vector store
  * @param client - OpenAI client
  * @param name - Display name for the store
- * @param expirationMinutes - Number of minutes until expiration after last active use
  * @returns Created vector store
  */
 export async function createVectorStore(
   client: OpenAI,
-  name: string,
-  expirationMinutes: number
+  name: string
 ): Promise<VectorStore> {
-  // Convert minutes to days (API expects days)
-  // Minimum is 1 day for the API, but we'll use the anchor approach
-  // expires_after uses "last_active_at" anchor with days
-  const expirationDays = Math.max(1, Math.ceil(expirationMinutes / 1440));
-  
-  const response = await client.vectorStores.create({
-    name,
-    expires_after: {
-      anchor: 'last_active_at',
-      days: expirationDays,
-    },
-  });
+  const response = await client.vectorStores.create({ name });
 
   return {
     id: response.id,
     name: response.name || name,
     createdAt: response.created_at,
-    expiresAt: response.expires_at ?? null,
     fileCount: response.file_counts?.completed ?? 0,
     status: mapVectorStoreStatus(response.status),
   };
@@ -235,31 +220,4 @@ export function formatFileSize(bytes: number): string {
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), units.length - 1);
   
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${units[i]}`;
-}
-
-/**
- * Gets a human-readable expiration status
- * @param expiresAt - Unix timestamp of expiration, or null
- * @returns Status string
- */
-export function getExpirationStatus(expiresAt: number | null): string {
-  if (expiresAt === null) return 'No expiration';
-  
-  const now = Date.now() / 1000;
-  const remaining = expiresAt - now;
-  
-  if (remaining <= 0) return 'Expired';
-  
-  if (remaining < 3600) {
-    const minutes = Math.ceil(remaining / 60);
-    return `Expires in ${minutes}m`;
-  }
-  
-  if (remaining < 86400) {
-    const hours = Math.ceil(remaining / 3600);
-    return `Expires in ${hours}h`;
-  }
-  
-  const days = Math.ceil(remaining / 86400);
-  return `Expires in ${days}d`;
 }
