@@ -103,8 +103,6 @@ export interface VectorStore {
   name: string;
   /** Creation timestamp */
   createdAt: number;
-  /** When the store expires (Unix timestamp), or null if no expiration */
-  expiresAt: number | null;
   /** Number of files in the store */
   fileCount: number;
   /** Processing status */
@@ -141,17 +139,6 @@ export interface VectorStoreCache {
   /** Set of store IDs whose files are currently being loaded */
   loadingStoreFiles: Set<string>;
 }
-
-/** Expiration policy options in minutes (API clamps to days) */
-export const FILE_SEARCH_EXPIRATION_OPTIONS = [
-  { value: 1440, label: '1 day' },
-  { value: 2880, label: '2 days' },
-  { value: 4320, label: '3 days' },
-  { value: 10080, label: '7 days' },
-] as const;
-
-/** Default expiration in minutes (1 day) */
-export const DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES = 1440;
 
 /** Application settings stored in localStorage */
 export interface Settings {
@@ -191,8 +178,6 @@ export interface Settings {
   fileSearchEnabled?: boolean;
   /** Selected vector store ID for file search */
   fileSearchVectorStoreId?: string;
-  /** Expiration time in minutes for new vector stores (default: 1440 = 1 day) */
-  fileSearchExpirationMinutes?: number;
   /** Allow the model to call multiple tools simultaneously in a single turn */
   parallelToolCallsEnabled?: boolean;
 }
@@ -215,7 +200,6 @@ export const DEFAULT_SETTINGS: Settings = {
   noLocalStorage: false,
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
-  fileSearchExpirationMinutes: DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES,
   parallelToolCallsEnabled: false,
 };
 
