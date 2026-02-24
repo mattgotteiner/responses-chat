@@ -270,8 +270,8 @@ describe('ChatInput', () => {
     expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument();
   });
 
-  it('does not send message on Enter key when on mobile', () => {
-    vi.mocked(useIsMobile).mockReturnValue(true);
+  it('does not send message on Enter key when on a touch device', () => {
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 1, writable: true, configurable: true });
     render(
       <ChatInput
         onSendMessage={mockOnSendMessage}
@@ -284,6 +284,8 @@ describe('ChatInput', () => {
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: false });
 
     expect(mockOnSendMessage).not.toHaveBeenCalled();
+
+    Object.defineProperty(navigator, 'maxTouchPoints', { value: 0, writable: true, configurable: true });
   });
 
   describe('copy conversation JSON button', () => {
