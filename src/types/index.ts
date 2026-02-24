@@ -178,6 +178,8 @@ export interface Settings {
   fileSearchEnabled?: boolean;
   /** Selected vector store ID for file search */
   fileSearchVectorStoreId?: string;
+  /** Allow the model to call multiple tools simultaneously in a single turn */
+  parallelToolCallsEnabled?: boolean;
 }
 
 /** Default settings values */
@@ -198,6 +200,7 @@ export const DEFAULT_SETTINGS: Settings = {
   noLocalStorage: false,
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
+  parallelToolCallsEnabled: false,
 };
 
 /** Tool call status types */
