@@ -69,7 +69,7 @@ export function ChatContainer() {
   );
 
   const inputPlaceholder = isConfigured
-    ? 'Type a message...'
+    ? undefined
     : 'Configure settings to start chatting...';
 
   // Calculate total token usage across all messages
