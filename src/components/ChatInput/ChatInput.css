@@ -177,12 +177,6 @@
 .chat-input__copy-json-icon {
   font-size: 12px;
 }
-
-.chat-input__hint {
-  font-size: 11px;
-  color: var(--color-text-hint);
-}
-
 /* Mobile responsive */
 @media (max-width: 600px) {
   .chat-input {

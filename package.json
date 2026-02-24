@@ -27,7 +27,8 @@
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate-icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
     "openai": "^6.17.0",
@@ -47,6 +48,7 @@
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.18",
+    "canvas": "^3.2.1",
     "eslint": "^9.21.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.19",
