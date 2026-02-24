@@ -2,12 +2,14 @@
  * Chat input component with textarea and send button
  */
 
-import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, type KeyboardEvent, type ChangeEvent } from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import { useAudioInput } from '../../hooks/useAudioInput';
 import { AttachmentButton } from '../AttachmentButton';
 import { AttachmentPreview } from '../AttachmentPreview';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
+import { AudioInputButton } from '../AudioInputButton';
 import './ChatInput.css';
 
 interface ChatInputProps {
@@ -50,6 +52,15 @@ export function ChatInput({
     placeholder ?? (isMobile ? 'Type a message...' : 'Type a message... (Enter ↵ to send)');
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const { isSupported: isAudioSupported, isRecording, start: startRecording, stop: stopRecording } = useAudioInput();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isRecording && textareaRef.current) {
+      const el = textareaRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [value, isRecording]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
@@ -57,11 +68,22 @@ export function ChatInput({
 
   const handleSend = useCallback(() => {
     if (value.trim() && !disabled) {
+      if (isRecording) {
+        stopRecording();
+      }
       onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
       setValue('');
       setAttachments([]);
     }
-  }, [value, disabled, onSendMessage, attachments]);
+  }, [value, disabled, onSendMessage, attachments, isRecording, stopRecording]);
+
+  const handleToggleRecording = useCallback(() => {
+    if (isRecording) {
+      stopRecording();
+    } else {
+      startRecording(value, (transcript) => setValue(transcript));
+    }
+  }, [isRecording, stopRecording, startRecording, value]);
 
   const handleAttach = useCallback((newAttachments: Attachment[]) => {
     setAttachments((prev) => [...prev, ...newAttachments]);
@@ -113,12 +135,13 @@ export function ChatInput({
       )}
       <div className="chat-input__container">
         <textarea
+          ref={textareaRef}
           className="chat-input__textarea"
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={resolvedPlaceholder}
-          disabled={disabled}
+          disabled={disabled || isRecording}
           rows={1}
           aria-label="Message input"
         />
@@ -158,6 +181,12 @@ export function ChatInput({
           </button>
         )}
         <AttachmentButton onAttach={handleAttach} disabled={disabled} codeInterpreterEnabled={codeInterpreterEnabled} />
+        <AudioInputButton
+          isSupported={isAudioSupported}
+          isRecording={isRecording}
+          disabled={disabled}
+          onClick={handleToggleRecording}
+        />
       </div>
       <div className="chat-input__actions">
         <div className="chat-input__actions-left">
