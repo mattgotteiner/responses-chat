@@ -2,7 +2,7 @@
  * Chat input component with textarea and send button
  */
 
-import { useState, useCallback, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, type KeyboardEvent, type ChangeEvent } from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAudioInput } from '../../hooks/useAudioInput';
@@ -51,6 +51,14 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const { isSupported: isAudioSupported, isRecording, start: startRecording, stop: stopRecording } = useAudioInput();
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (isRecording && textareaRef.current) {
+      const el = textareaRef.current;
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [value, isRecording]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLTextAreaElement>) => {
     setValue(e.target.value);
@@ -125,6 +133,7 @@ export function ChatInput({
       )}
       <div className="chat-input__container">
         <textarea
+          ref={textareaRef}
           className="chat-input__textarea"
           value={value}
           onChange={handleChange}
