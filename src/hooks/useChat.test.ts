@@ -223,3 +223,44 @@ describe('useChat - retryMessage', () => {
     });
   });
 });
+
+describe('useChat - sendMessage request payload', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  async function sendWithSettings(settings: Settings) {
+    const mockClient = makeMockClient(() => completedStream());
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('Hello', settings);
+    });
+
+    await waitFor(() => {
+      expect(result.current.isStreaming).toBe(false);
+    });
+
+    return mockClient.responses.create;
+  }
+
+  describe('parallel_tool_calls', () => {
+    it('omits parallel_tool_calls when parallelToolCallsEnabled is false (default)', async () => {
+      const createSpy = await sendWithSettings(testSettings);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.not.objectContaining({ parallel_tool_calls: expect.anything() }),
+        expect.anything(),
+      );
+    });
+
+    it('includes parallel_tool_calls: true when parallelToolCallsEnabled is true', async () => {
+      const settings: Settings = { ...testSettings, parallelToolCallsEnabled: true };
+      const createSpy = await sendWithSettings(settings);
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ parallel_tool_calls: true }),
+        expect.anything(),
+      );
+    });
+  });
+});
