@@ -153,6 +153,50 @@ describe('SettingsSidebar', () => {
     });
   });
 
+  describe('Parallel Tool Calls Toggle', () => {
+    it('renders the parallel tool calls checkbox in the Tools section', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Tools')).toBeInTheDocument();
+      expect(screen.getByText('Parallel Tool Calls')).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /parallel tool calls/i })).toBeInTheDocument();
+    });
+
+    it('checkbox is unchecked by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /parallel tool calls/i });
+      expect(checkbox).not.toBeChecked();
+    });
+
+    it('checkbox is checked when parallelToolCallsEnabled is true', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, parallelToolCallsEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /parallel tool calls/i });
+      expect(checkbox).toBeChecked();
+    });
+
+    it('calls onUpdateSettings with parallelToolCallsEnabled: true when checkbox is checked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /parallel tool calls/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ parallelToolCallsEnabled: true });
+    });
+
+    it('calls onUpdateSettings with parallelToolCallsEnabled: false when checkbox is unchecked', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, parallelToolCallsEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const checkbox = screen.getByRole('checkbox', { name: /parallel tool calls/i });
+      fireEvent.click(checkbox);
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ parallelToolCallsEnabled: false });
+    });
+
+    it('displays hint text about parallel tool calls', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByText(/allow the model to call multiple tools at the same time/i)
+      ).toBeInTheDocument();
+    });
+  });
+
   describe('Required Fields', () => {
     it('renders endpoint input', () => {
       render(<SettingsSidebar {...defaultProps} />);

@@ -342,6 +342,11 @@ export function useChat(): UseChatReturn {
         requestParams.include = include;
       }
 
+      // Enable parallel tool calls if configured
+      if (settings.parallelToolCallsEnabled) {
+        requestParams.parallel_tool_calls = true;
+      }
+
       // Update user message with the final request JSON (now that we know file IDs)
       setMessages((prev) =>
         prev.map((msg) =>
