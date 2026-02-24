@@ -39,14 +39,14 @@ describe('ChatInput', () => {
     }
   });
 
-  it('renders textarea with default placeholder', () => {
+  it('renders textarea with default placeholder on desktop', () => {
     render(
       <ChatInput
         onSendMessage={mockOnSendMessage}
         onClearConversation={mockOnClearConversation}
       />
     );
-    expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type a message... (Enter ↵ to send)')).toBeInTheDocument();
   });
 
   it('renders textarea with custom placeholder', () => {
@@ -247,7 +247,7 @@ describe('ChatInput', () => {
     expect(screen.getByLabelText('Send message')).not.toBeDisabled();
   });
 
-  it('shows keyboard hint', () => {
+  it('shows keyboard hint in placeholder on desktop', () => {
     render(
       <ChatInput
         onSendMessage={mockOnSendMessage}
@@ -255,10 +255,10 @@ describe('ChatInput', () => {
       />
     );
 
-    expect(screen.getByText('Press Enter to send, Shift+Enter for new line')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type a message... (Enter ↵ to send)')).toBeInTheDocument();
   });
 
-  it('shows mobile hint on mobile', () => {
+  it('shows plain placeholder on mobile (no keyboard hint)', () => {
     vi.mocked(useIsMobile).mockReturnValue(true);
     render(
       <ChatInput
@@ -267,11 +267,10 @@ describe('ChatInput', () => {
       />
     );
 
-    expect(screen.getByText('Tap ↑ to send')).toBeInTheDocument();
-    expect(screen.queryByText('Press Enter to send, Shift+Enter for new line')).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument();
   });
 
-  it('does not send message on Enter key when on mobile', () => {
+  it('does not send message on Enter key when on a touch device', () => {
     vi.mocked(useIsMobile).mockReturnValue(true);
     render(
       <ChatInput
