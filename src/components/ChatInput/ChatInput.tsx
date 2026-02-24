@@ -40,12 +40,14 @@ export function ChatInput({
   onStopStreaming,
   isStreaming = false,
   disabled = false,
-  placeholder = 'Type a message...',
+  placeholder,
   tokenUsage,
   messages = [],
   codeInterpreterEnabled = false,
 }: ChatInputProps) {
   const isMobile = useIsMobile();
+  const resolvedPlaceholder =
+    placeholder ?? (isMobile ? 'Type a message...' : 'Type a message... (Enter ↵ to send)');
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
@@ -115,7 +117,7 @@ export function ChatInput({
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           disabled={disabled}
           rows={1}
           aria-label="Message input"
@@ -179,9 +181,6 @@ export function ChatInput({
             </button>
           )}
         </div>
-        <span className="chat-input__hint">
-          {isMobile ? 'Tap ↑ to send' : 'Press Enter to send, Shift+Enter for new line'}
-        </span>
       </div>
     </div>
   );
