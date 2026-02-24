@@ -428,6 +428,20 @@ describe('ChatInput', () => {
       expect(mockAudioStop).toHaveBeenCalledTimes(1);
     });
 
+    it('disables textarea while recording to prevent overwrites', () => {
+      vi.mocked(useAudioInput).mockReturnValue({
+        isSupported: true,
+        isRecording: true,
+        error: null,
+        start: mockAudioStart,
+        stop: mockAudioStop,
+      });
+      render(
+        <ChatInput onSendMessage={mockOnSendMessage} onClearConversation={mockOnClearConversation} />,
+      );
+      expect(screen.getByLabelText('Message input')).toBeDisabled();
+    });
+
     it('stops recording when message is sent while recording', () => {
       // Use mockReturnValue (not Once) so all re-renders from state changes still see isRecording:true
       vi.mocked(useAudioInput).mockReturnValue({

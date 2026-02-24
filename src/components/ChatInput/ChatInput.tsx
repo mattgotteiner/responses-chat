@@ -139,7 +139,7 @@ export function ChatInput({
           onChange={handleChange}
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
-          disabled={disabled}
+          disabled={disabled || isRecording}
           rows={1}
           aria-label="Message input"
         />

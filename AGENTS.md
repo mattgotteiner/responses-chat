@@ -141,6 +141,15 @@ function Button({ label, onClick }: any) {
 }
 ```
 
+### Hook JSDoc Convention
+
+All exported hooks must have a JSDoc block directly above the `export function` declaration containing:
+- A one-line description of what the hook does
+- A `@returns` tag documenting the return type/shape
+- An `@example` block showing typical usage
+
+See `useIsMobile`, `useSettings`, `useChat`, and `useAudioInput` for reference implementations.
+
 ### Naming Conventions
 
 - **Components:** PascalCase (`MyComponent.tsx`)

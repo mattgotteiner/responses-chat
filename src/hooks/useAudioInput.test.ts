@@ -118,7 +118,21 @@ describe('useAudioInput', () => {
 
     expect(mockInstance.continuous).toBe(true);
     expect(mockInstance.interimResults).toBe(true);
-    expect(mockInstance.lang).toBe('en-US');
+    expect(mockInstance.lang).toBe(navigator.language || 'en-US');
+  });
+
+  it('uses navigator.language for recognition lang', () => {
+    const original = Object.getOwnPropertyDescriptor(navigator, 'language');
+    Object.defineProperty(navigator, 'language', { value: 'fr-FR', configurable: true });
+    try {
+      const { result } = renderHook(() => useAudioInput());
+      act(() => { result.current.start('', vi.fn()); });
+      expect(mockInstance.lang).toBe('fr-FR');
+    } finally {
+      if (original) {
+        Object.defineProperty(navigator, 'language', original);
+      }
+    }
   });
 
   it('sets isRecording to false and calls recognition.stop when stop() is called', () => {
@@ -267,6 +281,7 @@ describe('useAudioInput', () => {
     act(() => {
       result.current.start('', vi.fn());
     });
+
     act(() => {
       mockInstance.onerror?.({ error: 'aborted' });
     });
@@ -352,5 +367,78 @@ describe('useAudioInput', () => {
     });
 
     expect(onTranscript).toHaveBeenCalledWith('second');
+  });
+
+  it('baseText is captured once at start; subsequent recognition events do not re-read textarea value', () => {
+    const onTranscript = vi.fn();
+    const { result } = renderHook(() => useAudioInput());
+
+    act(() => {
+      result.current.start('initial', onTranscript);
+    });
+
+    // First recognition event — final segment
+    act(() => {
+      mockInstance.onresult?.({
+        resultIndex: 0,
+        results: { length: 1, 0: { isFinal: true, 0: { transcript: 'hello' } } },
+      });
+    });
+    expect(onTranscript).toHaveBeenLastCalledWith('initial hello');
+
+    // Second recognition event — should still use the original 'initial' base, not the updated textarea
+    act(() => {
+      mockInstance.onresult?.({
+        resultIndex: 1,
+        results: {
+          length: 2,
+          0: { isFinal: true, 0: { transcript: 'hello' } },
+          1: { isFinal: true, 0: { transcript: 'world' } },
+        },
+      });
+    });
+    // 'initial hello world', NOT 'initial hello hello world'
+    expect(onTranscript).toHaveBeenLastCalledWith('initial hello world');
+  });
+
+  it('aborts existing session when start() is called while already recording', () => {
+    const { result } = renderHook(() => useAudioInput());
+
+    act(() => {
+      result.current.start('', vi.fn());
+    });
+
+    const firstInstance = mockInstance;
+    expect(firstInstance.start).toHaveBeenCalledTimes(1);
+
+    // Call start() again without stopping — should abort the previous session
+    act(() => {
+      result.current.start('', vi.fn());
+    });
+
+    expect(firstInstance.abort).toHaveBeenCalledTimes(1);
+    expect(MockRecognition).toHaveBeenCalledTimes(2);
+  });
+
+  it('joins multiple interim segments with spaces', () => {
+    const onTranscript = vi.fn();
+    const { result } = renderHook(() => useAudioInput());
+
+    act(() => {
+      result.current.start('', onTranscript);
+    });
+    act(() => {
+      // Single event containing two interim results — should be space-joined
+      mockInstance.onresult?.({
+        resultIndex: 0,
+        results: {
+          length: 2,
+          0: { isFinal: false, 0: { transcript: 'hello' } },
+          1: { isFinal: false, 0: { transcript: 'world' } },
+        },
+      });
+    });
+
+    expect(onTranscript).toHaveBeenCalledWith('hello world');
   });
 });

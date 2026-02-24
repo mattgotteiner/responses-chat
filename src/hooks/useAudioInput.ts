@@ -58,15 +58,48 @@ export interface UseAudioInputReturn {
   /** Last error message, if any */
   error: string | null;
   /**
-   * Start recording. `baseText` is the existing content of the input box;
-   * `onTranscript` is called with the full (base + transcription) string on
-   * every recognition event.
+   * Start recording. `baseText` is the text already in the input box at the
+   * moment recording begins; `onTranscript` is called with the full
+   * (base + transcription) string on every recognition event.
    */
   start: (baseText: string, onTranscript: (transcript: string) => void) => void;
   /** Stop recording */
   stop: () => void;
 }
 
+/**
+ * React hook that provides browser-native speech-to-text via the Web Speech API.
+ *
+ * Handles continuous recording (including iOS Safari's auto-restart workaround),
+ * accumulates final transcripts across recognition restarts, and merges interim
+ * results with previously committed text.
+ *
+ * @returns {UseAudioInputReturn} Recording controls and state.
+ *
+ * @example
+ * ```tsx
+ * import { useRef } from 'react';
+ * import { useAudioInput } from '../hooks/useAudioInput';
+ *
+ * function VoiceInput() {
+ *   const [value, setValue] = useState('');
+ *   const valueRef = useRef(value);
+ *   useEffect(() => { valueRef.current = value; }, [value]);
+ *
+ *   const { isSupported, isRecording, start, stop } = useAudioInput();
+ *
+ *   const toggle = () => {
+ *     if (isRecording) {
+ *       stop();
+ *     } else {
+ *       start(value, (transcript) => setValue(transcript));
+ *     }
+ *   };
+ *
+ *   return <input value={value} onChange={(e) => setValue(e.target.value)} />;
+ * }
+ * ```
+ */
 export function useAudioInput(): UseAudioInputReturn {
   const isSupported = getSpeechRecognitionCtor() !== null;
   const [isRecording, setIsRecording] = useState(false);
@@ -91,7 +124,7 @@ export function useAudioInput(): UseAudioInputReturn {
     const recognition = new Ctor();
     recognition.continuous = true;
     recognition.interimResults = true;
-    recognition.lang = 'en-US';
+    recognition.lang = navigator.language || 'en-US';
     recognitionRef.current = recognition;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
@@ -101,7 +134,7 @@ export function useAudioInput(): UseAudioInputReturn {
         if (r.isFinal) {
           finalTextRef.current = joinWithSpace(finalTextRef.current, r[0].transcript);
         } else {
-          interim += r[0].transcript;
+          interim = joinWithSpace(interim, r[0].transcript);
         }
       }
       const cb = callbackRef.current;
@@ -150,6 +183,11 @@ export function useAudioInput(): UseAudioInputReturn {
   const start = useCallback(
     (baseText: string, onTranscript: (t: string) => void) => {
       if (!getSpeechRecognitionCtor()) return;
+      // Abort any already-running session before starting a new one
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
       setError(null);
       stoppedRef.current = false;
       finalTextRef.current = '';
