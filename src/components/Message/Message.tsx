@@ -266,17 +266,32 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
               hasOverride={hasOverride}
             />
           )}
-          {/* Retry button for error messages */}
-          {!isUser && message.isError && onRetry && (
-            <button
-              className="message__retry-button"
-              onClick={() => onRetry(message.id)}
-              aria-label="Retry"
-              title="Retry"
-              disabled={isStreaming}
-            >
-              ↺ Retry
-            </button>
+          {/* JSON and action buttons for error messages */}
+          {!isUser && message.isError && (
+            <>
+              {hasJsonData && (
+                <button
+                  className="message__json-button"
+                  onClick={handleJsonClick}
+                  aria-label="View JSON"
+                  title="View response JSON"
+                  disabled={isStreaming}
+                >
+                  {'{ }'}
+                </button>
+              )}
+              {onRetry && (
+                <button
+                  className="message__retry-button"
+                  onClick={() => onRetry(message.id)}
+                  aria-label="Retry"
+                  title="Retry"
+                  disabled={isStreaming}
+                >
+                  ↺ Retry
+                </button>
+              )}
+            </>
           )}
           {/* JSON and Copy buttons - always render both for assistant to avoid layout shift */}
           {!isUser && !message.isError && (

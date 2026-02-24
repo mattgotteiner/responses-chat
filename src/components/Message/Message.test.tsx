@@ -668,6 +668,69 @@ describe('attachments', () => {
     });
   });
 
+  describe('error message JSON buttons', () => {
+    const errorMessage: MessageType = {
+      ...baseMessage,
+      id: 'err-1',
+      role: 'assistant',
+      isError: true,
+      content: 'Error: something went wrong',
+      responseJson: { error: 'bad request', status: 400 },
+    };
+
+    it('renders View JSON button for error messages with responseJson', () => {
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      expect(screen.getByLabelText('View JSON')).toBeInTheDocument();
+    });
+
+    it('does not render View JSON button for error messages without responseJson', () => {
+      const errorNoJson: MessageType = { ...errorMessage, responseJson: undefined };
+      renderWithSettings(
+        <Message message={errorNoJson} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      expect(screen.queryByLabelText('View JSON')).not.toBeInTheDocument();
+    });
+
+    it('calls onOpenJsonPanel when View JSON clicked on error message', () => {
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+      fireEvent.click(screen.getByLabelText('View JSON'));
+      expect(mockOnOpenJsonPanel).toHaveBeenCalledWith({
+        title: 'Response JSON',
+        data: errorMessage.responseJson,
+      });
+    });
+
+    it('disables View JSON button while isStreaming', () => {
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={true}
+        />
+      );
+      expect(screen.getByLabelText('View JSON')).toBeDisabled();
+    });
+
+    it('enables View JSON button when not streaming', () => {
+      const mockOnRetry = vi.fn();
+      renderWithSettings(
+        <Message
+          message={errorMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onRetry={mockOnRetry}
+          isStreaming={false}
+        />
+      );
+      expect(screen.getByLabelText('View JSON')).not.toBeDisabled();
+    });
+  });
+
   describe('copy button', () => {
     it('shows copy button for assistant messages with content', () => {
       const assistantMessage: MessageType = {
