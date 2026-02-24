@@ -22,6 +22,45 @@
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-container__history-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.chat-container__history-toggle:hover {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+.chat-container__ephemeral-badge {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-xl);
+  background-color: var(--color-warning-bg);
+  color: var(--color-warning-text);
+  border: 1px solid var(--color-warning-border);
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.chat-container__ephemeral-badge:hover {
+  background-color: var(--color-warning-border);
+  color: var(--color-warning-btn-text);
 }
 
 .chat-container__title {
@@ -29,19 +68,13 @@
   font-size: 18px;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
-.chat-container__github-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-text-secondary);
-  transition: color 0.15s ease;
-}
-
-.chat-container__github-link:hover {
-  color: var(--color-text);
-}
+/* Removed: .chat-container__github-link moved to ChatInput footer */
 
 /* Mobile responsive */
 @media (max-width: 600px) {

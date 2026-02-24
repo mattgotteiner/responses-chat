@@ -5,8 +5,14 @@
 /** Storage key for application settings */
 export const SETTINGS_STORAGE_KEY = 'azure-openai-settings';
 
+/** Storage key for chat threads */
+export const THREADS_STORAGE_KEY = 'chat-threads';
+
+/** Storage key for the last active thread ID */
+export const ACTIVE_THREAD_STORAGE_KEY = 'active-thread-id';
+
 /** All storage keys used by the application */
-export const ALL_STORAGE_KEYS = [SETTINGS_STORAGE_KEY] as const;
+export const ALL_STORAGE_KEYS = [SETTINGS_STORAGE_KEY, THREADS_STORAGE_KEY, ACTIVE_THREAD_STORAGE_KEY] as const;
 
 /**
  * Retrieves a value from localStorage

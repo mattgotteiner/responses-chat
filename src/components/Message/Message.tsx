@@ -256,7 +256,14 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
       }`}
     >
       <div className="message__header">
-        <span className="message__role">{isUser ? 'You' : 'Assistant'}</span>
+        <div className="message__header-left">
+          <span className="message__role">{isUser ? 'You' : 'Assistant'}</span>
+          <span className="message__timestamp">
+            {message.timestamp instanceof Date
+              ? message.timestamp.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+              : new Date(message.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+          </span>
+        </div>
         <div className="message__header-actions">
           {/* Render mode toggle - only for assistant messages, not errors */}
           {!isUser && !message.isError && (

@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useChat } from './useChat';
 import { DEFAULT_SETTINGS } from '../types';
-import type { Settings } from '../types';
+import type { Settings, Message } from '../types';
 
 // vi.hoisted ensures these references are available inside the vi.mock factory
 const { mockCreateAzureClient } = vi.hoisted(() => ({
@@ -45,7 +45,7 @@ async function* errorStream(): AsyncGenerator<never> {
 }
 
 /** Build a minimal mock client whose create() returns a fresh stream each call */
-function makeMockClient(streamFactory: () => AsyncGenerator) {
+function makeMockClient(streamFactory: () => AsyncIterable<unknown>) {
   return {
     responses: {
       create: vi.fn(async () => streamFactory()),
@@ -262,5 +262,147 @@ describe('useChat - sendMessage request payload', () => {
         expect.anything(),
       );
     });
+  });
+});
+
+/**
+ * Returns a stream that blocks until `complete()` is called.
+ * Useful for testing mid-stream operations like detachStream / reattachStream.
+ */
+function makeControlledStream() {
+  let resolver: ((v: IteratorResult<unknown>) => void) | null = null;
+  const iterator = {
+    next: (): Promise<IteratorResult<unknown>> =>
+      new Promise((r) => {
+        resolver = r;
+      }),
+  };
+  const complete = (responseId = 'resp-ctrl') => {
+    resolver?.({
+      value: {
+        type: 'response.completed',
+        response: { id: responseId, status: 'completed', output: [] },
+      },
+      done: false,
+    });
+  };
+  return { stream: { [Symbol.asyncIterator]: () => iterator }, complete };
+}
+
+describe('useChat - detachStream and reattachStream', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reattachStream returns null when no background stream exists for that thread', () => {
+    const { result } = renderHook(() => useChat());
+    let buf: ReturnType<typeof result.current.reattachStream>;
+    act(() => {
+      buf = result.current.reattachStream('nonexistent-thread');
+    });
+    expect(buf!).toBeNull();
+  });
+
+  it('detachStream does nothing when no foreground stream is active', () => {
+    const { result } = renderHook(() => useChat());
+    const onComplete = vi.fn();
+    act(() => {
+      result.current.detachStream('thread-1', [], onComplete);
+    });
+    expect(result.current.isStreaming).toBe(false);
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('detachStream immediately sets isStreaming=false while stream continues in background', async () => {
+    const { stream, complete } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => stream));
+    const { result } = renderHook(() => useChat());
+
+    act(() => { void result.current.sendMessage('Hello', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
+
+    const msgs = [...result.current.messages];
+    const onComplete = vi.fn();
+    act(() => {
+      result.current.detachStream('thread-1', msgs, onComplete);
+    });
+
+    // isStreaming drops immediately
+    expect(result.current.isStreaming).toBe(false);
+    // onComplete not yet called — stream still running
+    expect(onComplete).not.toHaveBeenCalled();
+
+    // Complete the background stream
+    act(() => { complete('resp-background'); });
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledOnce());
+    const [finalMsgs, finalPrevId] = onComplete.mock.calls[0] as [Message[], string];
+    expect(finalPrevId).toBe('resp-background');
+    // assistant message should no longer be streaming
+    const assistantMsg = finalMsgs.find((m) => m.role === 'assistant');
+    expect(assistantMsg?.isStreaming).toBe(false);
+  });
+
+  it('background stream completion does not affect foreground isStreaming', async () => {
+    const { stream: bgStream, complete: completeBg } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => bgStream));
+    const { result } = renderHook(() => useChat());
+
+    // Start first stream
+    act(() => { void result.current.sendMessage('First', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
+
+    // Detach it
+    act(() => {
+      result.current.detachStream('thread-1', [...result.current.messages], vi.fn());
+    });
+    expect(result.current.isStreaming).toBe(false);
+
+    // Start a second foreground stream
+    const { stream: fgStream, complete: completeFg } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => fgStream));
+    act(() => { void result.current.sendMessage('Second', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
+
+    // Complete the background stream — should NOT touch foreground isStreaming
+    act(() => { completeBg(); });
+    await new Promise((r) => setTimeout(r, 20));
+    expect(result.current.isStreaming).toBe(true); // foreground still running
+
+    // Complete the foreground stream
+    act(() => { completeFg(); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+  });
+
+  it('reattachStream restores foreground streaming and onComplete is not called', async () => {
+    const { stream, complete } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => stream));
+    const { result } = renderHook(() => useChat());
+
+    act(() => { void result.current.sendMessage('Hello', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
+
+    const msgs = [...result.current.messages];
+    const onComplete = vi.fn();
+    act(() => {
+      result.current.detachStream('thread-1', msgs, onComplete);
+    });
+    expect(result.current.isStreaming).toBe(false);
+
+    // Reattach
+    let buffer: ReturnType<typeof result.current.reattachStream> = null;
+    act(() => {
+      buffer = result.current.reattachStream('thread-1');
+    });
+    expect(result.current.isStreaming).toBe(true);
+    expect(buffer).not.toBeNull();
+    expect((buffer as unknown as Message[]).length).toBe(msgs.length);
+
+    // Complete the now-foreground stream
+    act(() => { complete(); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    // onComplete should NOT be called — stream was reattached before completing
+    expect(onComplete).not.toHaveBeenCalled();
   });
 });

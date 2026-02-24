@@ -53,6 +53,12 @@
   margin-bottom: 6px;
 }
 
+.message__header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .message__header-actions {
   display: flex;
   align-items: center;
@@ -62,17 +68,28 @@
 .message__role {
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+}
+
+.message__timestamp {
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .message--user .message__role {
   color: rgba(255, 255, 255, 0.95);
 }
 
+.message--user .message__timestamp {
+  color: rgba(255, 255, 255, 0.5);
+}
+
 .message--assistant .message__role {
   color: var(--color-text);
   opacity: 0.7;
+}
+
+.message--assistant .message__timestamp {
+  color: var(--color-text-hint);
 }
 
 .message__json-button,

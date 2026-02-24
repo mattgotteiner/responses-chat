@@ -153,6 +153,22 @@ export const FILE_SEARCH_EXPIRATION_OPTIONS = [
 /** Default expiration in minutes (1 day) */
 export const DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES = 1440;
 
+/** A saved conversation thread */
+export interface Thread {
+  /** Unique thread identifier */
+  id: string;
+  /** Auto-generated title */
+  title: string;
+  /** Creation timestamp (Unix ms) */
+  createdAt: number;
+  /** Last update timestamp (Unix ms) */
+  updatedAt: number;
+  /** All messages in the conversation */
+  messages: Message[];
+  /** Previous response ID for conversation continuity */
+  previousResponseId: string | null;
+}
+
 /** Application settings stored in localStorage */
 export interface Settings {
   /** Azure OpenAI endpoint URL */
@@ -195,6 +211,8 @@ export interface Settings {
   fileSearchExpirationMinutes?: number;
   /** Allow the model to call multiple tools simultaneously in a single turn */
   parallelToolCallsEnabled?: boolean;
+  /** Model used for auto-generating thread titles (defaults to gpt-5-nano) */
+  titleModelName?: ModelName;
 }
 
 /** Default settings values */
@@ -217,6 +235,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fileSearchVectorStoreId: undefined,
   fileSearchExpirationMinutes: DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES,
   parallelToolCallsEnabled: false,
+  titleModelName: 'gpt-5-nano',
 };
 
 /** Tool call status types */
