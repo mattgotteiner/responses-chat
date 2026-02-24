@@ -73,13 +73,13 @@ export function ChatInput({
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (navigator.maxTouchPoints > 0) return;
+      if (isMobile) return;
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
       }
     },
-    [handleSend]
+    [isMobile, handleSend]
   );
 
   const handleCopyConversation = useCallback(async () => {
