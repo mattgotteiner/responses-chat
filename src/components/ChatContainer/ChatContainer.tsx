@@ -31,6 +31,7 @@ export function ChatContainer() {
   const {
     threads,
     activeThreadId,
+    isLoading: threadsLoading,
     isEphemeral,
     createThread,
     deleteThread,
@@ -48,9 +49,9 @@ export function ChatContainer() {
   // Track which thread IDs have a stream running in the background
   const [backgroundStreamingThreadIds, setBackgroundStreamingThreadIds] = useState<Set<string>>(new Set());
 
-  // Restore the active thread on mount (activeThreadId and threads are already
-  // initialised from localStorage by useThreads, so this runs exactly once)
+  // Restore the active thread once IndexedDB has finished loading
   useEffect(() => {
+    if (threadsLoading) return;
     if (activeThreadId) {
       const thread = threads.find((t) => t.id === activeThreadId);
       if (thread) {
@@ -62,7 +63,7 @@ export function ChatContainer() {
       }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // intentionally mount-only — values come from localStorage initialisers
+  }, [threadsLoading]); // runs once when the async IDB load completes
 
   const handleOpenSettings = useCallback(() => {
     setIsSettingsOpen(true);

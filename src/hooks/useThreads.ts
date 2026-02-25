@@ -1,43 +1,20 @@
 /**
- * Hook for managing chat thread history with localStorage persistence
+ * Hook for managing chat thread history with IndexedDB persistence (via Dexie)
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Thread, Message } from '../types';
 import {
-  getStoredValue,
-  setStoredValue,
-  removeStoredValue,
-  THREADS_STORAGE_KEY,
-  ACTIVE_THREAD_STORAGE_KEY,
-} from '../utils/localStorage';
+  getAllThreads,
+  putThread,
+  deleteThread as deleteThreadFromDb,
+  getActiveThreadId,
+  saveActiveThreadId,
+} from '../utils/threadStorage';
 
 /** Generate a unique thread ID */
 function generateThreadId(): string {
   return `thread_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-}
-
-/**
- * Serialize messages for JSON storage (Date → ISO string).
- * Any message still marked as streaming is sanitized to stopped so a
- * persisted thread never reloads in a broken mid-stream state.
- */
-function serializeMessages(messages: Message[]): unknown[] {
-  return messages.map((msg) => ({
-    ...msg,
-    timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
-    ...(msg.isStreaming && { isStreaming: false, isStopped: true }),
-  }));
-}
-
-/**
- * Deserialize messages from JSON storage (ISO string → Date)
- */
-function deserializeMessages(raw: unknown[]): Message[] {
-  return (raw as Array<Record<string, unknown>>).map((msg) => ({
-    ...msg,
-    timestamp: new Date(msg.timestamp as string),
-  })) as Message[];
 }
 
 /** Return type for the useThreads hook */
@@ -46,6 +23,8 @@ export interface UseThreadsReturn {
   threads: Thread[];
   /** Currently active thread ID (null = new unsaved chat) */
   activeThreadId: string | null;
+  /** Whether thread history is still being loaded from IndexedDB */
+  isLoading: boolean;
   /** Whether the current session is ephemeral (not persisted) */
   isEphemeral: boolean;
   /** Create a new thread from messages and make it active */
@@ -65,12 +44,12 @@ export interface UseThreadsReturn {
 }
 
 /**
- * Hook for managing chat thread history with localStorage persistence
+ * Hook for managing chat thread history with IndexedDB persistence
  *
  * @returns Thread management functions and state
  *
  * @example
- * const { threads, activeThreadId, createThread, switchThread } = useThreads();
+ * const { threads, activeThreadId, isLoading, createThread, switchThread } = useThreads();
  *
  * // Create a thread after first message
  * const threadId = createThread(messages, previousResponseId);
@@ -80,49 +59,38 @@ export interface UseThreadsReturn {
  * if (data) loadMessages(data.messages);
  */
 export function useThreads(): UseThreadsReturn {
-  const [threads, setThreads] = useState<Thread[]>(() => {
-    const stored = getStoredValue<unknown[]>(THREADS_STORAGE_KEY, []);
-    try {
-      return (stored as Array<Record<string, unknown>>).map((t) => ({
-        ...t,
-        messages: deserializeMessages(t.messages as unknown[]),
-      })) as Thread[];
-    } catch {
-      return [];
-    }
-  });
-  const [activeThreadId, setActiveThreadId] = useState<string | null>(() => {
-    const storedId = getStoredValue<string | null>(ACTIVE_THREAD_STORAGE_KEY, null);
-    if (!storedId) return null;
-    // Validate the stored ID still exists in the saved threads
-    const rawThreads = getStoredValue<Array<{ id: unknown }>>(THREADS_STORAGE_KEY, []);
-    return rawThreads.some((t) => t.id === storedId) ? storedId : null;
-  });
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [isEphemeral, setIsEphemeral] = useState(false);
 
-  // Use a ref to avoid stale closures in persist effect
+  // Keep a ref for use in callbacks that would otherwise capture stale state
   const threadsRef = useRef(threads);
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
 
-  // Persist threads to localStorage whenever they change
+  // Load all threads from IndexedDB on mount
   useEffect(() => {
-    const serialized = threads.map((t) => ({
-      ...t,
-      messages: serializeMessages(t.messages),
-    }));
-    setStoredValue(THREADS_STORAGE_KEY, serialized);
-  }, [threads]);
-
-  // Persist active thread ID whenever it changes
-  useEffect(() => {
-    if (activeThreadId) {
-      setStoredValue(ACTIVE_THREAD_STORAGE_KEY, activeThreadId);
-    } else {
-      removeStoredValue(ACTIVE_THREAD_STORAGE_KEY);
-    }
-  }, [activeThreadId]);
+    let cancelled = false;
+    getAllThreads()
+      .then((loaded) => {
+        if (cancelled) return;
+        setThreads(loaded);
+        // Restore and validate the persisted active thread ID
+        const storedId = getActiveThreadId();
+        if (storedId && loaded.some((t) => t.id === storedId)) {
+          setActiveThreadId(storedId);
+        }
+        setIsLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const createThread = useCallback(
     (messages: Message[], previousResponseId: string | null): string => {
@@ -139,19 +107,22 @@ export function useThreads(): UseThreadsReturn {
       setThreads((prev) => [thread, ...prev]);
       setActiveThreadId(id);
       setIsEphemeral(false);
+      void putThread(thread);
+      saveActiveThreadId(id);
       return id;
     },
     []
   );
 
-  const deleteThread = useCallback(
-    (id: string) => {
-      setThreads((prev) => prev.filter((t) => t.id !== id));
-      // If deleting the active thread, clear the active state
-      setActiveThreadId((current) => (current === id ? null : current));
-    },
-    []
-  );
+  const deleteThread = useCallback((id: string) => {
+    setThreads((prev) => prev.filter((t) => t.id !== id));
+    setActiveThreadId((current) => {
+      const next = current === id ? null : current;
+      saveActiveThreadId(next);
+      return next;
+    });
+    void deleteThreadFromDb(id);
+  }, []);
 
   const switchThread = useCallback(
     (id: string): { messages: Message[]; previousResponseId: string | null } | null => {
@@ -159,6 +130,7 @@ export function useThreads(): UseThreadsReturn {
       if (!thread) return null;
       setActiveThreadId(id);
       setIsEphemeral(false);
+      saveActiveThreadId(id);
       return {
         messages: thread.messages,
         previousResponseId: thread.previousResponseId,
@@ -169,31 +141,37 @@ export function useThreads(): UseThreadsReturn {
 
   const updateThread = useCallback(
     (id: string, messages: Message[], previousResponseId: string | null) => {
-      setThreads((prev) =>
-        prev.map((t) =>
-          t.id === id
-            ? { ...t, messages, previousResponseId, updatedAt: Date.now() }
-            : t
-        )
-      );
+      setThreads((prev) => {
+        const next = prev.map((t) =>
+          t.id === id ? { ...t, messages, previousResponseId, updatedAt: Date.now() } : t
+        );
+        const updated = next.find((t) => t.id === id);
+        if (updated) void putThread(updated);
+        return next;
+      });
     },
     []
   );
 
   const updateThreadTitle = useCallback((id: string, title: string) => {
-    setThreads((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, title } : t))
-    );
+    setThreads((prev) => {
+      const next = prev.map((t) => (t.id === id ? { ...t, title } : t));
+      const updated = next.find((t) => t.id === id);
+      if (updated) void putThread(updated);
+      return next;
+    });
   }, []);
 
   const startNewChat = useCallback(() => {
     setActiveThreadId(null);
     setIsEphemeral(false);
+    saveActiveThreadId(null);
   }, []);
 
   const startEphemeral = useCallback(() => {
     setActiveThreadId(null);
     setIsEphemeral(true);
+    saveActiveThreadId(null);
   }, []);
 
   // Sort threads by updatedAt descending
@@ -202,6 +180,7 @@ export function useThreads(): UseThreadsReturn {
   return {
     threads: sortedThreads,
     activeThreadId,
+    isLoading,
     isEphemeral,
     createThread,
     deleteThread,

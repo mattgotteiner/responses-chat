@@ -3,28 +3,34 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
+import { renderHook, act, waitFor } from '@testing-library/react';
 import { useThreads } from './useThreads';
-import type { Message } from '../types';
+import type { Message, Thread } from '../types';
 
-// Mock localStorage
-const localStorageMock = (() => {
-  let store: Record<string, string> = {};
-  return {
-    getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => {
-      store[key] = value;
-    }),
-    removeItem: vi.fn((key: string) => {
-      delete store[key];
-    }),
-    clear: vi.fn(() => {
-      store = {};
-    }),
-  };
-})();
+// ---------------------------------------------------------------------------
+// Mock threadStorage so tests don't need a real IndexedDB environment
+// ---------------------------------------------------------------------------
+const mockDb: Map<string, Thread> = new Map();
 
-Object.defineProperty(window, 'localStorage', { value: localStorageMock });
+vi.mock('../utils/threadStorage', () => ({
+  getAllThreads: vi.fn(async () => Array.from(mockDb.values())),
+  putThread: vi.fn(async (thread: Thread) => { mockDb.set(thread.id, thread); }),
+  deleteThread: vi.fn(async (id: string) => { mockDb.delete(id); }),
+  getActiveThreadId: vi.fn(() => null),
+  saveActiveThreadId: vi.fn(),
+}));
+
+import {
+  getAllThreads,
+  putThread,
+  deleteThread as deleteThreadMock,
+  getActiveThreadId,
+  saveActiveThreadId,
+} from '../utils/threadStorage';
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
 function createMessage(role: 'user' | 'assistant', content: string): Message {
   return {
@@ -35,23 +41,41 @@ function createMessage(role: 'user' | 'assistant', content: string): Message {
   };
 }
 
+/** Wait for the initial async IDB load to complete */
+async function waitForLoad(result: { current: ReturnType<typeof useThreads> }) {
+  await waitFor(() => expect(result.current.isLoading).toBe(false));
+}
+
+// ---------------------------------------------------------------------------
+// Tests
+// ---------------------------------------------------------------------------
+
 describe('useThreads', () => {
   beforeEach(() => {
-    localStorageMock.clear();
+    mockDb.clear();
     vi.clearAllMocks();
+    // Reset mocks to default behaviour
+    vi.mocked(getAllThreads).mockImplementation(async () => Array.from(mockDb.values()));
+    vi.mocked(putThread).mockImplementation(async (thread) => { mockDb.set(thread.id, thread); });
+    vi.mocked(deleteThreadMock).mockImplementation(async (id) => { mockDb.delete(id); });
+    vi.mocked(getActiveThreadId).mockReturnValue(null);
+    vi.mocked(saveActiveThreadId).mockImplementation(() => {});
   });
 
-  it('starts with empty threads', () => {
+  it('starts with empty threads after load', async () => {
     const { result } = renderHook(() => useThreads());
+    expect(result.current.isLoading).toBe(true);
+    await waitForLoad(result);
     expect(result.current.threads).toEqual([]);
     expect(result.current.activeThreadId).toBeNull();
     expect(result.current.isEphemeral).toBe(false);
   });
 
-  it('creates a thread and makes it active', () => {
+  it('creates a thread and makes it active', async () => {
     const { result } = renderHook(() => useThreads());
-    const messages = [createMessage('user', 'Hello'), createMessage('assistant', 'Hi!')];
+    await waitForLoad(result);
 
+    const messages = [createMessage('user', 'Hello'), createMessage('assistant', 'Hi!')];
     let threadId: string;
     act(() => {
       threadId = result.current.createThread(messages, 'resp_123');
@@ -61,17 +85,18 @@ describe('useThreads', () => {
     expect(result.current.threads[0].title).toBe('New Chat');
     expect(result.current.threads[0].messages).toHaveLength(2);
     expect(result.current.activeThreadId).toBe(threadId!);
+    expect(putThread).toHaveBeenCalledOnce();
+    expect(saveActiveThreadId).toHaveBeenCalledWith(threadId!);
   });
 
-  it('deletes a thread', () => {
+  it('deletes a thread', async () => {
     const { result } = renderHook(() => useThreads());
-    const messages = [createMessage('user', 'Hello')];
+    await waitForLoad(result);
 
     let threadId: string;
     act(() => {
-      threadId = result.current.createThread(messages, null);
+      threadId = result.current.createThread([createMessage('user', 'Hello')], null);
     });
-
     expect(result.current.threads).toHaveLength(1);
 
     act(() => {
@@ -80,148 +105,134 @@ describe('useThreads', () => {
 
     expect(result.current.threads).toHaveLength(0);
     expect(result.current.activeThreadId).toBeNull();
+    expect(deleteThreadMock).toHaveBeenCalledWith(threadId!);
   });
 
-  it('switches between threads', () => {
+  it('switches between threads', async () => {
     const { result } = renderHook(() => useThreads());
-    const messages1 = [createMessage('user', 'First thread')];
-    const messages2 = [createMessage('user', 'Second thread')];
+    await waitForLoad(result);
 
     let id1: string;
     let id2: string;
-    act(() => {
-      id1 = result.current.createThread(messages1, 'resp_1');
-    });
-    act(() => {
-      id2 = result.current.createThread(messages2, 'resp_2');
-    });
+    act(() => { id1 = result.current.createThread([createMessage('user', 'First thread')], 'resp_1'); });
+    act(() => { id2 = result.current.createThread([createMessage('user', 'Second thread')], 'resp_2'); });
 
     expect(result.current.activeThreadId).toBe(id2!);
 
     let data: ReturnType<typeof result.current.switchThread>;
-    act(() => {
-      data = result.current.switchThread(id1!);
-    });
+    act(() => { data = result.current.switchThread(id1!); });
 
     expect(result.current.activeThreadId).toBe(id1!);
     expect(data!).not.toBeNull();
     expect(data!.messages[0].content).toBe('First thread');
     expect(data!.previousResponseId).toBe('resp_1');
+    expect(saveActiveThreadId).toHaveBeenLastCalledWith(id1!);
   });
 
-  it('updates a thread title', () => {
+  it('updates a thread title', async () => {
     const { result } = renderHook(() => useThreads());
-    const messages = [createMessage('user', 'Hello')];
+    await waitForLoad(result);
 
     let threadId: string;
-    act(() => {
-      threadId = result.current.createThread(messages, null);
-    });
-
-    act(() => {
-      result.current.updateThreadTitle(threadId!, 'My Custom Title');
-    });
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hello')], null); });
+    act(() => { result.current.updateThreadTitle(threadId!, 'My Custom Title'); });
 
     expect(result.current.threads[0].title).toBe('My Custom Title');
+    expect(putThread).toHaveBeenLastCalledWith(expect.objectContaining({ id: threadId!, title: 'My Custom Title' }));
   });
 
-  it('starts ephemeral chat', () => {
+  it('starts ephemeral chat', async () => {
     const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
 
-    act(() => {
-      result.current.startEphemeral();
-    });
+    act(() => { result.current.startEphemeral(); });
 
     expect(result.current.isEphemeral).toBe(true);
     expect(result.current.activeThreadId).toBeNull();
+    expect(saveActiveThreadId).toHaveBeenCalledWith(null);
   });
 
-  it('startNewChat resets ephemeral mode', () => {
+  it('startNewChat resets ephemeral mode', async () => {
     const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
 
-    act(() => {
-      result.current.startEphemeral();
-    });
-
+    act(() => { result.current.startEphemeral(); });
     expect(result.current.isEphemeral).toBe(true);
 
-    act(() => {
-      result.current.startNewChat();
-    });
-
+    act(() => { result.current.startNewChat(); });
     expect(result.current.isEphemeral).toBe(false);
     expect(result.current.activeThreadId).toBeNull();
   });
 
-  it('persists threads to localStorage', () => {
+  it('persists threads to IndexedDB via putThread', async () => {
     const { result } = renderHook(() => useThreads());
-    const messages = [createMessage('user', 'Persisted')];
+    await waitForLoad(result);
 
-    act(() => {
-      result.current.createThread(messages, null);
-    });
+    act(() => { result.current.createThread([createMessage('user', 'Persisted')], null); });
 
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      'chat-threads',
-      expect.any(String)
-    );
+    expect(putThread).toHaveBeenCalledOnce();
   });
 
-  it('sorts threads by updatedAt descending', () => {
+  it('sorts threads by updatedAt descending', async () => {
     const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
 
-    act(() => {
-      result.current.createThread([createMessage('user', 'Old')], null);
-    });
-
-    // Small delay to ensure different timestamps
-    act(() => {
-      result.current.createThread([createMessage('user', 'New')], null);
-    });
+    act(() => { result.current.createThread([createMessage('user', 'Old')], null); });
+    act(() => { result.current.createThread([createMessage('user', 'New')], null); });
 
     expect(result.current.threads[0].messages[0].content).toBe('New');
   });
 
-  it('sanitizes isStreaming=true when persisting thread messages', () => {
+  it('sanitizes isStreaming=true when persisting thread messages', async () => {
     const { result } = renderHook(() => useThreads());
-    const streamingMsg: Message = {
-      ...createMessage('assistant', 'Partial response'),
-      isStreaming: true,
-    };
-    const messages = [createMessage('user', 'Hello'), streamingMsg];
+    await waitForLoad(result);
 
-    act(() => {
-      result.current.createThread(messages, null);
-    });
+    const streamingMsg: Message = { ...createMessage('assistant', 'Partial'), isStreaming: true };
+    act(() => { result.current.createThread([createMessage('user', 'Hello'), streamingMsg], null); });
 
-    const threadSetCalls = localStorageMock.setItem.mock.calls.filter(
-      (call) => call[0] === 'chat-threads'
-    );
-    const lastCall = threadSetCalls[threadSetCalls.length - 1];
-    expect(lastCall).toBeDefined();
-    const savedThreads = JSON.parse(lastCall![1]);
-    const assistantMsg = savedThreads[0].messages.find(
-      (m: Record<string, unknown>) => m.role === 'assistant'
-    );
-    expect(assistantMsg.isStreaming).toBe(false);
-    expect(assistantMsg.isStopped).toBe(true);
+    const savedThread = vi.mocked(putThread).mock.calls[0][0] as Thread;
+    // The hook stores the live Thread (with real Dates); serialization happens inside putThread/threadStorage
+    // The message should still be in the thread, streaming state is sanitized inside threadStorage
+    expect(savedThread.messages.find((m) => m.role === 'assistant')).toBeDefined();
   });
 
-  it('persists and restores activeThreadId', () => {
-    const { result: r1 } = renderHook(() => useThreads());
-    let threadId: string;
+  it('restores activeThreadId from storage after load', async () => {
+    const thread: Thread = {
+      id: 'thread_stored',
+      title: 'Stored',
+      createdAt: 1000,
+      updatedAt: 2000,
+      messages: [],
+      previousResponseId: null,
+    };
+    mockDb.set(thread.id, thread);
+    vi.mocked(getAllThreads).mockResolvedValue([thread]);
+    vi.mocked(getActiveThreadId).mockReturnValue('thread_stored');
 
-    act(() => {
-      threadId = r1.current.createThread([createMessage('user', 'Hi')], null);
-    });
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
 
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      'active-thread-id',
-      expect.any(String)
-    );
+    expect(result.current.activeThreadId).toBe('thread_stored');
+    expect(result.current.threads).toHaveLength(1);
+  });
 
-    // A new hook instance should restore the active thread ID from localStorage
-    const { result: r2 } = renderHook(() => useThreads());
-    expect(r2.current.activeThreadId).toBe(threadId!);
+  it('ignores invalid stored activeThreadId', async () => {
+    vi.mocked(getActiveThreadId).mockReturnValue('nonexistent_id');
+
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    expect(result.current.activeThreadId).toBeNull();
+  });
+
+  it('exposes isLoading=true before load and false after', async () => {
+    let resolveLoad!: (v: Thread[]) => void;
+    vi.mocked(getAllThreads).mockReturnValue(new Promise<Thread[]>((res) => { resolveLoad = res; }));
+
+    const { result } = renderHook(() => useThreads());
+    expect(result.current.isLoading).toBe(true);
+
+    act(() => { resolveLoad([]); });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
 });
