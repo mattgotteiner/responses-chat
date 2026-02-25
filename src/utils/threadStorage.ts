@@ -66,6 +66,13 @@ export async function deleteThread(id: string): Promise<void> {
   await db.threads.delete(id);
 }
 
+/**
+ * Delete all threads from IndexedDB.
+ */
+export async function clearAllThreads(): Promise<void> {
+  await db.threads.clear();
+}
+
 /** Read the active thread ID from localStorage (it's a single tiny string). */
 export function getActiveThreadId(): string | null {
   return getStoredValue<string | null>(ACTIVE_THREAD_STORAGE_KEY, null);

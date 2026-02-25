@@ -40,6 +40,7 @@ export function ChatContainer() {
     updateThreadTitle,
     startNewChat,
     startEphemeral,
+    clearAllThreads,
   } = useThreads();
 
   // Track whether we've generated a title for the active thread
@@ -48,10 +49,13 @@ export function ChatContainer() {
   const prevMessageCountRef = useRef(0);
   // Track which thread IDs have a stream running in the background
   const [backgroundStreamingThreadIds, setBackgroundStreamingThreadIds] = useState<Set<string>>(new Set());
+  // Guard: ensure the restore-on-load logic runs at most once
+  const hasRestoredRef = useRef(false);
 
   // Restore the active thread once IndexedDB has finished loading
   useEffect(() => {
-    if (threadsLoading) return;
+    if (threadsLoading || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
     if (activeThreadId) {
       const thread = threads.find((t) => t.id === activeThreadId);
       if (thread) {
@@ -179,6 +183,18 @@ export function ChatContainer() {
   );
 
   const handleNewChat = useCallback(() => {
+    // If a stream is running, detach it to background so the response is saved when complete.
+    // With early thread creation, activeThreadId is almost always set by the time streaming
+    // starts — but we guard for the rare race where the effect hasn't fired yet.
+    if (isStreaming && !isEphemeral) {
+      if (activeThreadId) {
+        detachStream(activeThreadId, messages, (finalMessages, finalPrevResponseId) => {
+          updateThread(activeThreadId, finalMessages, finalPrevResponseId);
+        });
+      } else {
+        stopStreaming();
+      }
+    }
     clearConversation();
     prevMessageCountRef.current = 0;
     // When "Don't save settings" is on, all chats must stay ephemeral
@@ -188,7 +204,7 @@ export function ChatContainer() {
       startNewChat();
     }
     titleGeneratedRef.current = null;
-  }, [clearConversation, startNewChat, startEphemeral, settings.noLocalStorage]);
+  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, updateThread, stopStreaming, clearConversation, startNewChat, startEphemeral, settings.noLocalStorage]);
 
   const handleNewEphemeralChat = useCallback(() => {
     clearConversation();
@@ -215,10 +231,17 @@ export function ChatContainer() {
       return;
     }
 
-    // Don't process while actively streaming in the foreground view.
-    if (isStreaming) {
-      return;
+    // Create thread as soon as the first user message appears — before any response
+    // arrives. This ensures handleNewChat / handleSwitchThread always have a thread
+    // to detach an in-flight stream to, even if the user navigates away mid-stream.
+    if (!activeThreadId) {
+      createThread(messages, previousResponseId);
+      prevMessageCountRef.current = messages.length;
+      return; // title is deferred until the first assistant response arrives below
     }
+
+    // Don't process further while actively streaming in the foreground view.
+    if (isStreaming) return;
 
     const lastMessage = messages[messages.length - 1];
     const isNewAssistantReply =
@@ -227,49 +250,26 @@ export function ChatContainer() {
       !lastMessage.isStreaming;
 
     if (isNewAssistantReply) {
-      if (!activeThreadId) {
-        // First reply in a new conversation — create thread
-        const threadId = createThread(messages, previousResponseId);
-        titleGeneratedRef.current = null;
+      // Persist the completed response
+      updateThread(activeThreadId, messages, previousResponseId);
 
-        // Generate title asynchronously
-        if (isConfigured && messages.length >= 2) {
-          const userMsg = messages[messages.length - 2];
-          const assistantMsg = messages[messages.length - 1];
+      // Generate title once we have at least one user + assistant exchange
+      if (titleGeneratedRef.current !== activeThreadId && isConfigured && messages.length >= 2) {
+        const userMsg = messages[0];
+        const assistantMsg = messages[1];
+        if (userMsg.role === 'user' && assistantMsg.role === 'assistant') {
           const titleModel = settings.titleModelName || 'gpt-5-nano';
           const client = createAzureClient(settings);
           generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
             .then((title) => {
-              updateThreadTitle(threadId, title);
-              titleGeneratedRef.current = threadId;
+              updateThreadTitle(activeThreadId, title);
+              titleGeneratedRef.current = activeThreadId;
             })
-            .catch(() => {
-              // Silently fail — keep "New Chat" as title
-            });
-        }
-      } else {
-        // Update existing thread
-        updateThread(activeThreadId, messages, previousResponseId);
-
-        // Generate title if not yet generated
-        if (titleGeneratedRef.current !== activeThreadId && isConfigured && messages.length >= 2) {
-          const userMsg = messages[0];
-          const assistantMsg = messages[1];
-          if (userMsg.role === 'user' && assistantMsg.role === 'assistant') {
-            const titleModel = settings.titleModelName || 'gpt-5-nano';
-            const client = createAzureClient(settings);
-            generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
-              .then((title) => {
-                updateThreadTitle(activeThreadId, title);
-                titleGeneratedRef.current = activeThreadId;
-              })
-              .catch(() => {});
-          }
+            .catch(() => {});
         }
       }
-    } else if (activeThreadId && !isStreaming && messages.length !== prevMessageCountRef.current) {
-      // Save message updates to existing thread only when message count changed
-      // (e.g., after retry removes/re-adds messages) — not on every render
+    } else if (messages.length !== prevMessageCountRef.current) {
+      // Save message-count changes not covered above (e.g., after a retry)
       updateThread(activeThreadId, messages, previousResponseId);
     }
 
@@ -365,7 +365,7 @@ export function ChatContainer() {
         onClose={handleCloseSettings}
         settings={settings}
         onUpdateSettings={updateSettings}
-        onClearStoredData={clearStoredData}
+        onClearStoredData={() => { clearStoredData(); clearAllThreads(); }}
         vectorStoreCache={vectorStoreCache}
         setVectorStores={setVectorStores}
         setStoreFiles={setStoreFiles}

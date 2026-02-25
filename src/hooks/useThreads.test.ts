@@ -16,6 +16,7 @@ vi.mock('../utils/threadStorage', () => ({
   getAllThreads: vi.fn(async () => Array.from(mockDb.values())),
   putThread: vi.fn(async (thread: Thread) => { mockDb.set(thread.id, thread); }),
   deleteThread: vi.fn(async (id: string) => { mockDb.delete(id); }),
+  clearAllThreads: vi.fn(async () => { mockDb.clear(); }),
   getActiveThreadId: vi.fn(() => null),
   saveActiveThreadId: vi.fn(),
 }));
@@ -24,6 +25,7 @@ import {
   getAllThreads,
   putThread,
   deleteThread as deleteThreadMock,
+  clearAllThreads as clearAllThreadsMock,
   getActiveThreadId,
   saveActiveThreadId,
 } from '../utils/threadStorage';
@@ -234,5 +236,21 @@ describe('useThreads', () => {
 
     act(() => { resolveLoad([]); });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
+  });
+
+  it('clearAllThreads removes all threads, clears activeThreadId and calls IDB clear', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    act(() => { result.current.createThread([createMessage('user', 'Hi')], null); });
+    act(() => { result.current.createThread([createMessage('user', 'Hello')], null); });
+    expect(result.current.threads).toHaveLength(2);
+
+    act(() => { result.current.clearAllThreads(); });
+
+    expect(result.current.threads).toHaveLength(0);
+    expect(result.current.activeThreadId).toBeNull();
+    expect(clearAllThreadsMock).toHaveBeenCalledOnce();
+    expect(saveActiveThreadId).toHaveBeenLastCalledWith(null);
   });
 });

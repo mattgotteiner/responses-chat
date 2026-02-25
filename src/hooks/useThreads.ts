@@ -2,12 +2,13 @@
  * Hook for managing chat thread history with IndexedDB persistence (via Dexie)
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { Thread, Message } from '../types';
 import {
   getAllThreads,
   putThread,
   deleteThread as deleteThreadFromDb,
+  clearAllThreads as clearAllThreadsFromDb,
   getActiveThreadId,
   saveActiveThreadId,
 } from '../utils/threadStorage';
@@ -41,6 +42,8 @@ export interface UseThreadsReturn {
   startNewChat: () => void;
   /** Start an ephemeral chat that won't be saved */
   startEphemeral: () => void;
+  /** Delete all threads from IndexedDB and reset state */
+  clearAllThreads: () => void;
 }
 
 /**
@@ -141,25 +144,22 @@ export function useThreads(): UseThreadsReturn {
 
   const updateThread = useCallback(
     (id: string, messages: Message[], previousResponseId: string | null) => {
-      setThreads((prev) => {
-        const next = prev.map((t) =>
-          t.id === id ? { ...t, messages, previousResponseId, updatedAt: Date.now() } : t
-        );
-        const updated = next.find((t) => t.id === id);
-        if (updated) void putThread(updated);
-        return next;
-      });
+      const updatedAt = Date.now();
+      setThreads((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, messages, previousResponseId, updatedAt } : t))
+      );
+      // Write to IDB outside the updater so it stays pure (no side effects in updater)
+      const existing = threadsRef.current.find((t) => t.id === id);
+      if (existing) void putThread({ ...existing, messages, previousResponseId, updatedAt });
     },
     []
   );
 
   const updateThreadTitle = useCallback((id: string, title: string) => {
-    setThreads((prev) => {
-      const next = prev.map((t) => (t.id === id ? { ...t, title } : t));
-      const updated = next.find((t) => t.id === id);
-      if (updated) void putThread(updated);
-      return next;
-    });
+    setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
+    // Write to IDB outside the updater so it stays pure
+    const existing = threadsRef.current.find((t) => t.id === id);
+    if (existing) void putThread({ ...existing, title });
   }, []);
 
   const startNewChat = useCallback(() => {
@@ -174,8 +174,18 @@ export function useThreads(): UseThreadsReturn {
     saveActiveThreadId(null);
   }, []);
 
-  // Sort threads by updatedAt descending
-  const sortedThreads = [...threads].sort((a, b) => b.updatedAt - a.updatedAt);
+  const clearAllThreads = useCallback(() => {
+    setThreads([]);
+    setActiveThreadId(null);
+    saveActiveThreadId(null);
+    void clearAllThreadsFromDb();
+  }, []);
+
+  // Sort threads by updatedAt descending — memoized to avoid re-sorting on every render
+  const sortedThreads = useMemo(
+    () => [...threads].sort((a, b) => b.updatedAt - a.updatedAt),
+    [threads]
+  );
 
   return {
     threads: sortedThreads,
@@ -189,5 +199,6 @@ export function useThreads(): UseThreadsReturn {
     updateThreadTitle,
     startNewChat,
     startEphemeral,
+    clearAllThreads,
   };
 }

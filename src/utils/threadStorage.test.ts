@@ -22,6 +22,7 @@ vi.mock('./db', () => ({
       orderBy: vi.fn(() => mockOrderBy),
       put: vi.fn(async (row: { id: string }) => { mockThreads.set(row.id, row); }),
       delete: vi.fn(async (id: string) => { mockThreads.delete(id); }),
+      clear: vi.fn(async () => { mockThreads.clear(); }),
     },
   },
 }));
@@ -44,7 +45,7 @@ vi.mock('./localStorage', () => ({
 }));
 
 // Import under test AFTER mocks are set up
-import { getAllThreads, putThread, deleteThread, getActiveThreadId, saveActiveThreadId } from './threadStorage';
+import { getAllThreads, putThread, deleteThread, clearAllThreads, getActiveThreadId, saveActiveThreadId } from './threadStorage';
 import { db } from './db';
 
 // ---------------------------------------------------------------------------
@@ -146,6 +147,14 @@ describe('deleteThread', () => {
     vi.mocked(db.threads.delete).mockResolvedValue(undefined);
     await deleteThread('t1');
     expect(db.threads.delete).toHaveBeenCalledWith('t1');
+  });
+});
+
+describe('clearAllThreads', () => {
+  it('calls db.threads.clear', async () => {
+    vi.mocked(db.threads.clear).mockResolvedValue(undefined);
+    await clearAllThreads();
+    expect(db.threads.clear).toHaveBeenCalledOnce();
   });
 });
 
