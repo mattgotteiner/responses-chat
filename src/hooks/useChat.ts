@@ -2,7 +2,7 @@
  * Hook for managing chat state and API interactions
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Message, Settings, Attachment } from '../types';
 import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
@@ -141,6 +141,17 @@ export function useChat(): UseChatReturn {
   // Recording session ref - persists across sendMessage and handleMcpApproval
   // to support recording approval flows as a single session
   const recordingSessionRef = useRef<ReturnType<typeof createRecordingSession>>(null);
+
+  // Abort all background streams on unmount to prevent dangling fetch requests
+  useEffect(() => {
+    const bgStreams = backgroundStreamsRef.current;
+    return () => {
+      for (const stream of bgStreams.values()) {
+        stream.abortController.abort();
+      }
+      bgStreams.clear();
+    };
+  }, []);
 
   const sendMessage = useCallback(
     async (content: string, settings: Settings, attachments?: Attachment[]) => {

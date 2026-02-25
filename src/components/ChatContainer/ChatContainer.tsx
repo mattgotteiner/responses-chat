@@ -174,12 +174,16 @@ export function ChatContainer() {
   const handleDeleteThread = useCallback(
     (id: string) => {
       if (id === activeThreadId) {
+        // Stop any in-flight stream first — otherwise it would keep writing to
+        // messages after clearConversation(), and the auto-save effect would create
+        // a phantom thread (activeThreadId=null + messages>0).
+        if (isStreaming) stopStreaming();
         clearConversation();
         prevMessageCountRef.current = 0;
       }
       deleteThread(id);
     },
-    [deleteThread, activeThreadId, clearConversation]
+    [deleteThread, activeThreadId, clearConversation, isStreaming, stopStreaming]
   );
 
   const handleNewChat = useCallback(() => {
@@ -258,15 +262,25 @@ export function ChatContainer() {
         const userMsg = messages[0];
         const assistantMsg = messages[1];
         if (userMsg.role === 'user' && assistantMsg.role === 'assistant') {
-          const titleModel = settings.titleModelName || 'gpt-5-nano';
-          const client = createAzureClient(settings);
-          generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
-            .then((title) => {
-              updateThreadTitle(activeThreadId, title);
-              titleGeneratedRef.current = activeThreadId;
-            })
-            .catch(() => {});
-        }
+            const titleModel = settings.titleModelName || 'gpt-5-nano';
+            const mainModel = settings.deploymentName;
+            const client = createAzureClient(settings);
+            generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
+              .catch(() => {
+                // Title model unavailable — fall back to the main chat model if it differs
+                if (mainModel && mainModel !== titleModel) {
+                  return generateThreadTitle(client, mainModel, userMsg.content, assistantMsg.content);
+                }
+                return undefined;
+              })
+              .then((title) => {
+                if (title) {
+                  updateThreadTitle(activeThreadId, title);
+                  titleGeneratedRef.current = activeThreadId;
+                }
+              })
+              .catch(() => {}); // both attempts failed — keep "New Chat"
+          }
       }
     } else if (messages.length !== prevMessageCountRef.current) {
       // Save message-count changes not covered above (e.g., after a retry)

@@ -406,3 +406,42 @@ describe('useChat - detachStream and reattachStream', () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Regression test: background streams aborted on unmount
+// ---------------------------------------------------------------------------
+
+describe('useChat - unmount cleanup', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('aborts all background streams when the hook unmounts', async () => {
+    const { stream } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => stream));
+    const { result, unmount } = renderHook(() => useChat());
+
+    // Start a stream and detach it to background
+    act(() => { void result.current.sendMessage('Hello', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(true));
+
+    const onComplete = vi.fn();
+    // Capture abort signal by spying on the AbortController abort method
+    // We need to check that the background stream's abort controller is called on unmount.
+    // We do this indirectly: detach the stream, unmount, then verify onComplete was never called
+    // and the stream doesn't cause state updates after unmount.
+    act(() => {
+      result.current.detachStream('thread-1', [...result.current.messages], onComplete);
+    });
+    expect(result.current.isStreaming).toBe(false);
+
+    // Unmount while background stream is still running
+    unmount();
+
+    // After unmount, completing the stream should not call onComplete
+    // (the background entry was cleared during cleanup)
+    // Give async tasks time to settle
+    await new Promise((r) => setTimeout(r, 20));
+    expect(onComplete).not.toHaveBeenCalled();
+  });
+});

@@ -40,8 +40,17 @@ vi.mock('../ChatInput', () => ({
   ),
 }));
 vi.mock('../HistorySidebar', () => ({
-  HistorySidebar: ({ onNewChat }: { onNewChat: () => void }) => (
-    <button data-testid="history-new-chat-btn" onClick={onNewChat}>History New Chat</button>
+  HistorySidebar: ({
+    onNewChat,
+    onDeleteThread,
+  }: {
+    onNewChat: () => void;
+    onDeleteThread: (id: string) => void;
+  }) => (
+    <>
+      <button data-testid="history-new-chat-btn" onClick={onNewChat}>History New Chat</button>
+      <button data-testid="delete-thread-btn" onClick={() => onDeleteThread('thread-to-delete')}>Delete</button>
+    </>
   ),
 }));
 vi.mock('../SettingsSidebar', () => ({ SettingsSidebar: () => null }));
@@ -302,25 +311,157 @@ describe('handleNewChat: streaming behaviour', () => {
 // ---------------------------------------------------------------------------
 
 describe('Title generation', () => {
-  it('generates title after first assistant response arrives in an existing thread', async () => {
+  function setupTitleTest(settingsOverrides: Partial<Settings> = {}) {
     const userMsg = makeUserMessage('Tell me a joke');
     const assistantMsg = makeAssistantMessage('Why did the chicken cross the road?', false);
     const messages = [userMsg, assistantMsg];
     const updateThreadTitle = vi.fn();
 
+    const settings = { ...defaultSettings, ...settingsOverrides } as Settings;
+    mockUseSettingsContext.mockReturnValue({
+      settings,
+      updateSettings: vi.fn(),
+      resetSettings: vi.fn(),
+      clearStoredData: vi.fn(),
+      isConfigured: true,
+      vectorStoreCache: {} as import('../../types').VectorStoreCache,
+      setVectorStores: vi.fn(),
+      setStoreFiles: vi.fn(),
+      setStoreFilesLoading: vi.fn(),
+      clearVectorStoreCache: vi.fn(),
+    });
     mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: false, previousResponseId: 'resp-1' }));
     mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-123', updateThreadTitle }));
+
+    return { userMsg, assistantMsg, updateThreadTitle };
+  }
+
+  it('generates title after first assistant response arrives in an existing thread', async () => {
+    const { userMsg, assistantMsg, updateThreadTitle } = setupTitleTest();
 
     render(<ChatContainer />);
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
-      expect.anything(),   // client
-      expect.any(String),  // model
+      expect.anything(),
+      expect.any(String),
       userMsg.content,
       assistantMsg.content,
     );
-
     await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
+
+  it('falls back to the main model when the title model fails and models differ', async () => {
+    const { updateThreadTitle } = setupTitleTest({
+      titleModelName: 'gpt-5-nano' as Settings['titleModelName'],
+      deploymentName: 'gpt-5',
+    });
+
+    // First call (title model) fails; second call (main model) succeeds
+    mockGenerateThreadTitle
+      .mockRejectedValueOnce(new Error('Model not found'))
+      .mockResolvedValueOnce('Fallback Title');
+
+    render(<ChatContainer />);
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(2));
+    expect(mockGenerateThreadTitle.mock.calls[1][1]).toBe('gpt-5');
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Fallback Title'));
+  });
+
+  it('does not retry when title model and main model are the same', async () => {
+    const { updateThreadTitle } = setupTitleTest({
+      titleModelName: 'gpt-5-nano' as Settings['titleModelName'],
+      deploymentName: 'gpt-5-nano',
+    });
+
+    mockGenerateThreadTitle.mockRejectedValue(new Error('Model not found'));
+
+    render(<ChatContainer />);
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    // Only one attempt — same model, no point retrying
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1);
+    expect(updateThreadTitle).not.toHaveBeenCalled();
+  });
+
+  it('keeps "New Chat" title when both title model and fallback model fail', async () => {
+    const { updateThreadTitle } = setupTitleTest({
+      titleModelName: 'gpt-5-nano' as Settings['titleModelName'],
+      deploymentName: 'gpt-5',
+    });
+
+    mockGenerateThreadTitle.mockRejectedValue(new Error('Service unavailable'));
+
+    render(<ChatContainer />);
+
+    // Both calls fail — updateThreadTitle should never be called
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(2));
+    await new Promise((r) => setTimeout(r, 50));
+    expect(updateThreadTitle).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression tests: handleDeleteThread while streaming
+// ---------------------------------------------------------------------------
+
+describe('handleDeleteThread: streaming regression', () => {
+  it('stops streaming when deleting the active thread while streaming', async () => {
+    const stopStreaming = vi.fn();
+    const clearConversation = vi.fn();
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [makeUserMessage(), makeAssistantMessage('...', true)],
+        isStreaming: true,
+        stopStreaming,
+        clearConversation,
+      })
+    );
+    // active thread matches the thread being deleted
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-to-delete' }));
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('delete-thread-btn'));
+
+    // stopStreaming must be called BEFORE clearConversation to prevent phantom thread creation
+    expect(stopStreaming).toHaveBeenCalledTimes(1);
+    expect(clearConversation).toHaveBeenCalledTimes(1);
+    const stopOrder = stopStreaming.mock.invocationCallOrder[0];
+    const clearOrder = clearConversation.mock.invocationCallOrder[0];
+    expect(stopOrder).toBeLessThan(clearOrder);
+  });
+
+  it('does not call stopStreaming when deleting a non-active thread while streaming', async () => {
+    const stopStreaming = vi.fn();
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [makeUserMessage()], isStreaming: true, stopStreaming })
+    );
+    // active thread is DIFFERENT from the one being deleted
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'other-thread' }));
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('delete-thread-btn'));
+
+    expect(stopStreaming).not.toHaveBeenCalled();
+  });
+
+  it('does not call stopStreaming when deleting the active thread while NOT streaming', async () => {
+    const stopStreaming = vi.fn();
+    const clearConversation = vi.fn();
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [makeUserMessage()], isStreaming: false, stopStreaming, clearConversation })
+    );
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-to-delete' }));
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('delete-thread-btn'));
+
+    expect(stopStreaming).not.toHaveBeenCalled();
+    expect(clearConversation).toHaveBeenCalledTimes(1);
   });
 });
