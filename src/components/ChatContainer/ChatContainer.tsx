@@ -16,7 +16,7 @@ import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import { calculateConversationUsage } from '../../utils/tokenUsage';
 import { generateThreadTitle } from '../../utils/titleGeneration';
 import { createAzureClient } from '../../utils/api';
-import type { Attachment } from '../../types';
+import type { Attachment, Message } from '../../types';
 import './ChatContainer.css';
 
 /**
@@ -121,6 +121,36 @@ export function ChatContainer() {
     [retryMessage, settings]
   );
 
+  /**
+   * Generate a title for the given thread if it hasn't been titled yet.
+   * Safe to call from any switch-away or stream-completion path; deduplicates
+   * via titleGeneratedRef. Falls back to the main deployment model on error.
+   */
+  const triggerTitleGeneration = useCallback(
+    (threadId: string, msgs: Message[]) => {
+      if (titleGeneratedRef.current === threadId || !isConfigured || msgs.length < 2) return;
+      const userMsg = msgs[0];
+      const assistantMsg = msgs[1];
+      if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
+      titleGeneratedRef.current = threadId; // optimistic guard — prevents duplicate calls
+      const titleModel = settings.titleModelName || 'gpt-5-nano';
+      const mainModel = settings.deploymentName;
+      const client = createAzureClient(settings);
+      generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
+        .catch(() => {
+          if (mainModel && mainModel !== titleModel) {
+            return generateThreadTitle(client, mainModel, userMsg.content, assistantMsg.content);
+          }
+          return undefined;
+        })
+        .then((title) => {
+          if (title) updateThreadTitle(threadId, title);
+        })
+        .catch(() => {});
+    },
+    [isConfigured, settings, updateThreadTitle]
+  );
+
   const handleSwitchThread = useCallback(
     (id: string) => {
       // Re-attach if the user is switching back to a background-streaming thread
@@ -136,7 +166,12 @@ export function ChatContainer() {
           prevMessageCountRef.current = buffer.length - 1;
         }
         switchThread(id); // update activeThreadId; ignore returned messages (buffer is current)
-        titleGeneratedRef.current = id;
+        // Only mark as "titled" if the thread already has a real title — otherwise
+        // triggerTitleGeneration (called from onComplete) must be allowed to run.
+        const reattachedThread = threads.find((t) => t.id === id);
+        if (reattachedThread && reattachedThread.title !== 'New Chat') {
+          titleGeneratedRef.current = id;
+        }
         return;
       }
 
@@ -147,8 +182,10 @@ export function ChatContainer() {
           targetThreadId = createThread(messages, previousResponseId);
         }
         const threadIdForCallback = targetThreadId;
-        detachStream(threadIdForCallback, messages, (finalMessages, finalPrevResponseId) => {
+        const currentMessages = messages;
+        detachStream(threadIdForCallback, currentMessages, (finalMessages, finalPrevResponseId) => {
           updateThread(threadIdForCallback, finalMessages, finalPrevResponseId);
+          triggerTitleGeneration(threadIdForCallback, finalMessages);
           setBackgroundStreamingThreadIds((prev) => {
             const next = new Set(prev);
             next.delete(threadIdForCallback);
@@ -156,6 +193,9 @@ export function ChatContainer() {
           });
         });
         setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+      } else if (activeThreadId) {
+        // Not streaming — generate title for current thread before switching away
+        triggerTitleGeneration(activeThreadId, messages);
       }
 
       const data = switchThread(id);
@@ -165,10 +205,14 @@ export function ChatContainer() {
         // misfire against this thread when the background stream eventually sets
         // isStreaming=false and causes a re-run with a stale prevMessageCountRef.
         prevMessageCountRef.current = data.messages.length;
-        titleGeneratedRef.current = id;
+        // Only mark as "titled" if the thread already has a real title.
+        const targetThread = threads.find((t) => t.id === id);
+        if (targetThread && targetThread.title !== 'New Chat') {
+          titleGeneratedRef.current = id;
+        }
       }
     },
-    [switchThread, loadThread, detachStream, reattachStream, isStreaming, isEphemeral, activeThreadId, updateThread, createThread, messages, previousResponseId, backgroundStreamingThreadIds]
+    [switchThread, loadThread, detachStream, reattachStream, isStreaming, isEphemeral, activeThreadId, updateThread, createThread, messages, previousResponseId, backgroundStreamingThreadIds, threads, triggerTitleGeneration]
   );
 
   const handleDeleteThread = useCallback(
@@ -188,16 +232,26 @@ export function ChatContainer() {
 
   const handleNewChat = useCallback(() => {
     // If a stream is running, detach it to background so the response is saved when complete.
-    // With early thread creation, activeThreadId is almost always set by the time streaming
-    // starts — but we guard for the rare race where the effect hasn't fired yet.
+    // Track in backgroundStreamingThreadIds so the user can reattach if they navigate back.
     if (isStreaming && !isEphemeral) {
       if (activeThreadId) {
-        detachStream(activeThreadId, messages, (finalMessages, finalPrevResponseId) => {
-          updateThread(activeThreadId, finalMessages, finalPrevResponseId);
+        const threadIdForCallback = activeThreadId;
+        detachStream(threadIdForCallback, messages, (finalMessages, finalPrevResponseId) => {
+          updateThread(threadIdForCallback, finalMessages, finalPrevResponseId);
+          triggerTitleGeneration(threadIdForCallback, finalMessages);
+          setBackgroundStreamingThreadIds((prev) => {
+            const next = new Set(prev);
+            next.delete(threadIdForCallback);
+            return next;
+          });
         });
+        setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
       } else {
         stopStreaming();
       }
+    } else if (activeThreadId) {
+      // Not streaming — generate title now before clearing (auto-save effect may be skipped)
+      triggerTitleGeneration(activeThreadId, messages);
     }
     clearConversation();
     prevMessageCountRef.current = 0;
@@ -208,7 +262,7 @@ export function ChatContainer() {
       startNewChat();
     }
     titleGeneratedRef.current = null;
-  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, updateThread, stopStreaming, clearConversation, startNewChat, startEphemeral, settings.noLocalStorage]);
+  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, updateThread, triggerTitleGeneration, stopStreaming, clearConversation, startNewChat, startEphemeral, settings.noLocalStorage]);
 
   const handleNewEphemeralChat = useCallback(() => {
     clearConversation();
@@ -240,7 +294,10 @@ export function ChatContainer() {
     // to detach an in-flight stream to, even if the user navigates away mid-stream.
     if (!activeThreadId) {
       createThread(messages, previousResponseId);
-      prevMessageCountRef.current = messages.length;
+      // Set one below length so that streaming completion (same count, isStreaming→false)
+      // still satisfies isNewAssistantReply = (length > length-1) = TRUE and triggers
+      // updateThread with the finalised (non-streaming) assistant message.
+      prevMessageCountRef.current = messages.length - 1;
       return; // title is deferred until the first assistant response arrives below
     }
 
@@ -256,39 +313,14 @@ export function ChatContainer() {
     if (isNewAssistantReply) {
       // Persist the completed response
       updateThread(activeThreadId, messages, previousResponseId);
-
-      // Generate title once we have at least one user + assistant exchange
-      if (titleGeneratedRef.current !== activeThreadId && isConfigured && messages.length >= 2) {
-        const userMsg = messages[0];
-        const assistantMsg = messages[1];
-        if (userMsg.role === 'user' && assistantMsg.role === 'assistant') {
-            const titleModel = settings.titleModelName || 'gpt-5-nano';
-            const mainModel = settings.deploymentName;
-            const client = createAzureClient(settings);
-            generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
-              .catch(() => {
-                // Title model unavailable — fall back to the main chat model if it differs
-                if (mainModel && mainModel !== titleModel) {
-                  return generateThreadTitle(client, mainModel, userMsg.content, assistantMsg.content);
-                }
-                return undefined;
-              })
-              .then((title) => {
-                if (title) {
-                  updateThreadTitle(activeThreadId, title);
-                  titleGeneratedRef.current = activeThreadId;
-                }
-              })
-              .catch(() => {}); // both attempts failed — keep "New Chat"
-          }
-      }
+      triggerTitleGeneration(activeThreadId, messages);
     } else if (messages.length !== prevMessageCountRef.current) {
       // Save message-count changes not covered above (e.g., after a retry)
       updateThread(activeThreadId, messages, previousResponseId);
     }
 
     prevMessageCountRef.current = messages.length;
-  }, [messages, isStreaming, isEphemeral, activeThreadId, previousResponseId, createThread, updateThread, updateThreadTitle, isConfigured, settings]);
+  }, [messages, isStreaming, isEphemeral, activeThreadId, previousResponseId, createThread, updateThread, triggerTitleGeneration, settings.noLocalStorage]);
 
   const inputPlaceholder = isConfigured
     ? undefined

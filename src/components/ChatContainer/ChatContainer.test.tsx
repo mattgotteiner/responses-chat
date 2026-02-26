@@ -12,7 +12,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { Message, Settings } from '../../types';
+import type { Message, Settings, Thread } from '../../types';
 import { ChatContainer } from './ChatContainer';
 import { useChat } from '../../hooks/useChat';
 import { useThreads } from '../../hooks/useThreads';
@@ -43,13 +43,18 @@ vi.mock('../HistorySidebar', () => ({
   HistorySidebar: ({
     onNewChat,
     onDeleteThread,
+    onSwitchThread,
   }: {
     onNewChat: () => void;
     onDeleteThread: (id: string) => void;
+    onSwitchThread?: (id: string) => void;
   }) => (
     <>
       <button data-testid="history-new-chat-btn" onClick={onNewChat}>History New Chat</button>
       <button data-testid="delete-thread-btn" onClick={() => onDeleteThread('thread-to-delete')}>Delete</button>
+      {onSwitchThread && (
+        <button data-testid="switch-thread-btn" onClick={() => onSwitchThread('thread-untitled')}>Switch</button>
+      )}
     </>
   ),
 }));
@@ -463,5 +468,217 @@ describe('handleDeleteThread: streaming regression', () => {
 
     expect(stopStreaming).not.toHaveBeenCalled();
     expect(clearConversation).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Bug 1 — first exchange must be saved after streaming completes
+// ---------------------------------------------------------------------------
+
+describe('Auto-save effect: first exchange saved after stream completes (Bug 1 regression)', () => {
+  it('calls updateThread when the first assistant response finishes streaming in a new thread', async () => {
+    // Render twice: first with streaming assistant (early thread creation), then completed
+    const userMsg = makeUserMessage('Question');
+    const assistantStreaming = makeAssistantMessage('Answer...', true);
+    const assistantDone = makeAssistantMessage('Answer.', false);
+    const updateThread = vi.fn();
+    const createThread = vi.fn().mockReturnValue('thread-new');
+
+    // Phase 1: streaming — thread just created, isStreaming=true
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [userMsg, assistantStreaming], isStreaming: true })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: null, createThread, updateThread })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+    await waitFor(() => expect(createThread).toHaveBeenCalledTimes(1));
+
+    // Phase 2: stream completes — same message count, isStreaming=false, last message no longer streaming
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [userMsg, assistantDone], isStreaming: false })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-new', createThread, updateThread })
+    );
+    rerender(<ChatContainer />);
+
+    await waitFor(() => expect(updateThread).toHaveBeenCalled());
+    expect(updateThread).toHaveBeenCalledWith('thread-new', [userMsg, assistantDone], null);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Bug 2 — handleNewChat must track detached stream in backgroundStreamingThreadIds
+// ---------------------------------------------------------------------------
+
+describe('handleNewChat: tracks detached stream in backgroundStreamingThreadIds (Bug 2 regression)', () => {
+  it('adds the thread to backgroundStreamingThreadIds when detaching via New Chat', async () => {
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+    const detachStream = vi.fn();
+    const updateThread = vi.fn();
+
+    mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: true, detachStream }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-abc', updateThread }));
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+
+    expect(detachStream).toHaveBeenCalledWith('thread-abc', messages, expect.any(Function));
+
+    // Fire the onComplete callback — updateThread must be called with the detached thread ID
+    const onComplete = detachStream.mock.calls[0][2] as (msgs: Message[], prevId: string | null) => void;
+    const finalMessages = [...messages, makeAssistantMessage('Final', false)];
+    act(() => { onComplete(finalMessages, 'resp-1'); });
+    expect(updateThread).toHaveBeenCalledWith('thread-abc', finalMessages, 'resp-1');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Bug 3 — titleGeneratedRef must NOT block untitled threads
+// ---------------------------------------------------------------------------
+
+describe('handleSwitchThread: does not block title generation for "New Chat" threads (Bug 3 regression)', () => {
+  function makeThread(id: string, title: string, msgs: Message[]): Thread {
+    return { id, title, messages: msgs, previousResponseId: null, createdAt: Date.now(), updatedAt: Date.now() };
+  }
+
+  it('generates a title when switching away from an untitled ("New Chat") thread that has a completed conversation', async () => {
+    const userMsg = makeUserMessage('Hello');
+    const assistantMsg = makeAssistantMessage('Hi there', false);
+    const threadMessages = [userMsg, assistantMsg];
+    const updateThreadTitle = vi.fn();
+    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null });
+    const loadThread = vi.fn();
+    const untitledThread = makeThread('thread-untitled', 'New Chat', threadMessages);
+
+    // Initial state: on a different thread with no messages
+    mockUseChat.mockReturnValue(makeChatReturn({ messages: [], isStreaming: false, loadThread }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({
+      activeThreadId: 'thread-other',
+      threads: [untitledThread],
+      switchThread: switchThreadFn,
+      updateThreadTitle,
+    }));
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Switch to the "New Chat" titled thread (the mock button switches to 'thread-untitled')
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+
+    // Simulate state after switch: active = thread-untitled, messages = completed conversation
+    mockUseChat.mockReturnValue(makeChatReturn({ messages: threadMessages, isStreaming: false, loadThread }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({
+      activeThreadId: 'thread-untitled',
+      threads: [untitledThread],
+      switchThread: switchThreadFn,
+      updateThreadTitle,
+    }));
+    rerender(<ChatContainer />);
+
+    // Navigate away — triggerTitleGeneration(activeThreadId='thread-untitled', messages) should
+    // fire because titleGeneratedRef was NOT set for this thread (it has title "New Chat")
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
+      expect.anything(), expect.any(String), userMsg.content, assistantMsg.content
+    );
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-untitled', 'Generated Title'));
+  });
+
+  it('does NOT generate a title when switching away from a thread that already has a real title', async () => {
+    const userMsg = makeUserMessage('Hello');
+    const assistantMsg = makeAssistantMessage('Hi there', false);
+    const threadMessages = [userMsg, assistantMsg];
+    const updateThreadTitle = vi.fn();
+    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null });
+    const loadThread = vi.fn();
+    const titledThread = makeThread('thread-untitled', 'My Real Title', threadMessages);
+
+    // Initial state: on a different thread with no messages
+    mockUseChat.mockReturnValue(makeChatReturn({ messages: [], isStreaming: false, loadThread }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({
+      activeThreadId: 'thread-other',
+      threads: [titledThread],
+      switchThread: switchThreadFn,
+      updateThreadTitle,
+    }));
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Switch to the real-titled thread — titleGeneratedRef SHOULD be set to its ID on switch-in
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+
+    mockUseChat.mockReturnValue(makeChatReturn({ messages: threadMessages, isStreaming: false, loadThread }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({
+      activeThreadId: 'thread-untitled',
+      threads: [titledThread],
+      switchThread: switchThreadFn,
+      updateThreadTitle,
+    }));
+    rerender(<ChatContainer />);
+
+    // Navigate away — title was already marked as generated (via switch-in), so it should NOT fire
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGenerateThreadTitle).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: Bug 4 — title generation triggered on switch-away
+// ---------------------------------------------------------------------------
+
+describe('triggerTitleGeneration: called when switching away from completed conversation (Bug 4 regression)', () => {
+  it('generates a title when switching away from a completed conversation (non-streaming)', async () => {
+    const userMsg = makeUserMessage('Tell me a joke');
+    const assistantMsg = makeAssistantMessage('Why did the chicken...', false);
+    const messages = [userMsg, assistantMsg];
+    const updateThreadTitle = vi.fn();
+
+    mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: false }));
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-123', updateThreadTitle })
+    );
+
+    render(<ChatContainer />);
+    // Clicking "New Chat" should trigger triggerTitleGeneration for the current thread
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
+      expect.anything(), expect.any(String), userMsg.content, assistantMsg.content
+    );
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
+
+  it('generates a title via onComplete when switching away mid-stream', async () => {
+    const messages = [makeUserMessage('Question'), makeAssistantMessage('...', true)];
+    const detachStream = vi.fn();
+    const updateThreadTitle = vi.fn();
+    const updateThread = vi.fn();
+
+    mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: true, detachStream }));
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-123', updateThread, updateThreadTitle })
+    );
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+
+    expect(detachStream).toHaveBeenCalledTimes(1);
+
+    // Fire onComplete with a completed conversation
+    const onComplete = detachStream.mock.calls[0][2] as (msgs: Message[], prevId: string | null) => void;
+    const finalMessages = [makeUserMessage('Question'), makeAssistantMessage('Full answer', false)];
+    act(() => { onComplete(finalMessages, 'resp-1'); });
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
+      expect.anything(), expect.any(String), finalMessages[0].content, finalMessages[1].content
+    );
   });
 });
