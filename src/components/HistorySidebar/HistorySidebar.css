@@ -195,6 +195,31 @@
   50% { opacity: 0.4; transform: scale(0.75); }
 }
 
+.history-sidebar__generating-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-text-muted);
+  font-style: italic;
+}
+
+.history-sidebar__generating-dots {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.history-sidebar__generating-dots::before {
+  content: '···';
+  font-style: normal;
+  letter-spacing: 1px;
+  animation: generating-fade 1.2s ease-in-out infinite;
+}
+
+@keyframes generating-fade {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
 .history-sidebar__item-time {
   font-size: 12px;
   color: var(--color-text-muted);

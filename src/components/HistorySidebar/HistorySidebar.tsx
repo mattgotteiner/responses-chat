@@ -63,6 +63,8 @@ interface HistorySidebarProps {
   hasMessages: boolean;
   /** Thread IDs that have a stream running in the background */
   backgroundStreamingThreadIds?: Set<string>;
+  /** Thread IDs that are currently having a title generated */
+  generatingTitleThreadIds?: Set<string>;
 }
 
 /**
@@ -80,6 +82,7 @@ export function HistorySidebar({
   onNewEphemeralChat,
   hasMessages,
   backgroundStreamingThreadIds,
+  generatingTitleThreadIds,
 }: HistorySidebarProps) {
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
@@ -191,7 +194,14 @@ export function HistorySidebar({
                         {backgroundStreamingThreadIds?.has(thread.id) && (
                           <span className="history-sidebar__streaming-dot" title="Streaming in background" />
                         )}
-                        {thread.title}
+                        {generatingTitleThreadIds?.has(thread.id) ? (
+                          <span className="history-sidebar__generating-title" title="Generating title…">
+                            <span className="history-sidebar__generating-dots" />
+                            {thread.title}
+                          </span>
+                        ) : (
+                          thread.title
+                        )}
                       </span>
                       <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
                         {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}

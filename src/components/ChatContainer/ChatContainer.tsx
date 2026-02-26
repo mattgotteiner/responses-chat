@@ -49,6 +49,8 @@ export function ChatContainer() {
   const prevMessageCountRef = useRef(0);
   // Track which thread IDs have a stream running in the background
   const [backgroundStreamingThreadIds, setBackgroundStreamingThreadIds] = useState<Set<string>>(new Set());
+  // Track which thread IDs are currently having a title generated
+  const [generatingTitleThreadIds, setGeneratingTitleThreadIds] = useState<Set<string>>(new Set());
   // Guard: ensure the restore-on-load logic runs at most once
   const hasRestoredRef = useRef(false);
   // Keep latest threads available inside async callbacks (e.g., title generation)
@@ -144,6 +146,7 @@ export function ChatContainer() {
       const titleModel = settings.titleModelName || 'gpt-5-nano';
       const mainModel = settings.deploymentName;
       const client = createAzureClient(settings);
+      setGeneratingTitleThreadIds((prev) => new Set([...prev, threadId]));
       generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
         .catch(() => {
           if (mainModel && mainModel !== titleModel) {
@@ -157,7 +160,14 @@ export function ChatContainer() {
             updateThreadTitle(threadId, title);
           }
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => {
+          setGeneratingTitleThreadIds((prev) => {
+            const next = new Set(prev);
+            next.delete(threadId);
+            return next;
+          });
+        });
     },
     [isConfigured, settings, updateThreadTitle]
   );
@@ -462,6 +472,7 @@ export function ChatContainer() {
         onNewEphemeralChat={handleNewEphemeralChat}
         hasMessages={messages.length > 0}
         backgroundStreamingThreadIds={backgroundStreamingThreadIds}
+        generatingTitleThreadIds={generatingTitleThreadIds}
       />
 
       <SettingsSidebar

@@ -32,7 +32,7 @@ export async function generateThreadTitle(
     model: deployment,
     instructions: TITLE_PROMPT,
     input,
-    reasoning: { effort: 'low' },
+    reasoning: { effort: 'minimal' },
   } as Parameters<typeof client.responses.create>[0]);
 
   // Extract text from the response
