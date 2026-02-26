@@ -80,8 +80,9 @@ type BackgroundStream = {
   threadId: string;
   messages: Message[];
   previousResponseId: string | null;
+  uploadedFileIds: string[];
   abortController: AbortController;
-  onComplete: (messages: Message[], prevResponseId: string | null) => void;
+  onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void;
 };
 
 export interface UseChatReturn {
@@ -100,13 +101,15 @@ export interface UseChatReturn {
   /** Retry a failed message by its assistant message ID */
   retryMessage: (failedAssistantMessageId: string, settings: Settings) => Promise<void>;
   /** Load a saved thread's state into the chat */
-  loadThread: (messages: Message[], previousResponseId: string | null) => void;
+  loadThread: (messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => void;
   /** Detach the current foreground stream to run in the background for the given thread */
-  detachStream: (threadId: string, currentMessages: Message[], onComplete: (messages: Message[], prevResponseId: string | null) => void) => void;
+  detachStream: (threadId: string, currentMessages: Message[], uploadedFileIds: string[], onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void) => void;
   /** Re-attach a background stream back to the foreground by thread ID; returns buffer or null */
   reattachStream: (threadId: string) => Message[] | null;
   /** Get the current previousResponseId */
   previousResponseId: string | null;
+  /** Uploaded file IDs available to code interpreter for the current chat */
+  uploadedFileIds: string[];
   /** Any error that occurred */
   error: string | null;
 }
@@ -479,13 +482,13 @@ export function useChat(): UseChatReturn {
           prev.map((msg) =>
             msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
           );
-        const bgStreamComplete = backgroundStreamsRef.current.get(assistantMessage.id);
-        if (bgStreamComplete) {
-          bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
-          bgStreamComplete.onComplete(bgStreamComplete.messages, bgStreamComplete.previousResponseId);
-          backgroundStreamsRef.current.delete(assistantMessage.id);
-        } else {
-          setMessages(completionUpdater);
+          const bgStreamComplete = backgroundStreamsRef.current.get(assistantMessage.id);
+          if (bgStreamComplete) {
+            bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
+            bgStreamComplete.onComplete(bgStreamComplete.messages, bgStreamComplete.previousResponseId, bgStreamComplete.uploadedFileIds);
+            backgroundStreamsRef.current.delete(assistantMessage.id);
+          } else {
+            setMessages(completionUpdater);
         }
       } catch (err) {
         // Handle user-initiated abort differently from errors
@@ -500,7 +503,7 @@ export function useChat(): UseChatReturn {
           const bgStreamAbort = backgroundStreamsRef.current.get(assistantMessage.id);
           if (bgStreamAbort) {
             bgStreamAbort.messages = abortUpdater(bgStreamAbort.messages);
-            bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId);
+            bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId, bgStreamAbort.uploadedFileIds);
             backgroundStreamsRef.current.delete(assistantMessage.id);
           } else {
             setMessages(abortUpdater);
@@ -520,7 +523,7 @@ export function useChat(): UseChatReturn {
           const bgStreamError = backgroundStreamsRef.current.get(assistantMessage.id);
           if (bgStreamError) {
             bgStreamError.messages = errorUpdater(bgStreamError.messages);
-            bgStreamError.onComplete(bgStreamError.messages, bgStreamError.previousResponseId);
+            bgStreamError.onComplete(bgStreamError.messages, bgStreamError.previousResponseId, bgStreamError.uploadedFileIds);
             backgroundStreamsRef.current.delete(assistantMessage.id);
           } else {
             setMessages(errorUpdater);
@@ -581,10 +584,10 @@ export function useChat(): UseChatReturn {
   }, []);
 
   const loadThread = useCallback(
-    (threadMessages: Message[], prevResponseId: string | null) => {
+    (threadMessages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => {
       setMessages(threadMessages);
       previousResponseIdRef.current = prevResponseId;
-      allUploadedFileIdsRef.current = [];
+      allUploadedFileIdsRef.current = uploadedFileIds;
       setError(null);
     },
     []
@@ -597,13 +600,14 @@ export function useChat(): UseChatReturn {
    * the final messages when the stream finishes.
    */
   const detachStream = useCallback(
-    (threadId: string, currentMessages: Message[], onComplete: (messages: Message[], prevResponseId: string | null) => void) => {
+    (threadId: string, currentMessages: Message[], uploadedFileIds: string[], onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void) => {
       const streamId = foregroundStreamIdRef.current;
       if (!streamId || !abortControllerRef.current) return;
       backgroundStreamsRef.current.set(streamId, {
         threadId,
         messages: [...currentMessages],
         previousResponseId: previousResponseIdRef.current,
+        uploadedFileIds: [...uploadedFileIds],
         abortController: abortControllerRef.current,
         onComplete,
       });
@@ -635,6 +639,7 @@ export function useChat(): UseChatReturn {
     foregroundStreamIdRef.current = foundId;
     abortControllerRef.current = foundStream.abortController;
     previousResponseIdRef.current = foundStream.previousResponseId;
+    allUploadedFileIdsRef.current = foundStream.uploadedFileIds;
     setMessages(buffer);
     setIsStreaming(true);
     return buffer;
@@ -908,6 +913,7 @@ export function useChat(): UseChatReturn {
     detachStream,
     reattachStream,
     previousResponseId: previousResponseIdRef.current,
+    uploadedFileIds: allUploadedFileIdsRef.current,
     error,
   };
 }

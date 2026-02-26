@@ -29,13 +29,13 @@ export interface UseThreadsReturn {
   /** Whether the current session is ephemeral (not persisted) */
   isEphemeral: boolean;
   /** Create a new thread from messages and make it active */
-  createThread: (messages: Message[], previousResponseId: string | null) => string;
+  createThread: (messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => string;
   /** Delete a thread by ID */
   deleteThread: (id: string) => void;
   /** Switch to an existing thread, returns its messages and previousResponseId */
-  switchThread: (id: string) => { messages: Message[]; previousResponseId: string | null } | null;
+  switchThread: (id: string) => { messages: Message[]; previousResponseId: string | null; uploadedFileIds: string[] } | null;
   /** Update an existing thread's messages/previousResponseId */
-  updateThread: (id: string, messages: Message[], previousResponseId: string | null) => void;
+  updateThread: (id: string, messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => void;
   /** Update a thread's title */
   updateThreadTitle: (id: string, title: string) => void;
   /** Start a new chat (clears active thread) */
@@ -96,7 +96,7 @@ export function useThreads(): UseThreadsReturn {
   }, []);
 
   const createThread = useCallback(
-    (messages: Message[], previousResponseId: string | null): string => {
+    (messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]): string => {
       const id = generateThreadId();
       const now = Date.now();
       const thread: Thread = {
@@ -106,6 +106,7 @@ export function useThreads(): UseThreadsReturn {
         updatedAt: now,
         messages,
         previousResponseId,
+        uploadedFileIds,
       };
       setThreads((prev) => [thread, ...prev]);
       setActiveThreadId(id);
@@ -128,7 +129,7 @@ export function useThreads(): UseThreadsReturn {
   }, []);
 
   const switchThread = useCallback(
-    (id: string): { messages: Message[]; previousResponseId: string | null } | null => {
+    (id: string): { messages: Message[]; previousResponseId: string | null; uploadedFileIds: string[] } | null => {
       const thread = threadsRef.current.find((t) => t.id === id);
       if (!thread) return null;
       setActiveThreadId(id);
@@ -137,20 +138,21 @@ export function useThreads(): UseThreadsReturn {
       return {
         messages: thread.messages,
         previousResponseId: thread.previousResponseId,
+        uploadedFileIds: thread.uploadedFileIds,
       };
     },
     []
   );
 
   const updateThread = useCallback(
-    (id: string, messages: Message[], previousResponseId: string | null) => {
+    (id: string, messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => {
       const updatedAt = Date.now();
       setThreads((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, messages, previousResponseId, updatedAt } : t))
+        prev.map((t) => (t.id === id ? { ...t, messages, previousResponseId, uploadedFileIds, updatedAt } : t))
       );
       // Write to IDB outside the updater so it stays pure (no side effects in updater)
       const existing = threadsRef.current.find((t) => t.id === id);
-      if (existing) void putThread({ ...existing, messages, previousResponseId, updatedAt });
+      if (existing) void putThread({ ...existing, messages, previousResponseId, uploadedFileIds, updatedAt });
     },
     []
   );

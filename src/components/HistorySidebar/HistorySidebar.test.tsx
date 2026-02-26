@@ -15,6 +15,7 @@ function createThread(id: string, title: string, updatedAt: number): Thread {
     updatedAt,
     messages: [],
     previousResponseId: null,
+    uploadedFileIds: [],
   };
 }
 

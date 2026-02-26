@@ -13,6 +13,7 @@ export interface StoredThread {
   createdAt: number;
   updatedAt: number;
   previousResponseId: string | null;
+  uploadedFileIds?: string[];
   /** Serialized messages: Date fields stored as ISO strings */
   messages: unknown[];
 }

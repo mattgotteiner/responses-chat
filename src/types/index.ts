@@ -167,6 +167,8 @@ export interface Thread {
   messages: Message[];
   /** Previous response ID for conversation continuity */
   previousResponseId: string | null;
+  /** Uploaded file IDs available to code interpreter for this thread */
+  uploadedFileIds: string[];
 }
 
 /** Application settings stored in localStorage */

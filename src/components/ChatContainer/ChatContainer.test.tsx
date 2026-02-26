@@ -42,15 +42,18 @@ vi.mock('../ChatInput', () => ({
 vi.mock('../HistorySidebar', () => ({
   HistorySidebar: ({
     onNewChat,
+    onNewEphemeralChat,
     onDeleteThread,
     onSwitchThread,
   }: {
     onNewChat: () => void;
+    onNewEphemeralChat: () => void;
     onDeleteThread: (id: string) => void;
     onSwitchThread?: (id: string) => void;
   }) => (
     <>
       <button data-testid="history-new-chat-btn" onClick={onNewChat}>History New Chat</button>
+      <button data-testid="history-ephemeral-btn" onClick={onNewEphemeralChat}>Ephemeral</button>
       <button data-testid="delete-thread-btn" onClick={() => onDeleteThread('thread-to-delete')}>Delete</button>
       {onSwitchThread && (
         <button data-testid="switch-thread-btn" onClick={() => onSwitchThread('thread-untitled')}>Switch</button>
@@ -96,6 +99,7 @@ function makeChatReturn(overrides: Partial<ReturnType<typeof useChat>> = {}): Re
     retryMessage: vi.fn(),
     handleMcpApproval: vi.fn(),
     previousResponseId: null,
+    uploadedFileIds: [],
     error: null,
     ...overrides,
   };
@@ -170,7 +174,7 @@ describe('Auto-save effect: early thread creation', () => {
     render(<ChatContainer />);
 
     await waitFor(() => expect(createThread).toHaveBeenCalledTimes(1));
-    expect(createThread).toHaveBeenCalledWith(messages, null);
+    expect(createThread).toHaveBeenCalledWith(messages, null, []);
   });
 
   it('does not generate a title when the thread is first created (only user message present)', async () => {
@@ -230,26 +234,26 @@ describe('handleNewChat: streaming behaviour', () => {
     await userEvent.click(screen.getByTestId('new-chat-btn'));
 
     expect(detachStream).toHaveBeenCalledTimes(1);
-    expect(detachStream).toHaveBeenCalledWith('thread-123', messages, expect.any(Function));
+    expect(detachStream).toHaveBeenCalledWith('thread-123', messages, [], expect.any(Function));
     expect(clearConversation).toHaveBeenCalled();
     expect(startNewChat).toHaveBeenCalled();
   });
 
-  it('calls stopStreaming when streaming with no thread (race window)', async () => {
-    const stopStreaming = vi.fn();
+  it('creates a thread and detaches stream when streaming with no thread (race window)', async () => {
+    const createThread = vi.fn().mockReturnValue('thread-new');
     const detachStream = vi.fn();
     const clearConversation = vi.fn();
 
     mockUseChat.mockReturnValue(
-      makeChatReturn({ messages: [makeUserMessage()], isStreaming: true, stopStreaming, detachStream, clearConversation })
+      makeChatReturn({ messages: [makeUserMessage()], isStreaming: true, detachStream, clearConversation })
     );
-    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: null }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: null, createThread }));
 
     render(<ChatContainer />);
     await userEvent.click(screen.getByTestId('new-chat-btn'));
 
-    expect(stopStreaming).toHaveBeenCalledTimes(1);
-    expect(detachStream).not.toHaveBeenCalled();
+    expect(createThread).toHaveBeenCalledWith([expect.objectContaining({ role: 'user' })], null, []);
+    expect(detachStream).toHaveBeenCalledWith('thread-new', [expect.objectContaining({ role: 'user' })], [], expect.any(Function));
     expect(clearConversation).toHaveBeenCalled();
   });
 
@@ -273,7 +277,7 @@ describe('handleNewChat: streaming behaviour', () => {
     expect(startNewChat).toHaveBeenCalled();
   });
 
-  it('does not detach stream in ephemeral mode', async () => {
+  it('stops (does not detach) stream in ephemeral mode', async () => {
     const detachStream = vi.fn();
     const stopStreaming = vi.fn();
 
@@ -286,7 +290,7 @@ describe('handleNewChat: streaming behaviour', () => {
     await userEvent.click(screen.getByTestId('new-chat-btn'));
 
     expect(detachStream).not.toHaveBeenCalled();
-    expect(stopStreaming).not.toHaveBeenCalled();
+    expect(stopStreaming).toHaveBeenCalledTimes(1);
   });
 
   it('calls updateThread via detach callback when background stream completes', async () => {
@@ -303,11 +307,238 @@ describe('handleNewChat: streaming behaviour', () => {
     expect(detachStream).toHaveBeenCalledTimes(1);
 
     // Capture the onComplete callback passed to detachStream and invoke it
-    const onComplete = detachStream.mock.calls[0][2] as (msgs: Message[], prevId: string | null) => void;
+    const onComplete = detachStream.mock.calls[0][3] as (msgs: Message[], prevId: string | null, uploadedFileIds: string[]) => void;
     const finalMessages = [...messages, makeAssistantMessage('Final response', false)];
-    act(() => { onComplete(finalMessages, 'resp-xyz'); });
+    act(() => { onComplete(finalMessages, 'resp-xyz', []); });
 
-    expect(updateThread).toHaveBeenCalledWith('thread-abc', finalMessages, 'resp-xyz');
+    expect(updateThread).toHaveBeenCalledWith('thread-abc', finalMessages, 'resp-xyz', []);
+  });
+});
+
+describe('handleSwitchThread: background reattach fallback', () => {
+  it('loads switched thread data when background flag exists but reattach returns null', async () => {
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn().mockReturnValue(null);
+    const loadThread = vi.fn();
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+    const switchedMessages = [makeUserMessage('Saved'), makeAssistantMessage('Done', false)];
+    const switchThreadFn = vi.fn().mockReturnValue({
+      messages: switchedMessages,
+      previousResponseId: 'resp-prev',
+      uploadedFileIds: ['file_1'],
+    });
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages, isStreaming: true, detachStream, reattachStream, loadThread })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-untitled',
+        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
+        switchThread: switchThreadFn,
+      })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Detach current stream and track thread as background-streaming
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+    expect(detachStream).toHaveBeenCalledWith('thread-untitled', messages, [], expect.any(Function));
+
+    // Simulate transition to a non-streaming foreground after New Chat
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [], isStreaming: false, detachStream, reattachStream, loadThread })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: null,
+        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
+        switchThread: switchThreadFn,
+      })
+    );
+    rerender(<ChatContainer />);
+
+    // Reattach fails (race with completion) -> must still load switchThread data
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+    expect(reattachStream).toHaveBeenCalledWith('thread-untitled');
+    expect(loadThread).toHaveBeenCalledWith(switchedMessages, 'resp-prev', ['file_1']);
+  });
+
+  it('detaches the currently streaming thread before reattaching another background stream', async () => {
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn().mockReturnValue([makeUserMessage('bg'), makeAssistantMessage('bg...', true)]);
+    const loadThread = vi.fn();
+    const backgroundMessages = [makeUserMessage('Old'), makeAssistantMessage('Old...', true)];
+    const currentMessages = [makeUserMessage('Current'), makeAssistantMessage('Current...', true)];
+    const switchThreadFn = vi.fn().mockReturnValue({
+      messages: [makeUserMessage('Switched'), makeAssistantMessage('Done', false)],
+      previousResponseId: 'resp-prev',
+      uploadedFileIds: [],
+    });
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: backgroundMessages, isStreaming: true, detachStream, reattachStream, loadThread })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-untitled',
+        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] }],
+        switchThread: switchThreadFn,
+      })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Phase 1: detach thread-untitled to register it as background-streaming
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+    expect(detachStream).toHaveBeenCalledWith('thread-untitled', backgroundMessages, [], expect.any(Function));
+
+    // Phase 2: now viewing another streaming thread, switch back to thread-untitled
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: currentMessages, isStreaming: true, detachStream, reattachStream, loadThread, previousResponseId: 'resp-current' })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-current',
+        threads: [
+          { id: 'thread-current', title: 'New Chat', createdAt: 1, updatedAt: 3, messages: currentMessages, previousResponseId: 'resp-current', uploadedFileIds: [] },
+          { id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] },
+        ],
+        switchThread: switchThreadFn,
+      })
+    );
+    rerender(<ChatContainer />);
+
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+
+    expect(reattachStream).toHaveBeenCalledWith('thread-untitled');
+    expect(detachStream).toHaveBeenCalledWith('thread-current', currentMessages, [], expect.any(Function));
+    expect(detachStream).toHaveBeenCalledTimes(2);
+  });
+
+  it('discard ephemeral stream when switching away, and start fresh on return', async () => {
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn().mockReturnValue([makeUserMessage('ephemeral'), makeAssistantMessage('Still streaming', true)]);
+    const loadThread = vi.fn();
+    const clearConversation = vi.fn();
+    const startEphemeral = vi.fn();
+    const stopStreaming = vi.fn();
+    const ephemeralMessages = [makeUserMessage('Ephemeral'), makeAssistantMessage('...', true)];
+    const switchThreadFn = vi.fn().mockReturnValue({
+      messages: [makeUserMessage('Saved'), makeAssistantMessage('Saved done', false)],
+      previousResponseId: 'resp-saved',
+      uploadedFileIds: [],
+    });
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: ephemeralMessages,
+        isStreaming: true,
+        stopStreaming,
+        detachStream,
+        reattachStream,
+        loadThread,
+        clearConversation,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: null,
+        isEphemeral: true,
+        startEphemeral,
+        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
+        switchThread: switchThreadFn,
+      })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Switch away while ephemeral is streaming -> should stop and discard ephemeral stream
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+    expect(stopStreaming).toHaveBeenCalledTimes(1);
+    expect(detachStream).not.toHaveBeenCalled();
+
+    // Simulate now viewing a persisted thread (not ephemeral)
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [makeUserMessage('Saved'), makeAssistantMessage('Saved done', false)],
+        isStreaming: false,
+        detachStream,
+        reattachStream,
+        loadThread,
+        clearConversation,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-untitled',
+        isEphemeral: false,
+        startEphemeral,
+        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
+        switchThread: switchThreadFn,
+      })
+    );
+    rerender(<ChatContainer />);
+
+    await userEvent.click(screen.getByTestId('history-ephemeral-btn'));
+    expect(reattachStream).not.toHaveBeenCalled();
+    expect(clearConversation).toHaveBeenCalled();
+    expect(startEphemeral).toHaveBeenCalledTimes(1);
+  });
+
+  it('switching from active ephemeral stream never detaches into persisted thread', async () => {
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn();
+    const loadThread = vi.fn();
+    const stopStreaming = vi.fn();
+    const switchThreadFn = vi.fn().mockReturnValue({
+      messages: [makeUserMessage('Saved'), makeAssistantMessage('Saved done', false)],
+      previousResponseId: 'resp-saved',
+      uploadedFileIds: [],
+    });
+
+    // First render: persisted thread view, with ephemeral stream waiting in background
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages: [makeUserMessage('Saved')], isStreaming: false, detachStream, reattachStream, loadThread })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-valid',
+        isEphemeral: false,
+        threads: [{ id: 'thread-valid', title: 'Saved Thread', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: 'resp-valid', uploadedFileIds: [] }],
+        switchThread: switchThreadFn,
+      })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('history-ephemeral-btn'));
+
+    // Second render: user is now in ephemeral mode with active ephemeral stream
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [makeUserMessage('ephemeral'), makeAssistantMessage('Still streaming', true)],
+        isStreaming: true,
+        stopStreaming,
+        detachStream,
+        reattachStream,
+        loadThread,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: null,
+        isEphemeral: true,
+        threads: [{ id: 'thread-valid', title: 'Saved Thread', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: 'resp-valid', uploadedFileIds: [] }],
+        switchThread: switchThreadFn,
+      })
+    );
+    rerender(<ChatContainer />);
+
+    // Switch to a persisted thread while ephemeral stream is active:
+    // it must stop streaming, not detach to any thread.
+    await userEvent.click(screen.getByTestId('switch-thread-btn'));
+    expect(stopStreaming).toHaveBeenCalled();
+    expect(detachStream).not.toHaveBeenCalled();
   });
 });
 
@@ -354,6 +585,37 @@ describe('Title generation', () => {
       assistantMsg.content,
     );
     await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
+
+  it('shows "Ephemeral Chat" title when ephemeral mode is active', async () => {
+    mockUseChat.mockReturnValue(makeChatReturn({ messages: [], isStreaming: false }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: null, isEphemeral: true }));
+
+    render(<ChatContainer />);
+    expect(screen.getByRole('heading', { name: 'Ephemeral Chat' })).toBeInTheDocument();
+  });
+
+  it('does not generate title after first exchange (more than 2 messages)', async () => {
+    const messages = [
+      makeUserMessage('First'),
+      makeAssistantMessage('First reply', false),
+      makeUserMessage('Second'),
+      makeAssistantMessage('Second reply', false),
+    ];
+    const updateThreadTitle = vi.fn();
+    mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: false }));
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-123',
+        threads: [{ id: 'thread-123', title: 'New Chat', createdAt: 1, updatedAt: 2, messages, previousResponseId: 'resp-2', uploadedFileIds: [] }],
+        updateThreadTitle,
+      })
+    );
+
+    render(<ChatContainer />);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(mockGenerateThreadTitle).not.toHaveBeenCalled();
+    expect(updateThreadTitle).not.toHaveBeenCalled();
   });
 
   it('falls back to the main model when the title model fails and models differ', async () => {
@@ -505,7 +767,7 @@ describe('Auto-save effect: first exchange saved after stream completes (Bug 1 r
     rerender(<ChatContainer />);
 
     await waitFor(() => expect(updateThread).toHaveBeenCalled());
-    expect(updateThread).toHaveBeenCalledWith('thread-new', [userMsg, assistantDone], null);
+    expect(updateThread).toHaveBeenCalledWith('thread-new', [userMsg, assistantDone], null, []);
   });
 });
 
@@ -525,13 +787,13 @@ describe('handleNewChat: tracks detached stream in backgroundStreamingThreadIds 
     render(<ChatContainer />);
     await userEvent.click(screen.getByTestId('new-chat-btn'));
 
-    expect(detachStream).toHaveBeenCalledWith('thread-abc', messages, expect.any(Function));
+    expect(detachStream).toHaveBeenCalledWith('thread-abc', messages, [], expect.any(Function));
 
     // Fire the onComplete callback — updateThread must be called with the detached thread ID
-    const onComplete = detachStream.mock.calls[0][2] as (msgs: Message[], prevId: string | null) => void;
+    const onComplete = detachStream.mock.calls[0][3] as (msgs: Message[], prevId: string | null, uploadedFileIds: string[]) => void;
     const finalMessages = [...messages, makeAssistantMessage('Final', false)];
-    act(() => { onComplete(finalMessages, 'resp-1'); });
-    expect(updateThread).toHaveBeenCalledWith('thread-abc', finalMessages, 'resp-1');
+    act(() => { onComplete(finalMessages, 'resp-1', []); });
+    expect(updateThread).toHaveBeenCalledWith('thread-abc', finalMessages, 'resp-1', []);
   });
 });
 
@@ -541,7 +803,7 @@ describe('handleNewChat: tracks detached stream in backgroundStreamingThreadIds 
 
 describe('handleSwitchThread: does not block title generation for "New Chat" threads (Bug 3 regression)', () => {
   function makeThread(id: string, title: string, msgs: Message[]): Thread {
-    return { id, title, messages: msgs, previousResponseId: null, createdAt: Date.now(), updatedAt: Date.now() };
+    return { id, title, messages: msgs, previousResponseId: null, uploadedFileIds: [], createdAt: Date.now(), updatedAt: Date.now() };
   }
 
   it('generates a title when switching away from an untitled ("New Chat") thread that has a completed conversation', async () => {
@@ -549,7 +811,7 @@ describe('handleSwitchThread: does not block title generation for "New Chat" thr
     const assistantMsg = makeAssistantMessage('Hi there', false);
     const threadMessages = [userMsg, assistantMsg];
     const updateThreadTitle = vi.fn();
-    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null });
+    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null, uploadedFileIds: [] });
     const loadThread = vi.fn();
     const untitledThread = makeThread('thread-untitled', 'New Chat', threadMessages);
 
@@ -593,7 +855,7 @@ describe('handleSwitchThread: does not block title generation for "New Chat" thr
     const assistantMsg = makeAssistantMessage('Hi there', false);
     const threadMessages = [userMsg, assistantMsg];
     const updateThreadTitle = vi.fn();
-    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null });
+    const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null, uploadedFileIds: [] });
     const loadThread = vi.fn();
     const titledThread = makeThread('thread-untitled', 'My Real Title', threadMessages);
 
@@ -672,9 +934,9 @@ describe('triggerTitleGeneration: called when switching away from completed conv
     expect(detachStream).toHaveBeenCalledTimes(1);
 
     // Fire onComplete with a completed conversation
-    const onComplete = detachStream.mock.calls[0][2] as (msgs: Message[], prevId: string | null) => void;
+    const onComplete = detachStream.mock.calls[0][3] as (msgs: Message[], prevId: string | null, uploadedFileIds: string[]) => void;
     const finalMessages = [makeUserMessage('Question'), makeAssistantMessage('Full answer', false)];
-    act(() => { onComplete(finalMessages, 'resp-1'); });
+    act(() => { onComplete(finalMessages, 'resp-1', []); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(

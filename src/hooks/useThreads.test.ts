@@ -80,7 +80,7 @@ describe('useThreads', () => {
     const messages = [createMessage('user', 'Hello'), createMessage('assistant', 'Hi!')];
     let threadId: string;
     act(() => {
-      threadId = result.current.createThread(messages, 'resp_123');
+      threadId = result.current.createThread(messages, 'resp_123', []);
     });
 
     expect(result.current.threads).toHaveLength(1);
@@ -97,7 +97,7 @@ describe('useThreads', () => {
 
     let threadId: string;
     act(() => {
-      threadId = result.current.createThread([createMessage('user', 'Hello')], null);
+      threadId = result.current.createThread([createMessage('user', 'Hello')], null, []);
     });
     expect(result.current.threads).toHaveLength(1);
 
@@ -116,8 +116,8 @@ describe('useThreads', () => {
 
     let id1: string;
     let id2: string;
-    act(() => { id1 = result.current.createThread([createMessage('user', 'First thread')], 'resp_1'); });
-    act(() => { id2 = result.current.createThread([createMessage('user', 'Second thread')], 'resp_2'); });
+    act(() => { id1 = result.current.createThread([createMessage('user', 'First thread')], 'resp_1', []); });
+    act(() => { id2 = result.current.createThread([createMessage('user', 'Second thread')], 'resp_2', []); });
 
     expect(result.current.activeThreadId).toBe(id2!);
 
@@ -136,7 +136,7 @@ describe('useThreads', () => {
     await waitForLoad(result);
 
     let threadId: string;
-    act(() => { threadId = result.current.createThread([createMessage('user', 'Hello')], null); });
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hello')], null, []); });
     act(() => { result.current.updateThreadTitle(threadId!, 'My Custom Title'); });
 
     expect(result.current.threads[0].title).toBe('My Custom Title');
@@ -170,7 +170,7 @@ describe('useThreads', () => {
     const { result } = renderHook(() => useThreads());
     await waitForLoad(result);
 
-    act(() => { result.current.createThread([createMessage('user', 'Persisted')], null); });
+    act(() => { result.current.createThread([createMessage('user', 'Persisted')], null, []); });
 
     expect(putThread).toHaveBeenCalledOnce();
   });
@@ -179,8 +179,8 @@ describe('useThreads', () => {
     const { result } = renderHook(() => useThreads());
     await waitForLoad(result);
 
-    act(() => { result.current.createThread([createMessage('user', 'Old')], null); });
-    act(() => { result.current.createThread([createMessage('user', 'New')], null); });
+    act(() => { result.current.createThread([createMessage('user', 'Old')], null, []); });
+    act(() => { result.current.createThread([createMessage('user', 'New')], null, []); });
 
     expect(result.current.threads[0].messages[0].content).toBe('New');
   });
@@ -190,7 +190,7 @@ describe('useThreads', () => {
     await waitForLoad(result);
 
     const streamingMsg: Message = { ...createMessage('assistant', 'Partial'), isStreaming: true };
-    act(() => { result.current.createThread([createMessage('user', 'Hello'), streamingMsg], null); });
+    act(() => { result.current.createThread([createMessage('user', 'Hello'), streamingMsg], null, []); });
 
     const savedThread = vi.mocked(putThread).mock.calls[0][0] as Thread;
     // The hook stores the live Thread (with real Dates); serialization happens inside putThread/threadStorage
@@ -206,6 +206,7 @@ describe('useThreads', () => {
       updatedAt: 2000,
       messages: [],
       previousResponseId: null,
+      uploadedFileIds: [],
     };
     mockDb.set(thread.id, thread);
     vi.mocked(getAllThreads).mockResolvedValue([thread]);
@@ -242,8 +243,8 @@ describe('useThreads', () => {
     const { result } = renderHook(() => useThreads());
     await waitForLoad(result);
 
-    act(() => { result.current.createThread([createMessage('user', 'Hi')], null); });
-    act(() => { result.current.createThread([createMessage('user', 'Hello')], null); });
+    act(() => { result.current.createThread([createMessage('user', 'Hi')], null, []); });
+    act(() => { result.current.createThread([createMessage('user', 'Hello')], null, []); });
     expect(result.current.threads).toHaveLength(2);
 
     act(() => { result.current.clearAllThreads(); });

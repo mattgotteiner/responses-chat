@@ -263,6 +263,38 @@ describe('useChat - sendMessage request payload', () => {
       );
     });
   });
+
+  it('reuses uploaded file IDs from loaded thread when code interpreter is enabled', async () => {
+    const mockClient = makeMockClient(() => completedStream());
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.loadThread([], 'resp-prev', ['file_1']);
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('Use prior files', { ...testSettings, codeInterpreterEnabled: true });
+    });
+
+    await waitFor(() => {
+      expect(result.current.isStreaming).toBe(false);
+    });
+
+    expect(mockClient.responses.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'code_interpreter',
+            container: expect.objectContaining({
+              file_ids: ['file_1'],
+            }),
+          }),
+        ]),
+      }),
+      expect.anything()
+    );
+  });
 });
 
 /**
@@ -307,7 +339,7 @@ describe('useChat - detachStream and reattachStream', () => {
     const { result } = renderHook(() => useChat());
     const onComplete = vi.fn();
     act(() => {
-      result.current.detachStream('thread-1', [], onComplete);
+      result.current.detachStream('thread-1', [], [], onComplete);
     });
     expect(result.current.isStreaming).toBe(false);
     expect(onComplete).not.toHaveBeenCalled();
@@ -324,7 +356,7 @@ describe('useChat - detachStream and reattachStream', () => {
     const msgs = [...result.current.messages];
     const onComplete = vi.fn();
     act(() => {
-      result.current.detachStream('thread-1', msgs, onComplete);
+      result.current.detachStream('thread-1', msgs, [], onComplete);
     });
 
     // isStreaming drops immediately
@@ -354,7 +386,7 @@ describe('useChat - detachStream and reattachStream', () => {
 
     // Detach it
     act(() => {
-      result.current.detachStream('thread-1', [...result.current.messages], vi.fn());
+      result.current.detachStream('thread-1', [...result.current.messages], [], vi.fn());
     });
     expect(result.current.isStreaming).toBe(false);
 
@@ -385,7 +417,7 @@ describe('useChat - detachStream and reattachStream', () => {
     const msgs = [...result.current.messages];
     const onComplete = vi.fn();
     act(() => {
-      result.current.detachStream('thread-1', msgs, onComplete);
+      result.current.detachStream('thread-1', msgs, [], onComplete);
     });
     expect(result.current.isStreaming).toBe(false);
 
@@ -431,7 +463,7 @@ describe('useChat - unmount cleanup', () => {
     // We do this indirectly: detach the stream, unmount, then verify onComplete was never called
     // and the stream doesn't cause state updates after unmount.
     act(() => {
-      result.current.detachStream('thread-1', [...result.current.messages], onComplete);
+      result.current.detachStream('thread-1', [...result.current.messages], [], onComplete);
     });
     expect(result.current.isStreaming).toBe(false);
 

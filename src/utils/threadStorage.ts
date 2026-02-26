@@ -40,6 +40,7 @@ export async function getAllThreads(): Promise<Thread[]> {
   const stored = await db.threads.orderBy('updatedAt').reverse().toArray();
   return stored.map((t) => ({
     ...t,
+    uploadedFileIds: t.uploadedFileIds ?? [],
     messages: deserializeMessages(t.messages),
   }));
 }
@@ -54,6 +55,7 @@ export async function putThread(thread: Thread): Promise<void> {
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
     previousResponseId: thread.previousResponseId,
+    uploadedFileIds: thread.uploadedFileIds,
     messages: serializeMessages(thread.messages),
   };
   await db.threads.put(stored);

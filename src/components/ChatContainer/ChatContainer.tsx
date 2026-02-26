@@ -27,7 +27,7 @@ export function ChatContainer() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, previousResponseId } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, previousResponseId, uploadedFileIds } = useChat();
   const {
     threads,
     activeThreadId,
@@ -51,18 +51,24 @@ export function ChatContainer() {
   const [backgroundStreamingThreadIds, setBackgroundStreamingThreadIds] = useState<Set<string>>(new Set());
   // Guard: ensure the restore-on-load logic runs at most once
   const hasRestoredRef = useRef(false);
+  // Keep latest threads available inside async callbacks (e.g., title generation)
+  const threadsRef = useRef(threads);
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   // Restore the active thread once IndexedDB has finished loading
   useEffect(() => {
     if (threadsLoading || hasRestoredRef.current) return;
     hasRestoredRef.current = true;
-    if (activeThreadId) {
-      const thread = threads.find((t) => t.id === activeThreadId);
-      if (thread) {
-        loadThread(thread.messages, thread.previousResponseId);
-        prevMessageCountRef.current = thread.messages.length;
-        titleGeneratedRef.current = activeThreadId;
-      } else {
+        if (activeThreadId) {
+          const thread = threads.find((t) => t.id === activeThreadId);
+          if (thread) {
+          loadThread(thread.messages, thread.previousResponseId, thread.uploadedFileIds);
+          prevMessageCountRef.current = thread.messages.length;
+          titleGeneratedRef.current = activeThreadId;
+        } else {
         startNewChat(); // stored ID no longer valid
       }
     }
@@ -128,7 +134,9 @@ export function ChatContainer() {
    */
   const triggerTitleGeneration = useCallback(
     (threadId: string, msgs: Message[]) => {
-      if (titleGeneratedRef.current === threadId || !isConfigured || msgs.length < 2) return;
+      if (titleGeneratedRef.current === threadId || !isConfigured || msgs.length !== 2) return;
+      const currentThread = threadsRef.current.find((t) => t.id === threadId);
+      if (currentThread && currentThread.title !== 'New Chat') return;
       const userMsg = msgs[0];
       const assistantMsg = msgs[1];
       if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
@@ -144,7 +152,10 @@ export function ChatContainer() {
           return undefined;
         })
         .then((title) => {
-          if (title) updateThreadTitle(threadId, title);
+          const latestThread = threadsRef.current.find((t) => t.id === threadId);
+          if (title && (!latestThread || latestThread.title === 'New Chat')) {
+            updateThreadTitle(threadId, title);
+          }
         })
         .catch(() => {});
     },
@@ -153,8 +164,36 @@ export function ChatContainer() {
 
   const handleSwitchThread = useCallback(
     (id: string) => {
+      if (isStreaming && isEphemeral) {
+        stopStreaming();
+        clearConversation();
+        prevMessageCountRef.current = 0;
+      }
+
       // Re-attach if the user is switching back to a background-streaming thread
       if (backgroundStreamingThreadIds.has(id)) {
+        // If the currently viewed thread is also streaming, detach it first so its
+        // stream keeps running in the background while we re-attach the target thread.
+        if (isStreaming && !isEphemeral) {
+          let currentThreadId = activeThreadId;
+          if (!currentThreadId) {
+            currentThreadId = createThread(messages, previousResponseId, uploadedFileIds);
+          }
+          if (currentThreadId !== id) {
+            const threadIdForCallback = currentThreadId;
+            detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
+              updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
+              triggerTitleGeneration(threadIdForCallback, finalMessages);
+              setBackgroundStreamingThreadIds((prev) => {
+                const next = new Set(prev);
+                next.delete(threadIdForCallback);
+                return next;
+              });
+            });
+            setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+          }
+        }
+
         const buffer = reattachStream(id);
         setBackgroundStreamingThreadIds((prev) => {
           const next = new Set(prev);
@@ -165,7 +204,11 @@ export function ChatContainer() {
           // Trick auto-save effect: make count appear lower so it fires when stream completes
           prevMessageCountRef.current = buffer.length - 1;
         }
-        switchThread(id); // update activeThreadId; ignore returned messages (buffer is current)
+        const data = switchThread(id);
+        if (!buffer && data) {
+          loadThread(data.messages, data.previousResponseId, data.uploadedFileIds);
+          prevMessageCountRef.current = data.messages.length;
+        }
         // Only mark as "titled" if the thread already has a real title — otherwise
         // triggerTitleGeneration (called from onComplete) must be allowed to run.
         const reattachedThread = threads.find((t) => t.id === id);
@@ -179,12 +222,12 @@ export function ChatContainer() {
       if (isStreaming && !isEphemeral) {
         let targetThreadId = activeThreadId;
         if (!targetThreadId) {
-          targetThreadId = createThread(messages, previousResponseId);
+          targetThreadId = createThread(messages, previousResponseId, uploadedFileIds);
         }
         const threadIdForCallback = targetThreadId;
         const currentMessages = messages;
-        detachStream(threadIdForCallback, currentMessages, (finalMessages, finalPrevResponseId) => {
-          updateThread(threadIdForCallback, finalMessages, finalPrevResponseId);
+        detachStream(threadIdForCallback, currentMessages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
+          updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
           triggerTitleGeneration(threadIdForCallback, finalMessages);
           setBackgroundStreamingThreadIds((prev) => {
             const next = new Set(prev);
@@ -200,7 +243,7 @@ export function ChatContainer() {
 
       const data = switchThread(id);
       if (data) {
-        loadThread(data.messages, data.previousResponseId);
+        loadThread(data.messages, data.previousResponseId, data.uploadedFileIds);
         // Reset count to the new thread's size so the auto-save effect doesn't
         // misfire against this thread when the background stream eventually sets
         // isStreaming=false and causes a re-run with a stale prevMessageCountRef.
@@ -212,7 +255,7 @@ export function ChatContainer() {
         }
       }
     },
-    [switchThread, loadThread, detachStream, reattachStream, isStreaming, isEphemeral, activeThreadId, updateThread, createThread, messages, previousResponseId, backgroundStreamingThreadIds, threads, triggerTitleGeneration]
+    [switchThread, loadThread, detachStream, reattachStream, isStreaming, isEphemeral, activeThreadId, updateThread, createThread, messages, previousResponseId, uploadedFileIds, backgroundStreamingThreadIds, threads, triggerTitleGeneration, stopStreaming, clearConversation]
   );
 
   const handleDeleteThread = useCallback(
@@ -221,7 +264,7 @@ export function ChatContainer() {
         // Stop any in-flight stream first — otherwise it would keep writing to
         // messages after clearConversation(), and the auto-save effect would create
         // a phantom thread (activeThreadId=null + messages>0).
-        if (isStreaming) stopStreaming();
+      if (isStreaming) stopStreaming();
         clearConversation();
         prevMessageCountRef.current = 0;
       }
@@ -234,21 +277,19 @@ export function ChatContainer() {
     // If a stream is running, detach it to background so the response is saved when complete.
     // Track in backgroundStreamingThreadIds so the user can reattach if they navigate back.
     if (isStreaming && !isEphemeral) {
-      if (activeThreadId) {
-        const threadIdForCallback = activeThreadId;
-        detachStream(threadIdForCallback, messages, (finalMessages, finalPrevResponseId) => {
-          updateThread(threadIdForCallback, finalMessages, finalPrevResponseId);
-          triggerTitleGeneration(threadIdForCallback, finalMessages);
-          setBackgroundStreamingThreadIds((prev) => {
-            const next = new Set(prev);
-            next.delete(threadIdForCallback);
-            return next;
-          });
+      const threadIdForCallback = activeThreadId ?? createThread(messages, previousResponseId, uploadedFileIds);
+      detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
+        updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
+        triggerTitleGeneration(threadIdForCallback, finalMessages);
+        setBackgroundStreamingThreadIds((prev) => {
+          const next = new Set(prev);
+          next.delete(threadIdForCallback);
+          return next;
         });
-        setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
-      } else {
-        stopStreaming();
-      }
+      });
+      setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+    } else if (isStreaming && isEphemeral) {
+      stopStreaming();
     } else if (activeThreadId) {
       // Not streaming — generate title now before clearing (auto-save effect may be skipped)
       triggerTitleGeneration(activeThreadId, messages);
@@ -262,14 +303,17 @@ export function ChatContainer() {
       startNewChat();
     }
     titleGeneratedRef.current = null;
-  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, updateThread, triggerTitleGeneration, stopStreaming, clearConversation, startNewChat, startEphemeral, settings.noLocalStorage]);
+  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, uploadedFileIds, previousResponseId, createThread, updateThread, triggerTitleGeneration, clearConversation, stopStreaming, startNewChat, startEphemeral, settings.noLocalStorage]);
 
   const handleNewEphemeralChat = useCallback(() => {
+    if (isStreaming && isEphemeral) {
+      stopStreaming();
+    }
     clearConversation();
     prevMessageCountRef.current = 0;
     startEphemeral();
     titleGeneratedRef.current = null;
-  }, [clearConversation, startEphemeral]);
+  }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming]);
 
   // Force ephemeral mode whenever "Don't save settings" is enabled
   useEffect(() => {
@@ -293,7 +337,7 @@ export function ChatContainer() {
     // arrives. This ensures handleNewChat / handleSwitchThread always have a thread
     // to detach an in-flight stream to, even if the user navigates away mid-stream.
     if (!activeThreadId) {
-      createThread(messages, previousResponseId);
+      createThread(messages, previousResponseId, uploadedFileIds);
       // Set one below length so that streaming completion (same count, isStreaming→false)
       // still satisfies isNewAssistantReply = (length > length-1) = TRUE and triggers
       // updateThread with the finalised (non-streaming) assistant message.
@@ -312,15 +356,15 @@ export function ChatContainer() {
 
     if (isNewAssistantReply) {
       // Persist the completed response
-      updateThread(activeThreadId, messages, previousResponseId);
+      updateThread(activeThreadId, messages, previousResponseId, uploadedFileIds);
       triggerTitleGeneration(activeThreadId, messages);
     } else if (messages.length !== prevMessageCountRef.current) {
       // Save message-count changes not covered above (e.g., after a retry)
-      updateThread(activeThreadId, messages, previousResponseId);
+      updateThread(activeThreadId, messages, previousResponseId, uploadedFileIds);
     }
 
     prevMessageCountRef.current = messages.length;
-  }, [messages, isStreaming, isEphemeral, activeThreadId, previousResponseId, createThread, updateThread, triggerTitleGeneration, settings.noLocalStorage]);
+  }, [messages, isStreaming, isEphemeral, activeThreadId, previousResponseId, uploadedFileIds, createThread, updateThread, triggerTitleGeneration, settings.noLocalStorage]);
 
   const inputPlaceholder = isConfigured
     ? undefined
@@ -334,7 +378,7 @@ export function ChatContainer() {
 
   // Derive the display title for the header
   const activeThread = activeThreadId ? threads.find((t) => t.id === activeThreadId) : null;
-  const headerTitle = activeThread ? activeThread.title : 'Responses Chat';
+  const headerTitle = isEphemeral ? 'Ephemeral Chat' : activeThread ? activeThread.title : 'Responses Chat';
 
   return (
     <div className="chat-container">

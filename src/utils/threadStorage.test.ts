@@ -59,6 +59,7 @@ function makeThread(id: string, overrides: Partial<Thread> = {}): Thread {
     createdAt: 1000,
     updatedAt: 2000,
     previousResponseId: null,
+    uploadedFileIds: [],
     messages: [],
     ...overrides,
   };
@@ -88,6 +89,7 @@ describe('getAllThreads', () => {
       createdAt: 1000,
       updatedAt: 2000,
       previousResponseId: null,
+      uploadedFileIds: [],
       messages: [
         { id: 'msg1', role: 'user', content: 'Hi', timestamp: isoDate },
       ],
