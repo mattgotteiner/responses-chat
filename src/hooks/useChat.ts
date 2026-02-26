@@ -751,6 +751,9 @@ export function useChat(): UseChatReturn {
       const existingFileCitations = targetMessage.fileCitations || [];
       const existingContainerFileCitations = targetMessage.containerFileCitations || [];
       const targetMessageId = targetMessage.id;
+      // Register as the foreground stream so detachStream can properly capture
+      // and detach it if the user switches threads while the approval streams.
+      foregroundStreamIdRef.current = targetMessageId;
 
       // Mark the target message as streaming again
       setMessages((prev) =>
@@ -797,7 +800,7 @@ export function useChat(): UseChatReturn {
           const mergedFileCitations = [...existingFileCitations, ...acc.fileCitations];
           const mergedContainerFileCitations = [...existingContainerFileCitations, ...acc.containerFileCitations];
 
-          setMessages((prev) =>
+          const applyUpdate = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? {
@@ -811,8 +814,14 @@ export function useChat(): UseChatReturn {
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg
-            )
-          );
+            );
+          // Route to background buffer if the stream was detached while running
+          const bgStream = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStream) {
+            bgStream.messages = applyUpdate(bgStream.messages);
+          } else {
+            setMessages(applyUpdate);
+          }
         };
 
         for await (const event of stream as AsyncIterable<StreamEvent>) {
@@ -823,7 +832,12 @@ export function useChat(): UseChatReturn {
             updateMessageFromAccumulator(accumulator);
           }
           if (accumulator.responseId) {
-            previousResponseIdRef.current = accumulator.responseId;
+            const bgStream = backgroundStreamsRef.current.get(targetMessageId);
+            if (bgStream) {
+              bgStream.previousResponseId = accumulator.responseId;
+            } else {
+              previousResponseIdRef.current = accumulator.responseId;
+            }
             // Terminal event received — break so we don't hang waiting for transport close.
             break;
           }
@@ -832,31 +846,52 @@ export function useChat(): UseChatReturn {
         // Store final accumulator to check for pending approvals
         finalAccumulator = accumulator;
 
-        setMessages((prev) =>
+        const completionUpdater = (prev: Message[]) =>
           prev.map((msg) =>
             msg.id === targetMessageId ? { ...msg, isStreaming: false } : msg
-          )
-        );
+          );
+        const bgStreamComplete = backgroundStreamsRef.current.get(targetMessageId);
+        if (bgStreamComplete) {
+          bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
+          bgStreamComplete.onComplete(bgStreamComplete.messages, bgStreamComplete.previousResponseId, bgStreamComplete.uploadedFileIds);
+          backgroundStreamsRef.current.delete(targetMessageId);
+        } else {
+          setMessages(completionUpdater);
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          setMessages((prev) =>
+          const abortUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? { ...msg, isStreaming: false, isStopped: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamAbort = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStreamAbort) {
+            bgStreamAbort.messages = abortUpdater(bgStreamAbort.messages);
+            bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId, bgStreamAbort.uploadedFileIds);
+            backgroundStreamsRef.current.delete(targetMessageId);
+          } else {
+            setMessages(abortUpdater);
+          }
         } else {
           const errorMessage =
             err instanceof Error ? err.message : 'An unknown error occurred';
           setError(errorMessage);
-          setMessages((prev) =>
+          const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? { ...msg, content: msg.content + `\n\nError: ${errorMessage}`, isStreaming: false, isError: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamError = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStreamError) {
+            bgStreamError.messages = errorUpdater(bgStreamError.messages);
+            bgStreamError.onComplete(bgStreamError.messages, bgStreamError.previousResponseId, bgStreamError.uploadedFileIds);
+            backgroundStreamsRef.current.delete(targetMessageId);
+          } else {
+            setMessages(errorUpdater);
+          }
         }
       } finally {
         // Check for pending approvals - if any, don't finalize recording yet
@@ -871,8 +906,13 @@ export function useChat(): UseChatReturn {
         }
         // If pending approvals, keep recording session alive for next approval
         
-        setIsStreaming(false);
-        abortControllerRef.current = null;
+        // Only clear foreground streaming state if this stream is still the foreground one.
+        // If it was detached, isStreaming was already cleared by detachStream.
+        if (foregroundStreamIdRef.current === targetMessageId) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          foregroundStreamIdRef.current = null;
+        }
       }
     },
     [messages]

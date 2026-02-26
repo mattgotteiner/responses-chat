@@ -293,6 +293,24 @@ describe('handleNewChat: streaming behaviour', () => {
     expect(stopStreaming).toHaveBeenCalledTimes(1);
   });
 
+  it('detaches non-ephemeral stream to background when switching to ephemeral chat', async () => {
+    const detachStream = vi.fn();
+    const stopStreaming = vi.fn();
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages, isStreaming: true, detachStream, stopStreaming })
+    );
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-123', isEphemeral: false }));
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('history-ephemeral-btn'));
+
+    // Non-ephemeral streaming: should detach (not stop) so the old thread is preserved
+    expect(detachStream).toHaveBeenCalledTimes(1);
+    expect(stopStreaming).not.toHaveBeenCalled();
+  });
+
   it('calls updateThread via detach callback when background stream completes', async () => {
     const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
     const detachStream = vi.fn();

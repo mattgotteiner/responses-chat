@@ -7,6 +7,8 @@ import type { Thread, Message } from '../types';
 import {
   getAllThreads,
   putThread,
+  updateThreadData,
+  updateThreadTitle as updateThreadTitleInDb,
   deleteThread as deleteThreadFromDb,
   clearAllThreads as clearAllThreadsFromDb,
   getActiveThreadId,
@@ -150,18 +152,17 @@ export function useThreads(): UseThreadsReturn {
       setThreads((prev) =>
         prev.map((t) => (t.id === id ? { ...t, messages, previousResponseId, uploadedFileIds, updatedAt } : t))
       );
-      // Write to IDB outside the updater so it stays pure (no side effects in updater)
-      const existing = threadsRef.current.find((t) => t.id === id);
-      if (existing) void putThread({ ...existing, messages, previousResponseId, uploadedFileIds, updatedAt });
+      // Partial IDB update — avoids the stale-ref race where reading threadsRef
+      // and doing a full putThread could overwrite concurrent field changes.
+      void updateThreadData(id, messages, previousResponseId, uploadedFileIds, updatedAt);
     },
     []
   );
 
   const updateThreadTitle = useCallback((id: string, title: string) => {
     setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, title } : t)));
-    // Write to IDB outside the updater so it stays pure
-    const existing = threadsRef.current.find((t) => t.id === id);
-    if (existing) void putThread({ ...existing, title });
+    // Partial IDB update — only touches the title field, never touches messages.
+    void updateThreadTitleInDb(id, title);
   }, []);
 
   const startNewChat = useCallback(() => {

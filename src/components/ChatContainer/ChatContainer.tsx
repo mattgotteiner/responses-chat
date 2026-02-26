@@ -307,13 +307,27 @@ export function ChatContainer() {
 
   const handleNewEphemeralChat = useCallback(() => {
     if (isStreaming && isEphemeral) {
+      // Ephemeral streams are always discarded on navigation
       stopStreaming();
+    } else if (isStreaming && !isEphemeral) {
+      // Non-ephemeral stream: detach to background so the current thread is saved
+      const threadIdForCallback = activeThreadId ?? createThread(messages, previousResponseId, uploadedFileIds);
+      detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
+        updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
+        triggerTitleGeneration(threadIdForCallback, finalMessages);
+        setBackgroundStreamingThreadIds((prev) => {
+          const next = new Set(prev);
+          next.delete(threadIdForCallback);
+          return next;
+        });
+      });
+      setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
     }
     clearConversation();
     prevMessageCountRef.current = 0;
     startEphemeral();
     titleGeneratedRef.current = null;
-  }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming]);
+  }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming, activeThreadId, createThread, messages, previousResponseId, uploadedFileIds, detachStream, updateThread, triggerTitleGeneration]);
 
   // Force ephemeral mode whenever "Don't save settings" is enabled
   useEffect(() => {

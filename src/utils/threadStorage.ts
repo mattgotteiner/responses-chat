@@ -62,6 +62,35 @@ export async function putThread(thread: Thread): Promise<void> {
 }
 
 /**
+ * Partially update only the message-related fields of a thread.
+ * Avoids the stale-ref race where a concurrent title update would read
+ * an out-of-date messages list and overwrite it.
+ */
+export async function updateThreadData(
+  id: string,
+  messages: Message[],
+  previousResponseId: string | null,
+  uploadedFileIds: string[],
+  updatedAt: number
+): Promise<void> {
+  await db.threads.update(id, {
+    messages: serializeMessages(messages),
+    previousResponseId,
+    uploadedFileIds,
+    updatedAt,
+  });
+}
+
+/**
+ * Partially update only the title of a thread.
+ * Avoids the stale-ref race where a concurrent message update would overwrite
+ * the newly-set title with the stale messages list.
+ */
+export async function updateThreadTitle(id: string, title: string): Promise<void> {
+  await db.threads.update(id, { title });
+}
+
+/**
  * Delete a thread from IndexedDB by ID.
  */
 export async function deleteThread(id: string): Promise<void> {

@@ -15,6 +15,8 @@ const mockDb: Map<string, Thread> = new Map();
 vi.mock('../utils/threadStorage', () => ({
   getAllThreads: vi.fn(async () => Array.from(mockDb.values())),
   putThread: vi.fn(async (thread: Thread) => { mockDb.set(thread.id, thread); }),
+  updateThreadData: vi.fn(async () => {}),
+  updateThreadTitle: vi.fn(async () => {}),
   deleteThread: vi.fn(async (id: string) => { mockDb.delete(id); }),
   clearAllThreads: vi.fn(async () => { mockDb.clear(); }),
   getActiveThreadId: vi.fn(() => null),
@@ -24,6 +26,8 @@ vi.mock('../utils/threadStorage', () => ({
 import {
   getAllThreads,
   putThread,
+  updateThreadData,
+  updateThreadTitle as updateThreadTitleMock,
   deleteThread as deleteThreadMock,
   clearAllThreads as clearAllThreadsMock,
   getActiveThreadId,
@@ -59,6 +63,8 @@ describe('useThreads', () => {
     // Reset mocks to default behaviour
     vi.mocked(getAllThreads).mockImplementation(async () => Array.from(mockDb.values()));
     vi.mocked(putThread).mockImplementation(async (thread) => { mockDb.set(thread.id, thread); });
+    vi.mocked(updateThreadData).mockImplementation(async () => {});
+    vi.mocked(updateThreadTitleMock).mockImplementation(async () => {});
     vi.mocked(deleteThreadMock).mockImplementation(async (id) => { mockDb.delete(id); });
     vi.mocked(getActiveThreadId).mockReturnValue(null);
     vi.mocked(saveActiveThreadId).mockImplementation(() => {});
@@ -140,7 +146,7 @@ describe('useThreads', () => {
     act(() => { result.current.updateThreadTitle(threadId!, 'My Custom Title'); });
 
     expect(result.current.threads[0].title).toBe('My Custom Title');
-    expect(putThread).toHaveBeenLastCalledWith(expect.objectContaining({ id: threadId!, title: 'My Custom Title' }));
+    expect(updateThreadTitleMock).toHaveBeenCalledWith(threadId!, 'My Custom Title');
   });
 
   it('starts ephemeral chat', async () => {
@@ -253,5 +259,40 @@ describe('useThreads', () => {
     expect(result.current.activeThreadId).toBeNull();
     expect(clearAllThreadsMock).toHaveBeenCalledOnce();
     expect(saveActiveThreadId).toHaveBeenLastCalledWith(null);
+  });
+
+  it('updateThread uses partial IDB update (not full putThread)', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    let threadId: string;
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hi')], 'resp_1', []); });
+
+    const newMessages = [createMessage('user', 'Hi'), createMessage('assistant', 'Hello!')];
+    act(() => { result.current.updateThread(threadId!, newMessages, 'resp_2', []); });
+
+    expect(updateThreadData).toHaveBeenCalledWith(
+      threadId!,
+      newMessages,
+      'resp_2',
+      [],
+      expect.any(Number)
+    );
+    // putThread should only have been called once (for createThread), not for updateThread
+    expect(putThread).toHaveBeenCalledOnce();
+  });
+
+  it('updateThreadTitle uses partial IDB update and never overwrites messages', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    let threadId: string;
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hi')], null, []); });
+    act(() => { result.current.updateThreadTitle(threadId!, 'My Title'); });
+
+    // Only the title-specific helper is called — not a full putThread with potentially stale messages
+    expect(updateThreadTitleMock).toHaveBeenCalledWith(threadId!, 'My Title');
+    // putThread should only have been called once (for createThread)
+    expect(putThread).toHaveBeenCalledOnce();
   });
 });
