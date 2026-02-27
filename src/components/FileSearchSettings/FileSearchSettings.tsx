@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { Settings, VectorStore, VectorStoreFile, VectorStoreCache } from '../../types';
-import { FILE_SEARCH_EXPIRATION_OPTIONS, DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES } from '../../types';
 import { createAzureClient } from '../../utils/api';
 import {
   listVectorStores,
@@ -14,7 +13,6 @@ import {
   uploadFileToVectorStore,
   deleteFileFromVectorStore,
   formatFileSize,
-  getExpirationStatus,
   MAX_VECTOR_STORE_FILE_SIZE,
 } from '../../utils/vectorStore';
 import './FileSearchSettings.css';
@@ -91,13 +89,6 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
   // Create store form state
   const [isCreating, setIsCreating] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
-  // Normalize expiration to valid option values (API only supports days)
-  const [newStoreExpiration, setNewStoreExpiration] = useState(() => {
-    const value = settings.fileSearchExpirationMinutes ?? DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES;
-    // Find the matching option or fall back to default
-    const validOption = FILE_SEARCH_EXPIRATION_OPTIONS.find(opt => opt.value === value);
-    return validOption ? validOption.value : DEFAULT_FILE_SEARCH_EXPIRATION_MINUTES;
-  });
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [createError, setCreateError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -226,7 +217,7 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
       const client = createAzureClient(settings);
 
       // Create the vector store
-      const store = await createVectorStore(client, newStoreName.trim(), newStoreExpiration);
+      const store = await createVectorStore(client, newStoreName.trim());
 
       // Upload files to the store
       for (const file of selectedFiles) {
@@ -241,7 +232,6 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
       // Select the new store
       onUpdateSettings({
         fileSearchVectorStoreId: store.id,
-        fileSearchExpirationMinutes: newStoreExpiration,
       });
 
       // Reset form
@@ -256,7 +246,7 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
     } finally {
       setIsSubmitting(false);
     }
-  }, [newStoreName, newStoreExpiration, selectedFiles, settings, onUpdateSettings, setVectorStores]);
+  }, [newStoreName, selectedFiles, settings, onUpdateSettings, setVectorStores]);
 
   // Handle canceling store creation
   const handleCancelCreate = useCallback(() => {
@@ -500,26 +490,6 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
           </div>
 
           <div className="file-search-settings__field">
-            <label className="file-search-settings__label" htmlFor="newStoreExpiration">
-              Expiration
-            </label>
-            <select
-              id="newStoreExpiration"
-              className="file-search-settings__select"
-              value={newStoreExpiration}
-              onChange={(e) => setNewStoreExpiration(Number(e.target.value) as typeof FILE_SEARCH_EXPIRATION_OPTIONS[number]['value'])}
-              disabled={isSubmitting}
-            >
-              {FILE_SEARCH_EXPIRATION_OPTIONS.map(({ value, label }) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            <span className="file-search-settings__hint">
-              Store expires after this duration of inactivity
-            </span>
-          </div>
-
-          <div className="file-search-settings__field">
             <label className="file-search-settings__label">
               Files
             </label>
@@ -575,9 +545,6 @@ export function FileSearchSettings({ settings, onUpdateSettings, vectorStoreCach
           <div className="file-search-settings__store-header">
             <div className="file-search-settings__store-info">
               <span className="file-search-settings__store-name">{selectedStore.name}</span>
-              <span className="file-search-settings__store-expiration">
-                {getExpirationStatus(selectedStore.expiresAt)}
-              </span>
             </div>
             <button
               type="button"

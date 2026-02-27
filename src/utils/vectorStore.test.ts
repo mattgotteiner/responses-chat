@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { formatFileSize, getExpirationStatus } from './vectorStore';
+import { formatFileSize } from './vectorStore';
 
 describe('vectorStore utilities', () => {
   describe('formatFileSize', () => {
@@ -34,35 +34,6 @@ describe('vectorStore utilities', () => {
       expect(formatFileSize(1099511627776)).toBe('1024 GB');
       // 2 TB
       expect(formatFileSize(2199023255552)).toBe('2048 GB');
-    });
-  });
-
-  describe('getExpirationStatus', () => {
-    it('returns "No expiration" for null', () => {
-      expect(getExpirationStatus(null)).toBe('No expiration');
-    });
-
-    it('returns "Expired" for past timestamps', () => {
-      const pastTimestamp = Math.floor(Date.now() / 1000) - 3600; // 1 hour ago
-      expect(getExpirationStatus(pastTimestamp)).toBe('Expired');
-    });
-
-    it('returns minutes for less than 1 hour', () => {
-      const futureTimestamp = Math.floor(Date.now() / 1000) + 1800; // 30 minutes from now
-      const result = getExpirationStatus(futureTimestamp);
-      expect(result).toMatch(/Expires in \d+m/);
-    });
-
-    it('returns hours for less than 1 day', () => {
-      const futureTimestamp = Math.floor(Date.now() / 1000) + 7200; // 2 hours from now
-      const result = getExpirationStatus(futureTimestamp);
-      expect(result).toMatch(/Expires in \d+h/);
-    });
-
-    it('returns days for 1 day or more', () => {
-      const futureTimestamp = Math.floor(Date.now() / 1000) + 172800; // 2 days from now
-      const result = getExpirationStatus(futureTimestamp);
-      expect(result).toMatch(/Expires in \d+d/);
     });
   });
 });

@@ -147,7 +147,6 @@ describe('FileSearchSettings', () => {
       // Check for create form elements
       expect(screen.getByText('Create Vector Store')).toBeInTheDocument();
       expect(screen.getByLabelText('Store Name')).toBeInTheDocument();
-      expect(screen.getByLabelText('Expiration')).toBeInTheDocument();
       expect(screen.getByText('Create Store')).toBeInTheDocument();
       expect(screen.getByText('Cancel')).toBeInTheDocument();
     });
@@ -185,41 +184,10 @@ describe('FileSearchSettings', () => {
     });
   });
 
-  describe('expiration options', () => {
-    it('shows all expiration options', async () => {
-      const user = userEvent.setup();
-      renderFileSearchSettings(validSettings);
-
-      const select = await screen.findByRole('combobox');
-      await user.selectOptions(select, '__create__');
-
-      const expirationSelect = screen.getByLabelText('Expiration');
-      const options = expirationSelect.querySelectorAll('option');
-
-      // Check all options exist (API clamps to days, so only day options)
-      const optionTexts = Array.from(options).map(opt => opt.textContent);
-      expect(optionTexts).toContain('1 day');
-      expect(optionTexts).toContain('2 days');
-      expect(optionTexts).toContain('3 days');
-      expect(optionTexts).toContain('7 days');
-    });
-
-    it('defaults to 1 day', async () => {
-      const user = userEvent.setup();
-      renderFileSearchSettings(validSettings);
-
-      const select = await screen.findByRole('combobox');
-      await user.selectOptions(select, '__create__');
-
-      const expirationSelect = screen.getByLabelText('Expiration') as HTMLSelectElement;
-      expect(expirationSelect.value).toBe('1440');
-    });
-  });
-
   describe('warning when no vector store selected', () => {
     it('shows warning when file search enabled but no store selected', async () => {
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), status: 'completed' },
       ];
       const cache = createCache(stores);
 
@@ -234,7 +202,7 @@ describe('FileSearchSettings', () => {
 
     it('does not show warning when store is selected', async () => {
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), status: 'completed' },
       ];
       const files: VectorStoreFile[] = [
         { id: 'file-1', filename: 'doc.pdf', bytes: 1000, createdAt: Date.now(), status: 'completed' },
@@ -274,7 +242,7 @@ describe('FileSearchSettings', () => {
       }));
       
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Test Store', fileCount: 0, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Test Store', fileCount: 0, createdAt: Date.now(), status: 'completed' },
       ];
       const cache = createCache(stores, { 'vs-1': [] });
 
@@ -314,7 +282,7 @@ describe('FileSearchSettings', () => {
       }));
 
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Test Store', fileCount: 1, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Test Store', fileCount: 1, createdAt: Date.now(), status: 'completed' },
       ];
       const files: VectorStoreFile[] = [
         { id: 'file-1', filename: 'doc.pdf', bytes: 1000, createdAt: Date.now(), status: 'completed' },
@@ -351,7 +319,7 @@ describe('FileSearchSettings', () => {
       mockDeleteFileFromVectorStore.mockResolvedValue(undefined);
 
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Test Store', fileCount: 2, createdAt: Date.now(), status: 'completed' },
       ];
       const files: VectorStoreFile[] = [
         { id: 'file-1', filename: 'doc.pdf', bytes: 1000, createdAt: Date.now(), status: 'completed' },
@@ -384,8 +352,8 @@ describe('FileSearchSettings', () => {
   describe('dropdown file count', () => {
     it('shows correct singular/plural for file count', async () => {
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'One File Store', fileCount: 1, createdAt: Date.now(), expiresAt: null, status: 'completed' },
-        { id: 'vs-2', name: 'Multi File Store', fileCount: 3, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'One File Store', fileCount: 1, createdAt: Date.now(), status: 'completed' },
+        { id: 'vs-2', name: 'Multi File Store', fileCount: 3, createdAt: Date.now(), status: 'completed' },
       ];
       const cache = createCache(stores);
 
@@ -415,8 +383,8 @@ describe('FileSearchSettings', () => {
       }));
 
       const stores: VectorStore[] = [
-        { id: 'vs-1', name: 'Store To Delete', fileCount: 1, createdAt: Date.now(), expiresAt: null, status: 'completed' },
-        { id: 'vs-2', name: 'Other Store', fileCount: 2, createdAt: Date.now(), expiresAt: null, status: 'completed' },
+        { id: 'vs-1', name: 'Store To Delete', fileCount: 1, createdAt: Date.now(), status: 'completed' },
+        { id: 'vs-2', name: 'Other Store', fileCount: 2, createdAt: Date.now(), status: 'completed' },
       ];
       const files: VectorStoreFile[] = [
         { id: 'file-1', filename: 'doc.pdf', bytes: 1000, createdAt: Date.now(), status: 'completed' },
