@@ -95,6 +95,7 @@ function makeChatReturn(overrides: Partial<ReturnType<typeof useChat>> = {}): Re
     clearConversation: vi.fn(),
     detachStream: vi.fn(),
     reattachStream: vi.fn(),
+    abortBackgroundStream: vi.fn(),
     loadThread: vi.fn(),
     retryMessage: vi.fn(),
     handleMcpApproval: vi.fn(),
@@ -748,6 +749,43 @@ describe('handleDeleteThread: streaming regression', () => {
 
     expect(stopStreaming).not.toHaveBeenCalled();
     expect(clearConversation).toHaveBeenCalledTimes(1);
+  });
+
+  it('aborts detached background stream when deleting a non-active thread', async () => {
+    const detachStream = vi.fn();
+    const abortBackgroundStream = vi.fn();
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages,
+        isStreaming: true,
+        detachStream,
+        abortBackgroundStream,
+      })
+    );
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-to-delete' }));
+
+    const { rerender } = render(<ChatContainer />);
+
+    // Detach active stream so it is tracked as background-streaming.
+    await userEvent.click(screen.getByTestId('new-chat-btn'));
+    expect(detachStream).toHaveBeenCalledWith('thread-to-delete', messages, [], expect.any(Function));
+
+    // Now view another thread and delete the detached one.
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [makeUserMessage('Other thread')],
+        isStreaming: false,
+        detachStream,
+        abortBackgroundStream,
+      })
+    );
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'other-thread' }));
+    rerender(<ChatContainer />);
+
+    await userEvent.click(screen.getByTestId('delete-thread-btn'));
+    expect(abortBackgroundStream).toHaveBeenCalledWith('thread-to-delete');
   });
 });
 

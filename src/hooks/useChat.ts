@@ -106,6 +106,8 @@ export interface UseChatReturn {
   detachStream: (threadId: string, currentMessages: Message[], uploadedFileIds: string[], onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void) => void;
   /** Re-attach a background stream back to the foreground by thread ID; returns buffer or null */
   reattachStream: (threadId: string) => Message[] | null;
+  /** Abort and discard any detached background stream for a thread ID */
+  abortBackgroundStream: (threadId: string) => void;
   /** Get the current previousResponseId */
   previousResponseId: string | null;
   /** Uploaded file IDs available to code interpreter for the current chat */
@@ -645,6 +647,15 @@ export function useChat(): UseChatReturn {
     return buffer;
   }, []);
 
+  const abortBackgroundStream = useCallback((threadId: string) => {
+    for (const stream of backgroundStreamsRef.current.values()) {
+      if (stream.threadId !== threadId) continue;
+      // Deleting a thread should cancel background work without persisting final state.
+      stream.onComplete = () => {};
+      stream.abortController.abort();
+    }
+  }, []);
+
   const handleMcpApproval = useCallback(
     async (approvalRequestId: string, approve: boolean, settings: Settings) => {
       // Find the message containing this approval request
@@ -952,6 +963,7 @@ export function useChat(): UseChatReturn {
     loadThread,
     detachStream,
     reattachStream,
+    abortBackgroundStream,
     previousResponseId: previousResponseIdRef.current,
     uploadedFileIds: allUploadedFileIdsRef.current,
     error,

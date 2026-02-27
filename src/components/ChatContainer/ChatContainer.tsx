@@ -27,7 +27,7 @@ export function ChatContainer() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, previousResponseId, uploadedFileIds } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, abortBackgroundStream, previousResponseId, uploadedFileIds } = useChat();
   const {
     threads,
     activeThreadId,
@@ -270,17 +270,25 @@ export function ChatContainer() {
 
   const handleDeleteThread = useCallback(
     (id: string) => {
+      if (backgroundStreamingThreadIds.has(id)) {
+        abortBackgroundStream(id);
+        setBackgroundStreamingThreadIds((prev) => {
+          const next = new Set(prev);
+          next.delete(id);
+          return next;
+        });
+      }
       if (id === activeThreadId) {
         // Stop any in-flight stream first — otherwise it would keep writing to
         // messages after clearConversation(), and the auto-save effect would create
         // a phantom thread (activeThreadId=null + messages>0).
-      if (isStreaming) stopStreaming();
+        if (isStreaming) stopStreaming();
         clearConversation();
         prevMessageCountRef.current = 0;
       }
       deleteThread(id);
     },
-    [deleteThread, activeThreadId, clearConversation, isStreaming, stopStreaming]
+    [backgroundStreamingThreadIds, abortBackgroundStream, deleteThread, activeThreadId, clearConversation, isStreaming, stopStreaming]
   );
 
   const handleNewChat = useCallback(() => {
