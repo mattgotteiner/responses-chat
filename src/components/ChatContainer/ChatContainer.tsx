@@ -423,11 +423,12 @@ export function ChatContainer() {
           <h1 className="chat-container__title">{headerTitle}</h1>
           {isEphemeral && (
             <button
-              className="chat-container__ephemeral-badge"
+              className="chat-container__ephemeral-close"
               onClick={handleNewChat}
-              title="Click to switch to a normal (persisted) chat"
+              title="Ephemeral chat — click to switch to a normal chat"
+              aria-label="Exit ephemeral chat"
             >
-              Ephemeral ✕
+              ✕
             </button>
           )}
         </div>
