@@ -444,6 +444,7 @@ export function ChatContainer() {
       </header>
 
       <MessageList
+        key={activeThreadId ?? 'ephemeral'}
         messages={messages}
         isConfigured={isConfigured}
         onOpenJsonPanel={handleOpenJsonPanel}
