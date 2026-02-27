@@ -177,6 +177,18 @@
 .chat-input__copy-json-icon {
   font-size: 12px;
 }
+
+.chat-input__github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-muted);
+  transition: color 0.15s;
+}
+
+.chat-input__github-link:hover {
+  color: var(--color-text);
+}
 /* Mobile responsive */
 @media (max-width: 600px) {
   .chat-input {

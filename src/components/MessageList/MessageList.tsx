@@ -44,6 +44,7 @@ export function MessageList({
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const isNearBottomRef = useRef(true);
+  const prevMessageCountRef = useRef(0);
 
   const checkIfNearBottom = useCallback(() => {
     const container = containerRef.current;
@@ -59,8 +60,12 @@ export function MessageList({
   // Auto-scroll to bottom only when user is near bottom
   useEffect(() => {
     if (isNearBottomRef.current) {
-      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      // Use instant scroll when loading a batch of messages (thread restore),
+      // smooth scroll when a single new message arrives during a conversation.
+      const wasEmpty = prevMessageCountRef.current === 0;
+      bottomRef.current?.scrollIntoView({ behavior: wasEmpty && messages.length > 1 ? 'instant' : 'smooth' });
     }
+    prevMessageCountRef.current = messages.length;
   }, [messages]);
 
   if (messages.length === 0) {

@@ -31,6 +31,7 @@
     "generate-icons": "node scripts/generate-icons.mjs"
   },
   "dependencies": {
+    "dexie": "^4.3.0",
     "openai": "^6.17.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

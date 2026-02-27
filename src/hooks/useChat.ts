@@ -2,7 +2,7 @@
  * Hook for managing chat state and API interactions
  */
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { Message, Settings, Attachment } from '../types';
 import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
@@ -75,11 +75,20 @@ function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: st
   return { tools, include };
 }
 
-/** Return type for the useChat hook */
+/** State for a stream running in the background while the user views another thread */
+type BackgroundStream = {
+  threadId: string;
+  messages: Message[];
+  previousResponseId: string | null;
+  uploadedFileIds: string[];
+  abortController: AbortController;
+  onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void;
+};
+
 export interface UseChatReturn {
   /** All messages in the conversation */
   messages: Message[];
-  /** Whether a response is currently streaming */
+  /** Whether a response is currently streaming in the foreground */
   isStreaming: boolean;
   /** Send a message and get a streaming response */
   sendMessage: (content: string, settings: Settings, attachments?: Attachment[]) => Promise<void>;
@@ -91,6 +100,18 @@ export interface UseChatReturn {
   handleMcpApproval: (approvalRequestId: string, approve: boolean, settings: Settings) => Promise<void>;
   /** Retry a failed message by its assistant message ID */
   retryMessage: (failedAssistantMessageId: string, settings: Settings) => Promise<void>;
+  /** Load a saved thread's state into the chat */
+  loadThread: (messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => void;
+  /** Detach the current foreground stream to run in the background for the given thread */
+  detachStream: (threadId: string, currentMessages: Message[], uploadedFileIds: string[], onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void) => void;
+  /** Re-attach a background stream back to the foreground by thread ID; returns buffer or null */
+  reattachStream: (threadId: string) => Message[] | null;
+  /** Abort and discard any detached background stream for a thread ID */
+  abortBackgroundStream: (threadId: string) => void;
+  /** Get the current previousResponseId */
+  previousResponseId: string | null;
+  /** Uploaded file IDs available to code interpreter for the current chat */
+  uploadedFileIds: string[];
   /** Any error that occurred */
   error: string | null;
 }
@@ -116,11 +137,26 @@ export function useChat(): UseChatReturn {
   const [error, setError] = useState<string | null>(null);
   const previousResponseIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+  // Map of assistantMessage.id → background stream state
+  const backgroundStreamsRef = useRef<Map<string, BackgroundStream>>(new Map());
+  // ID of the assistantMessage whose stream is currently in the foreground (null = no foreground stream)
+  const foregroundStreamIdRef = useRef<string | null>(null);
   // Accumulated file IDs across all turns, so code interpreter can access files uploaded before it was enabled
   const allUploadedFileIdsRef = useRef<string[]>([]);
   // Recording session ref - persists across sendMessage and handleMcpApproval
   // to support recording approval flows as a single session
   const recordingSessionRef = useRef<ReturnType<typeof createRecordingSession>>(null);
+
+  // Abort all background streams on unmount to prevent dangling fetch requests
+  useEffect(() => {
+    const bgStreams = backgroundStreamsRef.current;
+    return () => {
+      for (const stream of bgStreams.values()) {
+        stream.abortController.abort();
+      }
+      bgStreams.clear();
+    };
+  }, []);
 
   const sendMessage = useCallback(
     async (content: string, settings: Settings, attachments?: Attachment[]) => {
@@ -183,6 +219,7 @@ export function useChat(): UseChatReturn {
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
       setIsStreaming(true);
+      foregroundStreamIdRef.current = assistantMessage.id;
 
       // Upload files to Files API - now happens after message is shown
       let uploadedFileIds: string[] = [];
@@ -384,7 +421,7 @@ export function useChat(): UseChatReturn {
 
         // Helper to update message state from accumulator
         const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
-          setMessages((prev) =>
+          const applyUpdate = (prev: Message[]): Message[] =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
                 ? {
@@ -400,8 +437,13 @@ export function useChat(): UseChatReturn {
                     ...(acc.truncationReason && { truncationReason: acc.truncationReason }),
                   }
                 : msg
-            )
-          );
+            );
+          const bgStream = backgroundStreamsRef.current.get(assistantMessage.id);
+          if (bgStream) {
+            bgStream.messages = applyUpdate(bgStream.messages);
+          } else {
+            setMessages(applyUpdate);
+          }
         };
 
         // Process the stream using the stream processor
@@ -418,9 +460,14 @@ export function useChat(): UseChatReturn {
             updateMessageFromAccumulator(accumulator);
           }
 
-          // Track response ID for conversation continuity
+          // Track response ID for conversation continuity (per-stream for background)
           if (accumulator.responseId) {
-            previousResponseIdRef.current = accumulator.responseId;
+            const bgStream = backgroundStreamsRef.current.get(assistantMessage.id);
+            if (bgStream) {
+              bgStream.previousResponseId = accumulator.responseId;
+            } else {
+              previousResponseIdRef.current = accumulator.responseId;
+            }
             // Terminal event received (response.completed / response.incomplete / response.failed).
             // Break immediately so we don't wait for the transport to close — on mobile or
             // behind certain proxies the TCP connection can stay open indefinitely, which
@@ -432,45 +479,57 @@ export function useChat(): UseChatReturn {
         // Store final accumulator to check for pending approvals
         finalAccumulator = accumulator;
 
-        // Mark message as no longer streaming
-        setMessages((prev) =>
+        // Mark message as no longer streaming — route to buffer if detached
+        const completionUpdater = (prev: Message[]) =>
           prev.map((msg) =>
             msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
-          )
-        );
+          );
+          const bgStreamComplete = backgroundStreamsRef.current.get(assistantMessage.id);
+          if (bgStreamComplete) {
+            bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
+            bgStreamComplete.onComplete(bgStreamComplete.messages, bgStreamComplete.previousResponseId, bgStreamComplete.uploadedFileIds);
+            backgroundStreamsRef.current.delete(assistantMessage.id);
+          } else {
+            setMessages(completionUpdater);
+        }
       } catch (err) {
         // Handle user-initiated abort differently from errors
         if (err instanceof Error && err.name === 'AbortError') {
           // User stopped the stream - mark as stopped, preserve partial content
-          setMessages((prev) =>
+          const abortUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? {
-                    ...msg,
-                    isStreaming: false,
-                    isStopped: true,
-                  }
+                ? { ...msg, isStreaming: false, isStopped: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamAbort = backgroundStreamsRef.current.get(assistantMessage.id);
+          if (bgStreamAbort) {
+            bgStreamAbort.messages = abortUpdater(bgStreamAbort.messages);
+            bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId, bgStreamAbort.uploadedFileIds);
+            backgroundStreamsRef.current.delete(assistantMessage.id);
+          } else {
+            setMessages(abortUpdater);
+          }
         } else {
           const errorMessage =
             err instanceof Error ? err.message : 'An unknown error occurred';
           setError(errorMessage);
 
           // Update assistant message to show error
-          setMessages((prev) =>
+          const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? {
-                    ...msg,
-                    content: `Error: ${errorMessage}`,
-                    isStreaming: false,
-                    isError: true,
-                  }
+                ? { ...msg, content: `Error: ${errorMessage}`, isStreaming: false, isError: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamError = backgroundStreamsRef.current.get(assistantMessage.id);
+          if (bgStreamError) {
+            bgStreamError.messages = errorUpdater(bgStreamError.messages);
+            bgStreamError.onComplete(bgStreamError.messages, bgStreamError.previousResponseId, bgStreamError.uploadedFileIds);
+            backgroundStreamsRef.current.delete(assistantMessage.id);
+          } else {
+            setMessages(errorUpdater);
+          }
         }
       } finally {
         // Check for pending approvals - if any, don't finalize recording yet
@@ -485,8 +544,13 @@ export function useChat(): UseChatReturn {
         }
         // If pending approvals, keep recording session alive for handleMcpApproval
         
-        setIsStreaming(false);
-        abortControllerRef.current = null;
+        // Only clear foreground streaming state if this stream is still the foreground one.
+        // If it was detached, isStreaming was already set to false by detachStream.
+        if (foregroundStreamIdRef.current === assistantMessage.id) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          foregroundStreamIdRef.current = null;
+        }
       }
     },
     []
@@ -519,6 +583,77 @@ export function useChat(): UseChatReturn {
     previousResponseIdRef.current = null;
     allUploadedFileIdsRef.current = [];
     setError(null);
+  }, []);
+
+  const loadThread = useCallback(
+    (threadMessages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => {
+      setMessages(threadMessages);
+      previousResponseIdRef.current = prevResponseId;
+      allUploadedFileIdsRef.current = uploadedFileIds;
+      setError(null);
+    },
+    []
+  );
+
+  /**
+   * Detach the current foreground stream so it keeps running in the background.
+   * `isStreaming` is set to false immediately; the stream writes to an internal
+   * per-stream buffer keyed by assistantMessage.id. `onComplete` is called with
+   * the final messages when the stream finishes.
+   */
+  const detachStream = useCallback(
+    (threadId: string, currentMessages: Message[], uploadedFileIds: string[], onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void) => {
+      const streamId = foregroundStreamIdRef.current;
+      if (!streamId || !abortControllerRef.current) return;
+      backgroundStreamsRef.current.set(streamId, {
+        threadId,
+        messages: [...currentMessages],
+        previousResponseId: previousResponseIdRef.current,
+        uploadedFileIds: [...uploadedFileIds],
+        abortController: abortControllerRef.current,
+        onComplete,
+      });
+      foregroundStreamIdRef.current = null;
+      abortControllerRef.current = null; // prevent stop button from reaching this stream
+      setIsStreaming(false);
+    },
+    []
+  );
+
+  /**
+   * Re-attach a background stream back to the foreground by thread ID.
+   * Returns the current buffer messages (to show live progress), or null if no
+   * background stream exists for that thread.
+   */
+  const reattachStream = useCallback((threadId: string): Message[] | null => {
+    let foundId: string | null = null;
+    let foundStream: BackgroundStream | null = null;
+    for (const [id, stream] of backgroundStreamsRef.current) {
+      if (stream.threadId === threadId) {
+        foundId = id;
+        foundStream = stream;
+        break;
+      }
+    }
+    if (!foundId || !foundStream) return null;
+    const buffer = [...foundStream.messages];
+    backgroundStreamsRef.current.delete(foundId);
+    foregroundStreamIdRef.current = foundId;
+    abortControllerRef.current = foundStream.abortController;
+    previousResponseIdRef.current = foundStream.previousResponseId;
+    allUploadedFileIdsRef.current = foundStream.uploadedFileIds;
+    setMessages(buffer);
+    setIsStreaming(true);
+    return buffer;
+  }, []);
+
+  const abortBackgroundStream = useCallback((threadId: string) => {
+    for (const stream of backgroundStreamsRef.current.values()) {
+      if (stream.threadId !== threadId) continue;
+      // Deleting a thread should cancel background work without persisting final state.
+      stream.onComplete = () => {};
+      stream.abortController.abort();
+    }
   }, []);
 
   const handleMcpApproval = useCallback(
@@ -627,6 +762,9 @@ export function useChat(): UseChatReturn {
       const existingFileCitations = targetMessage.fileCitations || [];
       const existingContainerFileCitations = targetMessage.containerFileCitations || [];
       const targetMessageId = targetMessage.id;
+      // Register as the foreground stream so detachStream can properly capture
+      // and detach it if the user switches threads while the approval streams.
+      foregroundStreamIdRef.current = targetMessageId;
 
       // Mark the target message as streaming again
       setMessages((prev) =>
@@ -673,7 +811,7 @@ export function useChat(): UseChatReturn {
           const mergedFileCitations = [...existingFileCitations, ...acc.fileCitations];
           const mergedContainerFileCitations = [...existingContainerFileCitations, ...acc.containerFileCitations];
 
-          setMessages((prev) =>
+          const applyUpdate = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? {
@@ -687,8 +825,14 @@ export function useChat(): UseChatReturn {
                     ...(acc.responseJson && { responseJson: acc.responseJson }),
                   }
                 : msg
-            )
-          );
+            );
+          // Route to background buffer if the stream was detached while running
+          const bgStream = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStream) {
+            bgStream.messages = applyUpdate(bgStream.messages);
+          } else {
+            setMessages(applyUpdate);
+          }
         };
 
         for await (const event of stream as AsyncIterable<StreamEvent>) {
@@ -699,7 +843,12 @@ export function useChat(): UseChatReturn {
             updateMessageFromAccumulator(accumulator);
           }
           if (accumulator.responseId) {
-            previousResponseIdRef.current = accumulator.responseId;
+            const bgStream = backgroundStreamsRef.current.get(targetMessageId);
+            if (bgStream) {
+              bgStream.previousResponseId = accumulator.responseId;
+            } else {
+              previousResponseIdRef.current = accumulator.responseId;
+            }
             // Terminal event received — break so we don't hang waiting for transport close.
             break;
           }
@@ -708,31 +857,52 @@ export function useChat(): UseChatReturn {
         // Store final accumulator to check for pending approvals
         finalAccumulator = accumulator;
 
-        setMessages((prev) =>
+        const completionUpdater = (prev: Message[]) =>
           prev.map((msg) =>
             msg.id === targetMessageId ? { ...msg, isStreaming: false } : msg
-          )
-        );
+          );
+        const bgStreamComplete = backgroundStreamsRef.current.get(targetMessageId);
+        if (bgStreamComplete) {
+          bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
+          bgStreamComplete.onComplete(bgStreamComplete.messages, bgStreamComplete.previousResponseId, bgStreamComplete.uploadedFileIds);
+          backgroundStreamsRef.current.delete(targetMessageId);
+        } else {
+          setMessages(completionUpdater);
+        }
       } catch (err) {
         if (err instanceof Error && err.name === 'AbortError') {
-          setMessages((prev) =>
+          const abortUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? { ...msg, isStreaming: false, isStopped: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamAbort = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStreamAbort) {
+            bgStreamAbort.messages = abortUpdater(bgStreamAbort.messages);
+            bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId, bgStreamAbort.uploadedFileIds);
+            backgroundStreamsRef.current.delete(targetMessageId);
+          } else {
+            setMessages(abortUpdater);
+          }
         } else {
           const errorMessage =
             err instanceof Error ? err.message : 'An unknown error occurred';
           setError(errorMessage);
-          setMessages((prev) =>
+          const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
                 ? { ...msg, content: msg.content + `\n\nError: ${errorMessage}`, isStreaming: false, isError: true }
                 : msg
-            )
-          );
+            );
+          const bgStreamError = backgroundStreamsRef.current.get(targetMessageId);
+          if (bgStreamError) {
+            bgStreamError.messages = errorUpdater(bgStreamError.messages);
+            bgStreamError.onComplete(bgStreamError.messages, bgStreamError.previousResponseId, bgStreamError.uploadedFileIds);
+            backgroundStreamsRef.current.delete(targetMessageId);
+          } else {
+            setMessages(errorUpdater);
+          }
         }
       } finally {
         // Check for pending approvals - if any, don't finalize recording yet
@@ -747,8 +917,13 @@ export function useChat(): UseChatReturn {
         }
         // If pending approvals, keep recording session alive for next approval
         
-        setIsStreaming(false);
-        abortControllerRef.current = null;
+        // Only clear foreground streaming state if this stream is still the foreground one.
+        // If it was detached, isStreaming was already cleared by detachStream.
+        if (foregroundStreamIdRef.current === targetMessageId) {
+          setIsStreaming(false);
+          abortControllerRef.current = null;
+          foregroundStreamIdRef.current = null;
+        }
       }
     },
     [messages]
@@ -785,6 +960,12 @@ export function useChat(): UseChatReturn {
     clearConversation,
     handleMcpApproval,
     retryMessage,
+    loadThread,
+    detachStream,
+    reattachStream,
+    abortBackgroundStream,
+    previousResponseId: previousResponseIdRef.current,
+    uploadedFileIds: allUploadedFileIdsRef.current,
     error,
   };
 }

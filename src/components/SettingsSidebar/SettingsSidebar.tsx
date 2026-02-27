@@ -504,6 +504,32 @@ export function SettingsSidebar({
 
           {/* Clear Data */}
           <section className="settings-section settings-section--clear">
+
+            {/* History Settings */}
+            <div className="settings-field">
+              <label className="settings-field__label" htmlFor="titleModelName">
+                Title Generation Model
+              </label>
+              <select
+                id="titleModelName"
+                className="settings-field__select"
+                value={settings.titleModelName || 'gpt-5-nano'}
+                onChange={handleInputChange('titleModelName')}
+              >
+                {AVAILABLE_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+              <span className="settings-field__hint">
+                Smaller model used to auto-generate thread titles.
+              </span>
+            </div>
+          </section>
+
+          {/* Clear Data */}
+          <section className="settings-section settings-section--clear">
             <div className="settings-field">
               <button
                 type="button"
