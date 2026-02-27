@@ -179,40 +179,36 @@ export function HistorySidebar({
                     className={`history-sidebar__item ${
                       thread.id === activeThreadId ? 'history-sidebar__item--active' : ''
                     }`}
-                    onClick={() => { onSwitchThread(thread.id); onClose(); }}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        onSwitchThread(thread.id);
-                        onClose();
-                      }
-                    }}
                   >
-                    <div className="history-sidebar__item-content">
-                      <span className="history-sidebar__item-title">
-                        {backgroundStreamingThreadIds?.has(thread.id) && (
-                          <span className="history-sidebar__streaming-dot" title="Streaming in background" />
-                        )}
-                        {generatingTitleThreadIds?.has(thread.id) ? (
-                          <span className="history-sidebar__generating-title" title="Generating title…">
-                            <span className="history-sidebar__generating-dots" />
-                            {thread.title}
-                          </span>
-                        ) : (
-                          thread.title
-                        )}
-                      </span>
-                      <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
-                        {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
-                      </span>
-                    </div>
+                    <button
+                      className="history-sidebar__item-main"
+                      onClick={() => { onSwitchThread(thread.id); onClose(); }}
+                    >
+                      <div className="history-sidebar__item-content">
+                        <span className="history-sidebar__item-title">
+                          {backgroundStreamingThreadIds?.has(thread.id) && (
+                            <span className="history-sidebar__streaming-dot" title="Streaming in background" />
+                          )}
+                          {generatingTitleThreadIds?.has(thread.id) ? (
+                            <span className="history-sidebar__generating-title" title="Generating title…">
+                              <span className="history-sidebar__generating-dots" />
+                              {thread.title}
+                            </span>
+                          ) : (
+                            thread.title
+                          )}
+                        </span>
+                        <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
+                          {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
+                        </span>
+                      </div>
+                    </button>
                     <button
                       className="history-sidebar__item-delete"
                       onClick={(e) => handleDeleteClick(e, thread.id)}
                       aria-label={`Delete "${thread.title}"`}
                       title="Delete thread"
-                   >
+                    >
                       🗑
                     </button>
                   </div>

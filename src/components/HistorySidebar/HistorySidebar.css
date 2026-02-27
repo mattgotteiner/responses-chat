@@ -136,13 +136,32 @@
   display: flex;
   align-items: center;
   padding: 10px 16px;
-  cursor: pointer;
   transition: background-color 0.15s;
   gap: 8px;
 }
 
-.history-sidebar__item:hover {
-  background-color: var(--color-surface);
+.history-sidebar__item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  touch-action: manipulation;
+}
+
+@media (hover: hover) {
+  .history-sidebar__item:hover {
+    background-color: var(--color-surface);
+  }
+
+  .history-sidebar__item:hover .history-sidebar__item-delete {
+    opacity: 1;
+  }
 }
 
 .history-sidebar__item--active {
@@ -243,8 +262,10 @@
   transition: opacity 0.15s, background-color 0.15s, color 0.15s;
 }
 
-.history-sidebar__item:hover .history-sidebar__item-delete {
-  opacity: 1;
+@media (hover: none) {
+  .history-sidebar__item-delete {
+    opacity: 1;
+  }
 }
 
 .history-sidebar__item-delete:hover {
