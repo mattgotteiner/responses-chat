@@ -490,7 +490,7 @@ export function ChatContainer() {
         onClose={handleCloseSettings}
         settings={settings}
         onUpdateSettings={updateSettings}
-        onClearStoredData={() => { clearStoredData(); clearAllThreads(); }}
+        onClearStoredData={() => { stopStreaming(); clearConversation(); clearStoredData(); clearAllThreads(); }}
         vectorStoreCache={vectorStoreCache}
         setVectorStores={setVectorStores}
         setStoreFiles={setStoreFiles}

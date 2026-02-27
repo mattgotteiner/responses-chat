@@ -61,7 +61,13 @@ vi.mock('../HistorySidebar', () => ({
     </>
   ),
 }));
-vi.mock('../SettingsSidebar', () => ({ SettingsSidebar: () => null }));
+let capturedOnClearStoredData: (() => void) | undefined;
+vi.mock('../SettingsSidebar', () => ({
+  SettingsSidebar: ({ onClearStoredData }: { onClearStoredData: () => void }) => {
+    capturedOnClearStoredData = onClearStoredData;
+    return null;
+  },
+}));
 vi.mock('../SettingsButton', () => ({ SettingsButton: () => <button>Settings</button> }));
 vi.mock('../JsonSidePanel', () => ({ JsonSidePanel: () => null }));
 vi.mock('../ConfigurationBanner', () => ({ ConfigurationBanner: () => null }));
@@ -998,5 +1004,37 @@ describe('triggerTitleGeneration: called when switching away from completed conv
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
       expect.anything(), expect.any(String), finalMessages[0].content, finalMessages[1].content
     );
+  });
+});
+
+describe('onClearStoredData: clears active conversation (regression)', () => {
+  it('calls stopStreaming, clearConversation, clearStoredData, and clearAllThreads when clear data is triggered', () => {
+    const stopStreaming = vi.fn();
+    const clearConversation = vi.fn();
+    const clearStoredData = vi.fn();
+    const clearAllThreads = vi.fn();
+
+    mockUseChat.mockReturnValue(makeChatReturn({ stopStreaming, clearConversation }));
+    mockUseThreads.mockReturnValue(makeThreadsReturn({ clearAllThreads }));
+    mockUseSettingsContext.mockReturnValue({
+      settings: defaultSettings as Settings,
+      updateSettings: vi.fn(),
+      resetSettings: vi.fn(),
+      clearStoredData,
+      isConfigured: true,
+      vectorStoreCache: {} as import('../../types').VectorStoreCache,
+      setVectorStores: vi.fn(),
+      setStoreFiles: vi.fn(),
+      setStoreFilesLoading: vi.fn(),
+      clearVectorStoreCache: vi.fn(),
+    });
+
+    render(<ChatContainer />);
+    act(() => { capturedOnClearStoredData?.(); });
+
+    expect(stopStreaming).toHaveBeenCalledTimes(1);
+    expect(clearConversation).toHaveBeenCalledTimes(1);
+    expect(clearStoredData).toHaveBeenCalledTimes(1);
+    expect(clearAllThreads).toHaveBeenCalledTimes(1);
   });
 });
