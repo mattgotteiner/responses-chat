@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
+  getReasoningEfforts,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   DEFAULT_SETTINGS,
@@ -18,19 +19,27 @@ describe('types constants', () => {
   });
 
   describe('MODEL_REASONING_EFFORTS', () => {
-    it('has entries for all available models', () => {
-      for (const model of AVAILABLE_MODELS) {
+    it('has entries for models with specific reasoning configs', () => {
+      for (const model of Object.keys(MODEL_REASONING_EFFORTS)) {
         expect(MODEL_REASONING_EFFORTS[model]).toBeDefined();
         expect(Array.isArray(MODEL_REASONING_EFFORTS[model])).toBe(true);
       }
     });
 
-    it('all models support low, medium, high effort', () => {
+    it('all models support low, medium, high effort via getReasoningEfforts', () => {
       for (const model of AVAILABLE_MODELS) {
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('low');
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('medium');
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('high');
+        const efforts = getReasoningEfforts(model);
+        expect(efforts).toContain('low');
+        expect(efforts).toContain('medium');
+        expect(efforts).toContain('high');
       }
+    });
+
+    it('returns default efforts for unknown models', () => {
+      const efforts = getReasoningEfforts('some-unknown-model');
+      expect(efforts).toContain('low');
+      expect(efforts).toContain('medium');
+      expect(efforts).toContain('high');
     });
   });
 

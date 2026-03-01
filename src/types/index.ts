@@ -2,13 +2,8 @@
  * Shared types for Responses Chat
  */
 
-/** Supported model names */
-export type ModelName =
-  | 'gpt-5-nano'
-  | 'gpt-5-mini'
-  | 'gpt-5'
-  | 'gpt-5.1'
-  | 'gpt-5.2';
+/** Model name — any string is accepted for custom/third-party models */
+export type ModelName = string;
 
 /** Reasoning effort levels */
 export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high';
@@ -16,8 +11,11 @@ export type ReasoningEffort = 'none' | 'minimal' | 'low' | 'medium' | 'high';
 /** Verbosity levels */
 export type Verbosity = 'low' | 'medium' | 'high';
 
+/** Default reasoning efforts for models without a specific configuration */
+const DEFAULT_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high'];
+
 /** Model configuration for reasoning effort options */
-export const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
+export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {
   'gpt-5-nano': ['low', 'medium', 'high'],
   'gpt-5-mini': ['low', 'medium', 'high'],
   'gpt-5': ['low', 'medium', 'high', 'minimal'],
@@ -25,13 +23,23 @@ export const MODEL_REASONING_EFFORTS: Record<ModelName, ReasoningEffort[]> = {
   'gpt-5.2': ['low', 'medium', 'high', 'minimal', 'none'],
 };
 
-/** All available models */
+/** Get reasoning effort options for a model, falling back to defaults for unknown models */
+export function getReasoningEfforts(model: ModelName): ReasoningEffort[] {
+  return MODEL_REASONING_EFFORTS[model] ?? DEFAULT_REASONING_EFFORTS;
+}
+
+/** Sentinel value for the "Custom…" option in model dropdowns */
+export const CUSTOM_MODEL_OPTION = '__custom__';
+
+/** All available built-in models */
 export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5-nano',
   'gpt-5-mini',
   'gpt-5',
   'gpt-5.1',
   'gpt-5.2',
+  'gpt-oss-120b',
+  'DeepSeek-V3.1',
 ];
 
 /** All verbosity options */
