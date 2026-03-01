@@ -143,8 +143,8 @@ export function ChatContainer() {
       const assistantMsg = msgs[1];
       if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
       titleGeneratedRef.current = threadId; // optimistic guard — prevents duplicate calls
-      const titleModel = settings.titleModelName || settings.deploymentName;
-      const mainModel = settings.deploymentName;
+      const titleModel = settings.titleModelName || settings.deploymentName || settings.modelName;
+      const mainModel = settings.deploymentName || settings.modelName;
       const client = createAzureClient(settings);
       setGeneratingTitleThreadIds((prev) => new Set([...prev, threadId]));
       generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
