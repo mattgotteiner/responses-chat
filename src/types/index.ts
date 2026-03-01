@@ -39,7 +39,6 @@ export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5.1',
   'gpt-5.2',
   'gpt-oss-120b',
-  'DeepSeek-V3.1',
 ];
 
 /** All verbosity options */
