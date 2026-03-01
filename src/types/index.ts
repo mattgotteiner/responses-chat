@@ -177,6 +177,8 @@ export interface Settings {
   developerInstructions?: string;
   /** Enable web search tool for grounding responses with real-time web data */
   webSearchEnabled?: boolean;
+  /** Controls how much search context web search returns: 'low' reduces token usage, 'high' increases it */
+  webSearchContextSize?: 'low' | 'medium' | 'high';
   /** Enable code interpreter tool for executing Python code in a sandbox */
   codeInterpreterEnabled?: boolean;
   /** Message render mode for assistant messages */

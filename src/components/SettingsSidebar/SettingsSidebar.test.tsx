@@ -109,6 +109,47 @@ describe('SettingsSidebar', () => {
     });
   });
 
+  describe('Search Context Size dropdown', () => {
+    it('does not show context size dropdown when web search is disabled', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.queryByLabelText('Search Context Size')).not.toBeInTheDocument();
+    });
+
+    it('shows context size dropdown when web search is enabled', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByLabelText('Search Context Size')).toBeInTheDocument();
+    });
+
+    it('defaults to medium when webSearchContextSize is not set', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const select = screen.getByLabelText('Search Context Size') as HTMLSelectElement;
+      expect(select.value).toBe('medium');
+    });
+
+    it('reflects the configured webSearchContextSize value', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true, webSearchContextSize: 'low' };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const select = screen.getByLabelText('Search Context Size') as HTMLSelectElement;
+      expect(select.value).toBe('low');
+    });
+
+    it('calls onUpdateSettings when context size is changed', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      const select = screen.getByLabelText('Search Context Size');
+      fireEvent.change(select, { target: { value: 'low' } });
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ webSearchContextSize: 'low' });
+    });
+
+    it('shows hint about reducing token usage', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByText(/reduce token usage/i)).toBeInTheDocument();
+    });
+  });
+
   describe('Code Interpreter Toggle', () => {
     it('renders the code interpreter checkbox in the Tools section', () => {
       render(<SettingsSidebar {...defaultProps} />);
