@@ -28,6 +28,7 @@ describe('HistorySidebar', () => {
     isEphemeral: false,
     onSwitchThread: vi.fn(),
     onDeleteThread: vi.fn(),
+    onRenameThread: vi.fn(),
     onNewChat: vi.fn(),
     onNewEphemeralChat: vi.fn(),
     hasMessages: false,

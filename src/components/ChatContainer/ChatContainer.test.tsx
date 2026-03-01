@@ -693,6 +693,35 @@ describe('Title generation', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(updateThreadTitle).not.toHaveBeenCalled();
   });
+
+  // Regression: when deploymentName is empty, title gen must fall back to modelName
+  it('uses modelName as title model when titleModelName and deploymentName are both unset', async () => {
+    const { updateThreadTitle } = setupTitleTest({
+      titleModelName: undefined,
+      deploymentName: '',
+      modelName: 'gpt-5-mini' as Settings['modelName'],
+    });
+
+    render(<ChatContainer />);
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle.mock.calls[0][1]).toBe('gpt-5-mini');
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
+
+  it('uses titleModelName over modelName when titleModelName is set', async () => {
+    const { updateThreadTitle } = setupTitleTest({
+      titleModelName: 'gpt-5-nano' as Settings['titleModelName'],
+      deploymentName: '',
+      modelName: 'gpt-5-mini' as Settings['modelName'],
+    });
+
+    render(<ChatContainer />);
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle.mock.calls[0][1]).toBe('gpt-5-nano');
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
 });
 
 // ---------------------------------------------------------------------------

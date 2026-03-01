@@ -159,7 +159,8 @@
     background-color: var(--color-surface);
   }
 
-  .history-sidebar__item:hover .history-sidebar__item-delete {
+  .history-sidebar__item:hover .history-sidebar__item-delete,
+  .history-sidebar__item:hover .history-sidebar__item-edit {
     opacity: 1;
   }
 }
@@ -191,12 +192,18 @@
   font-size: 14px;
   font-weight: 500;
   color: var(--color-text);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+}
+
+.history-sidebar__item-title-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  flex: 1;
 }
 
 .history-sidebar__streaming-dot {
@@ -242,6 +249,49 @@
 .history-sidebar__item-time {
   font-size: 12px;
   color: var(--color-text-muted);
+}
+
+.history-sidebar__item-edit {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+@media (hover: none) {
+  .history-sidebar__item-edit {
+    opacity: 1;
+  }
+}
+
+.history-sidebar__item-edit:hover {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+.history-sidebar__item-title-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 8px;
+  font-size: 16px;
+  font-family: inherit;
+  color: var(--color-text);
+  background-color: var(--color-surface-elevated);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  outline: none;
+  touch-action: manipulation;
 }
 
 .history-sidebar__item-delete {

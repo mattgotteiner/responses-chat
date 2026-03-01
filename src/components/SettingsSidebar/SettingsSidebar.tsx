@@ -513,9 +513,10 @@ export function SettingsSidebar({
               <select
                 id="titleModelName"
                 className="settings-field__select"
-                value={settings.titleModelName || 'gpt-5-nano'}
+                value={settings.titleModelName ?? ''}
                 onChange={handleInputChange('titleModelName')}
               >
+                <option value="">Same as chat model (default)</option>
                 {AVAILABLE_MODELS.map((model) => (
                   <option key={model} value={model}>
                     {model}
@@ -523,7 +524,7 @@ export function SettingsSidebar({
                 ))}
               </select>
               <span className="settings-field__hint">
-                Smaller model used to auto-generate thread titles.
+                Model used to auto-generate thread titles. Defaults to the chat model.
               </span>
             </div>
           </section>
