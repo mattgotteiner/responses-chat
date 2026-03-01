@@ -202,6 +202,7 @@ export function useAudioInput(): UseAudioInputReturn {
     stoppedRef.current = true;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
+    callbackRef.current = null;
     setIsRecording(false);
   }, []);
 
