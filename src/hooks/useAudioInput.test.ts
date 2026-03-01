@@ -420,6 +420,32 @@ describe('useAudioInput', () => {
     expect(MockRecognition).toHaveBeenCalledTimes(2);
   });
 
+  it('does not call onTranscript after stop() — prevents text reappearing in input after send', () => {
+    // Regression test: when a message is sent while recording is active, the sequence is:
+    // 1. stop() is called  2. setValue('') clears the input  3. a pending onresult fires async
+    // Without the fix, step 3 would call onTranscript and restore cleared text in the input.
+    const onTranscript = vi.fn();
+    const { result } = renderHook(() => useAudioInput());
+
+    act(() => {
+      result.current.start('', onTranscript);
+    });
+    act(() => {
+      result.current.stop();
+    });
+    onTranscript.mockClear();
+
+    // Simulate a pending onresult arriving after stop()
+    act(() => {
+      mockInstance.onresult?.({
+        resultIndex: 0,
+        results: { length: 1, 0: { isFinal: true, 0: { transcript: 'stale transcript' } } },
+      });
+    });
+
+    expect(onTranscript).not.toHaveBeenCalled();
+  });
+
   it('joins multiple interim segments with spaces', () => {
     const onTranscript = vi.fn();
     const { result } = renderHook(() => useAudioInput());
