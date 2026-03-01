@@ -220,7 +220,7 @@ export const DEFAULT_SETTINGS: Settings = {
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
   parallelToolCallsEnabled: false,
-  titleModelName: 'gpt-5-nano',
+  titleModelName: undefined,
 };
 
 /** Tool call status types */

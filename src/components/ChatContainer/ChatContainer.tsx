@@ -143,7 +143,7 @@ export function ChatContainer() {
       const assistantMsg = msgs[1];
       if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
       titleGeneratedRef.current = threadId; // optimistic guard — prevents duplicate calls
-      const titleModel = settings.titleModelName || 'gpt-5-nano';
+      const titleModel = settings.titleModelName || settings.deploymentName;
       const mainModel = settings.deploymentName;
       const client = createAzureClient(settings);
       setGeneratingTitleThreadIds((prev) => new Set([...prev, threadId]));
@@ -478,6 +478,7 @@ export function ChatContainer() {
         isEphemeral={isEphemeral}
         onSwitchThread={handleSwitchThread}
         onDeleteThread={handleDeleteThread}
+        onRenameThread={updateThreadTitle}
         onNewChat={handleNewChat}
         onNewEphemeralChat={handleNewEphemeralChat}
         hasMessages={messages.length > 0}

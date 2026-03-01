@@ -2,7 +2,7 @@
  * History sidebar for browsing and managing chat threads
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState, useRef } from 'react';
 import type { Thread } from '../../types';
 import './HistorySidebar.css';
 
@@ -61,6 +61,8 @@ interface HistorySidebarProps {
   onNewEphemeralChat: () => void;
   /** Whether there are messages in the current (possibly unsaved) chat */
   hasMessages: boolean;
+  /** Handler to rename a thread */
+  onRenameThread: (id: string, title: string) => void;
   /** Thread IDs that have a stream running in the background */
   backgroundStreamingThreadIds?: Set<string>;
   /** Thread IDs that are currently having a title generated */
@@ -78,12 +80,16 @@ export function HistorySidebar({
   isEphemeral,
   onSwitchThread,
   onDeleteThread,
+  onRenameThread,
   onNewChat,
   onNewEphemeralChat,
   hasMessages,
   backgroundStreamingThreadIds,
   generatingTitleThreadIds,
 }: HistorySidebarProps) {
+  const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -99,6 +105,40 @@ export function HistorySidebar({
       onDeleteThread(threadId);
     },
     [onDeleteThread]
+  );
+
+  const handleEditClick = useCallback(
+    (e: React.MouseEvent, thread: Thread) => {
+      e.stopPropagation();
+      setEditingThreadId(thread.id);
+      setEditingTitle(thread.title);
+      // Focus the input after render
+      setTimeout(() => editInputRef.current?.focus(), 0);
+    },
+    []
+  );
+
+  const handleEditSave = useCallback(
+    (threadId: string) => {
+      const trimmed = editingTitle.trim();
+      if (trimmed) {
+        onRenameThread(threadId, trimmed);
+      }
+      setEditingThreadId(null);
+    },
+    [editingTitle, onRenameThread]
+  );
+
+  const handleEditKeyDown = useCallback(
+    (e: React.KeyboardEvent, threadId: string) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        handleEditSave(threadId);
+      } else if (e.key === 'Escape') {
+        setEditingThreadId(null);
+      }
+    },
+    [handleEditSave]
   );
 
   // Pre-compute group headers by comparing each thread's date group to the previous one
@@ -180,29 +220,52 @@ export function HistorySidebar({
                       thread.id === activeThreadId ? 'history-sidebar__item--active' : ''
                     }`}
                   >
-                    <button
-                      className="history-sidebar__item-main"
-                      onClick={() => { onSwitchThread(thread.id); onClose(); }}
-                    >
-                      <div className="history-sidebar__item-content">
-                        <span className="history-sidebar__item-title">
-                          {backgroundStreamingThreadIds?.has(thread.id) && (
-                            <span className="history-sidebar__streaming-dot" title="Streaming in background" />
-                          )}
-                          {generatingTitleThreadIds?.has(thread.id) ? (
-                            <span className="history-sidebar__generating-title" title="Generating title…">
-                              <span className="history-sidebar__generating-dots" />
-                              {thread.title}
-                            </span>
-                          ) : (
-                            thread.title
-                          )}
-                        </span>
-                        <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
-                          {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
-                        </span>
-                      </div>
-                    </button>
+                    {editingThreadId === thread.id ? (
+                      <input
+                        ref={editInputRef}
+                        className="history-sidebar__item-title-input"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onBlur={() => handleEditSave(thread.id)}
+                        onKeyDown={(e) => handleEditKeyDown(e, thread.id)}
+                        aria-label="Edit thread title"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <button
+                        className="history-sidebar__item-main"
+                        onClick={() => { onSwitchThread(thread.id); onClose(); }}
+                      >
+                        <div className="history-sidebar__item-content">
+                          <span className="history-sidebar__item-title">
+                            {backgroundStreamingThreadIds?.has(thread.id) && (
+                              <span className="history-sidebar__streaming-dot" title="Streaming in background" />
+                            )}
+                            {generatingTitleThreadIds?.has(thread.id) ? (
+                              <span className="history-sidebar__generating-title" title="Generating title…">
+                                <span className="history-sidebar__generating-dots" />
+                                <span className="history-sidebar__item-title-text">{thread.title}</span>
+                              </span>
+                            ) : (
+                              <span className="history-sidebar__item-title-text">{thread.title}</span>
+                            )}
+                          </span>
+                          <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
+                            {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
+                          </span>
+                        </div>
+                      </button>
+                    )}
+                    {editingThreadId !== thread.id && (
+                      <button
+                        className="history-sidebar__item-edit"
+                        onClick={(e) => handleEditClick(e, thread)}
+                        aria-label={`Rename "${thread.title}"`}
+                        title="Rename thread"
+                      >
+                        ✏️
+                      </button>
+                    )}
                     <button
                       className="history-sidebar__item-delete"
                       onClick={(e) => handleDeleteClick(e, thread.id)}
