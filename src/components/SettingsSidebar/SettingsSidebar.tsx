@@ -312,10 +312,10 @@ export function SettingsSidebar({
                   value={settings.webSearchContextSize || ''}
                   onChange={handleInputChange('webSearchContextSize')}
                 >
-                  <option value="">Default (API decides)</option>
-                  <option value="low">Low (fewer tokens, faster)</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High (more context, more tokens)</option>
+                  <option value="">Default</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
                 </select>
                 <span className="settings-field__hint">
                   Lower values reduce token usage and help avoid rate limits.
