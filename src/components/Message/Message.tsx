@@ -24,6 +24,8 @@ interface MessageProps {
   onMcpDeny?: (approvalRequestId: string) => void;
   /** Handler when user retries a failed message */
   onRetry?: (messageId: string) => void;
+  /** Handler to delete this message and its paired user/assistant message */
+  onDeletePair?: (messageId: string) => void;
   /** Whether a message is currently streaming — disables the retry button to prevent race conditions */
   isStreaming?: boolean;
 }
@@ -172,11 +174,12 @@ function GeneratedFiles({ files, onDownload, downloadingFiles, failedDownloads }
 /**
  * Renders a single chat message with appropriate styling based on role
  */
-export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onRetry, isStreaming = false }: MessageProps) {
+export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onRetry, onDeletePair, isStreaming = false }: MessageProps) {
   const { settings } = useSettingsContext();
   const [overrideRenderMode, setOverrideRenderMode] = useState<MessageRenderMode | null>(null);
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
   const [failedDownloads, setFailedDownloads] = useState<Set<string>>(new Set());
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
   
   const isUser = message.role === 'user';
   const hasReasoning = message.reasoning && message.reasoning.length > 0;
@@ -345,6 +348,39 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
                 📋
               </button>
             </>
+          )}
+          {/* Delete pair button — shown on all messages, hidden while streaming */}
+          {onDeletePair && !isStreaming && (
+            confirmingDelete ? (
+              <>
+                <span className="message__delete-confirm-label">Delete?</span>
+                <button
+                  className="message__delete-confirm-button"
+                  onClick={() => { onDeletePair(message.id); setConfirmingDelete(false); }}
+                  aria-label="Confirm delete"
+                  title="Confirm delete"
+                >
+                  ✓
+                </button>
+                <button
+                  className="message__delete-cancel-button"
+                  onClick={() => setConfirmingDelete(false)}
+                  aria-label="Cancel delete"
+                  title="Cancel"
+                >
+                  ✗
+                </button>
+              </>
+            ) : (
+              <button
+                className="message__delete-button"
+                onClick={() => setConfirmingDelete(true)}
+                aria-label="Delete message pair"
+                title="Delete message and its pair"
+              >
+                🗑️
+              </button>
+            )
           )}
         </div>
       </div>

@@ -105,6 +105,8 @@ export interface UseChatReturn {
   handleMcpApproval: (approvalRequestId: string, approve: boolean, settings: Settings) => Promise<void>;
   /** Retry a failed message by its assistant message ID */
   retryMessage: (failedAssistantMessageId: string, settings: Settings) => Promise<void>;
+  /** Delete a user+assistant pair by either message ID */
+  deleteMessagePair: (messageId: string) => void;
   /** Load a saved thread's state into the chat */
   loadThread: (messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => void;
   /** Detach the current foreground stream to run in the background for the given thread */
@@ -1018,6 +1020,48 @@ export function useChat(): UseChatReturn {
     [messages]
   );
 
+  const deleteMessagePair = useCallback((messageId: string) => {
+    setMessages((prev) => {
+      const idx = prev.findIndex((m) => m.id === messageId);
+      if (idx < 0) return prev;
+
+      const msg = prev[idx];
+      let userIdx: number;
+      let assistantIdx: number;
+
+      if (msg.role === 'user') {
+        userIdx = idx;
+        assistantIdx =
+          idx + 1 < prev.length && prev[idx + 1].role === 'assistant' ? idx + 1 : -1;
+      } else {
+        assistantIdx = idx;
+        userIdx = idx - 1 >= 0 && prev[idx - 1].role === 'user' ? idx - 1 : -1;
+      }
+
+      // Find the last assistant message index
+      let lastAssistantIdx = -1;
+      for (let i = prev.length - 1; i >= 0; i--) {
+        if (prev[i].role === 'assistant') {
+          lastAssistantIdx = i;
+          break;
+        }
+      }
+
+      // If the pair includes the last assistant message, restore previousResponseIdRef
+      if (assistantIdx >= 0 && assistantIdx === lastAssistantIdx) {
+        const userMsg = userIdx >= 0 ? prev[userIdx] : null;
+        const priorResponseId =
+          (userMsg?.requestJson?.previous_response_id as string | null | undefined) ?? null;
+        previousResponseIdRef.current = priorResponseId;
+      }
+
+      const idsToRemove = new Set<string>();
+      if (userIdx >= 0) idsToRemove.add(prev[userIdx].id);
+      if (assistantIdx >= 0) idsToRemove.add(prev[assistantIdx].id);
+      return prev.filter((m) => !idsToRemove.has(m.id));
+    });
+  }, []);
+
   const retryMessage = useCallback(
     async (failedAssistantMessageId: string, settings: Settings) => {
       const failedIdx = messages.findIndex(
@@ -1053,6 +1097,7 @@ export function useChat(): UseChatReturn {
     detachStream,
     reattachStream,
     abortBackgroundStream,
+    deleteMessagePair,
     previousResponseId: previousResponseIdRef.current,
     uploadedFileIds: allUploadedFileIdsRef.current,
     error,

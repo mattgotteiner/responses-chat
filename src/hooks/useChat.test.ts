@@ -667,3 +667,118 @@ describe('useChat - stopped-context injection', () => {
     expect(secondCallArgs.input).toBe('Q2');
   });
 });
+
+describe('useChat - deleteMessagePair', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** Build a pair of messages (user + assistant) for use in tests */
+  function makePair(
+    userId: string,
+    assistantId: string,
+    previousResponseId: string | null = null,
+    assistantResponseId = 'resp-' + assistantId
+  ): [Message, Message] {
+    const user: Message = {
+      id: userId,
+      role: 'user',
+      content: 'User message',
+      timestamp: new Date(),
+      requestJson: { previous_response_id: previousResponseId },
+    };
+    const assistant: Message = {
+      id: assistantId,
+      role: 'assistant',
+      content: 'Assistant response',
+      timestamp: new Date(),
+      responseJson: { id: assistantResponseId },
+    };
+    return [user, assistant];
+  }
+
+  it('does nothing when the message ID does not exist', () => {
+    const { result } = renderHook(() => useChat());
+    const [u, a] = makePair('u1', 'a1');
+    act(() => { result.current.loadThread([u, a], 'resp-a1', []); });
+    expect(result.current.messages).toHaveLength(2);
+
+    act(() => { result.current.deleteMessagePair('nonexistent'); });
+    expect(result.current.messages).toHaveLength(2);
+  });
+
+  it('removes the user+assistant pair when called with the user message ID', () => {
+    const { result } = renderHook(() => useChat());
+    const [u, a] = makePair('u1', 'a1');
+    act(() => { result.current.loadThread([u, a], 'resp-a1', []); });
+
+    act(() => { result.current.deleteMessagePair('u1'); });
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it('removes the user+assistant pair when called with the assistant message ID', () => {
+    const { result } = renderHook(() => useChat());
+    const [u, a] = makePair('u1', 'a1');
+    act(() => { result.current.loadThread([u, a], 'resp-a1', []); });
+
+    act(() => { result.current.deleteMessagePair('a1'); });
+    expect(result.current.messages).toHaveLength(0);
+  });
+
+  it('removes only the target pair when there are multiple pairs', () => {
+    const { result } = renderHook(() => useChat());
+    const pair1 = makePair('u1', 'a1', null, 'resp-a1');
+    const pair2 = makePair('u2', 'a2', 'resp-a1', 'resp-a2');
+    act(() => { result.current.loadThread([...pair1, ...pair2], 'resp-a2', []); });
+    expect(result.current.messages).toHaveLength(4);
+
+    act(() => { result.current.deleteMessagePair('u1'); });
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[0].id).toBe('u2');
+    expect(result.current.messages[1].id).toBe('a2');
+  });
+
+  it('restores previousResponseId when the last pair is deleted', () => {
+    const { result } = renderHook(() => useChat());
+    const pair1 = makePair('u1', 'a1', null, 'resp-a1');
+    const pair2 = makePair('u2', 'a2', 'resp-a1', 'resp-a2');
+    act(() => { result.current.loadThread([...pair1, ...pair2], 'resp-a2', []); });
+
+    // Delete the last pair — previousResponseId should revert to 'resp-a1'
+    act(() => { result.current.deleteMessagePair('u2'); });
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.previousResponseId).toBe('resp-a1');
+  });
+
+  it('sets previousResponseId to null when the only pair is deleted', () => {
+    const { result } = renderHook(() => useChat());
+    const [u, a] = makePair('u1', 'a1', null, 'resp-a1');
+    act(() => { result.current.loadThread([u, a], 'resp-a1', []); });
+
+    act(() => { result.current.deleteMessagePair('u1'); });
+    expect(result.current.messages).toHaveLength(0);
+    expect(result.current.previousResponseId).toBeNull();
+  });
+
+  it('does not change previousResponseId when a middle pair is deleted', () => {
+    const { result } = renderHook(() => useChat());
+    const pair1 = makePair('u1', 'a1', null, 'resp-a1');
+    const pair2 = makePair('u2', 'a2', 'resp-a1', 'resp-a2');
+    const pair3 = makePair('u3', 'a3', 'resp-a2', 'resp-a3');
+    act(() => { result.current.loadThread([...pair1, ...pair2, ...pair3], 'resp-a3', []); });
+
+    act(() => { result.current.deleteMessagePair('u2'); });
+    // Last response still resp-a3 — unchanged
+    expect(result.current.previousResponseId).toBe('resp-a3');
+    expect(result.current.messages).toHaveLength(4);
+  });
+
+  it('removes lone user message (no following assistant) without error', () => {
+    const { result } = renderHook(() => useChat());
+    const user: Message = { id: 'u1', role: 'user', content: 'Q', timestamp: new Date() };
+    act(() => { result.current.loadThread([user], null, []); });
+
+    act(() => { result.current.deleteMessagePair('u1'); });
+    expect(result.current.messages).toHaveLength(0);
+  });
+});

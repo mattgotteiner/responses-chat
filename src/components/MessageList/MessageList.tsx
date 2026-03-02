@@ -21,6 +21,8 @@ interface MessageListProps {
   onMcpDeny?: (approvalRequestId: string) => void;
   /** Handler when user retries a failed message */
   onRetry?: (messageId: string) => void;
+  /** Handler to delete a user+assistant pair by either message ID */
+  onDeletePair?: (messageId: string) => void;
   /** Whether a message is currently streaming — passed to each Message to disable retry */
   isStreaming?: boolean;
 }
@@ -39,6 +41,7 @@ export function MessageList({
   onMcpApprove,
   onMcpDeny,
   onRetry,
+  onDeletePair,
   isStreaming,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -106,6 +109,7 @@ export function MessageList({
             onMcpApprove={onMcpApprove}
             onMcpDeny={onMcpDeny}
             onRetry={onRetry}
+            onDeletePair={onDeletePair}
             isStreaming={isStreaming}
           />
         ))}

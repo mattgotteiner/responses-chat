@@ -104,6 +104,7 @@ function makeChatReturn(overrides: Partial<ReturnType<typeof useChat>> = {}): Re
     abortBackgroundStream: vi.fn(),
     loadThread: vi.fn(),
     retryMessage: vi.fn(),
+    deleteMessagePair: vi.fn(),
     handleMcpApproval: vi.fn(),
     previousResponseId: null,
     uploadedFileIds: [],

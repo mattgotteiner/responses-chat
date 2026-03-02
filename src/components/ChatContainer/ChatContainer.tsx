@@ -27,7 +27,7 @@ export function ChatContainer() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
   const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
-  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, abortBackgroundStream, previousResponseId, uploadedFileIds } = useChat();
+  const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, abortBackgroundStream, previousResponseId, uploadedFileIds, deleteMessagePair } = useChat();
   const {
     threads,
     activeThreadId,
@@ -454,6 +454,7 @@ export function ChatContainer() {
         onMcpApprove={handleMcpApprove}
         onMcpDeny={handleMcpDeny}
         onRetry={handleRetry}
+        onDeletePair={deleteMessagePair}
         isStreaming={isStreaming}
       />
 

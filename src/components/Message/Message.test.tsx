@@ -815,4 +815,80 @@ describe('attachments', () => {
       });
     });
   });
+
+  describe('delete pair button', () => {
+    it('shows delete button when onDeletePair is provided', () => {
+      const mockOnDeletePair = vi.fn();
+      renderWithSettings(
+        <Message
+          message={baseMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onDeletePair={mockOnDeletePair}
+        />
+      );
+      expect(screen.getByLabelText('Delete message pair')).toBeInTheDocument();
+    });
+
+    it('does not show delete button when onDeletePair is not provided', () => {
+      renderWithSettings(<Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
+      expect(screen.queryByLabelText('Delete message pair')).not.toBeInTheDocument();
+    });
+
+    it('does not show delete button while isStreaming', () => {
+      const mockOnDeletePair = vi.fn();
+      renderWithSettings(
+        <Message
+          message={baseMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onDeletePair={mockOnDeletePair}
+          isStreaming={true}
+        />
+      );
+      expect(screen.queryByLabelText('Delete message pair')).not.toBeInTheDocument();
+    });
+
+    it('shows confirm/cancel after clicking delete button', () => {
+      const mockOnDeletePair = vi.fn();
+      renderWithSettings(
+        <Message
+          message={baseMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onDeletePair={mockOnDeletePair}
+        />
+      );
+      fireEvent.click(screen.getByLabelText('Delete message pair'));
+      expect(screen.getByLabelText('Confirm delete')).toBeInTheDocument();
+      expect(screen.getByLabelText('Cancel delete')).toBeInTheDocument();
+      expect(screen.queryByLabelText('Delete message pair')).not.toBeInTheDocument();
+    });
+
+    it('calls onDeletePair with message id on confirm', () => {
+      const mockOnDeletePair = vi.fn();
+      renderWithSettings(
+        <Message
+          message={baseMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onDeletePair={mockOnDeletePair}
+        />
+      );
+      fireEvent.click(screen.getByLabelText('Delete message pair'));
+      fireEvent.click(screen.getByLabelText('Confirm delete'));
+      expect(mockOnDeletePair).toHaveBeenCalledWith('msg-1');
+    });
+
+    it('cancels deletion and restores delete button', () => {
+      const mockOnDeletePair = vi.fn();
+      renderWithSettings(
+        <Message
+          message={baseMessage}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+          onDeletePair={mockOnDeletePair}
+        />
+      );
+      fireEvent.click(screen.getByLabelText('Delete message pair'));
+      fireEvent.click(screen.getByLabelText('Cancel delete'));
+      expect(mockOnDeletePair).not.toHaveBeenCalled();
+      expect(screen.getByLabelText('Delete message pair')).toBeInTheDocument();
+    });
+  });
 });
