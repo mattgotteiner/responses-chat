@@ -9,13 +9,14 @@ import { DEFAULT_SETTINGS } from '../types';
 import type { Settings, Message } from '../types';
 
 // vi.hoisted ensures these references are available inside the vi.mock factory
-const { mockCreateAzureClient } = vi.hoisted(() => ({
+const { mockCreateAzureClient, mockUploadFileForCodeInterpreter } = vi.hoisted(() => ({
   mockCreateAzureClient: vi.fn(),
+  mockUploadFileForCodeInterpreter: vi.fn<() => Promise<string>>(),
 }));
 
 vi.mock('../utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../utils/api')>();
-  return { ...actual, createAzureClient: mockCreateAzureClient };
+  return { ...actual, createAzureClient: mockCreateAzureClient, uploadFileForCodeInterpreter: mockUploadFileForCodeInterpreter };
 });
 
 // createRecordingSession returns null by default in non-RECORD environments,
@@ -475,6 +476,46 @@ describe('useChat - unmount cleanup', () => {
     // Give async tasks time to settle
     await new Promise((r) => setTimeout(r, 20));
     expect(onComplete).not.toHaveBeenCalled();
+  });
+
+  it('detachStream during file upload immediately sets isStreaming=false (regression: stuck send button)', async () => {
+    // Regression test for: when a user uploads a file, sends, then switches chats
+    // while the upload is still in flight, detachStream must still succeed because
+    // the AbortController is now created before the upload (not after).
+    // Previously abortControllerRef.current was null during upload, causing detachStream
+    // to bail early, leaving isStreaming=true stuck on the new chat.
+
+    // Block the file upload until we manually resolve it
+    let resolveUpload!: (fileId: string) => void;
+    const uploadPromise = new Promise<string>((resolve) => { resolveUpload = resolve; });
+    mockUploadFileForCodeInterpreter.mockReturnValue(uploadPromise);
+
+    const { stream } = makeControlledStream();
+    mockCreateAzureClient.mockReturnValue(makeMockClient(() => stream));
+    const { result } = renderHook(() => useChat());
+
+    // Start a send with a file attachment (CSV — not an image, so it goes through upload path)
+    const csvAttachment = { name: 'data.csv', mimeType: 'text/csv', base64: 'dGVzdA==' };
+    act(() => { void result.current.sendMessage('Analyse this', testSettings, [csvAttachment]); });
+
+    // Messages appear immediately (user + assistant placeholder), but upload is still pending
+    await waitFor(() => expect(result.current.messages).toHaveLength(2));
+    expect(result.current.isStreaming).toBe(true);
+
+    // Simulate switching chats (detach) WHILE the upload is still running
+    const onComplete = vi.fn();
+    act(() => {
+      result.current.detachStream('thread-1', [...result.current.messages], [], onComplete);
+    });
+
+    // Core assertion: isStreaming must drop immediately.
+    // Before the fix this would stay true until the entire API response finished.
+    expect(result.current.isStreaming).toBe(false);
+    // onComplete not called yet — upload + API call still running in background
+    expect(onComplete).not.toHaveBeenCalled();
+
+    // Unblock the upload so the background async work can finish cleanly
+    act(() => { resolveUpload('file-123'); });
   });
 });
 
