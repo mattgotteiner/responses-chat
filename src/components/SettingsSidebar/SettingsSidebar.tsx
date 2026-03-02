@@ -2,11 +2,12 @@
  * Settings sidebar panel
  */
 
-import { useCallback, type ChangeEvent } from 'react';
+import { useCallback, useState, type ChangeEvent } from 'react';
 import type { Settings, ModelName, McpServerConfig, VectorStoreCache, VectorStore, VectorStoreFile } from '../../types';
 import {
   AVAILABLE_MODELS,
-  MODEL_REASONING_EFFORTS,
+  CUSTOM_MODEL_OPTION,
+  getReasoningEfforts,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
@@ -55,7 +56,12 @@ export function SettingsSidebar({
   setStoreFiles,
   setStoreFilesLoading,
 }: SettingsSidebarProps) {
-  const availableReasoningEfforts = MODEL_REASONING_EFFORTS[settings.modelName];
+  const isCustomModel = !AVAILABLE_MODELS.includes(settings.modelName);
+  const [showCustomModelInput, setShowCustomModelInput] = useState(isCustomModel);
+  const isCustomTitleModel = settings.titleModelName != null && settings.titleModelName !== '' && !AVAILABLE_MODELS.includes(settings.titleModelName);
+  const [showCustomTitleModelInput, setShowCustomTitleModelInput] = useState(isCustomTitleModel);
+
+  const availableReasoningEfforts = getReasoningEfforts(settings.modelName);
 
   const handleInputChange = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -93,10 +99,14 @@ export function SettingsSidebar({
 
   const handleModelChange = useCallback(
     (e: ChangeEvent<HTMLSelectElement>) => {
-      const newModel = e.target.value as ModelName;
-      const newAvailableEfforts = MODEL_REASONING_EFFORTS[newModel];
-
-      // Reset reasoning effort if current one is not available for new model
+      const value = e.target.value;
+      if (value === CUSTOM_MODEL_OPTION) {
+        setShowCustomModelInput(true);
+        return;
+      }
+      setShowCustomModelInput(false);
+      const newModel = value as ModelName;
+      const newAvailableEfforts = getReasoningEfforts(newModel);
       const updates: Partial<Settings> = { modelName: newModel };
       if (
         settings.reasoningEffort &&
@@ -104,10 +114,38 @@ export function SettingsSidebar({
       ) {
         updates.reasoningEffort = undefined;
       }
-
       onUpdateSettings(updates);
     },
     [settings.reasoningEffort, onUpdateSettings]
+  );
+
+  const handleCustomModelChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const newModel = e.target.value;
+      const newAvailableEfforts = getReasoningEfforts(newModel);
+      const updates: Partial<Settings> = { modelName: newModel };
+      if (
+        settings.reasoningEffort &&
+        !newAvailableEfforts.includes(settings.reasoningEffort)
+      ) {
+        updates.reasoningEffort = undefined;
+      }
+      onUpdateSettings(updates);
+    },
+    [settings.reasoningEffort, onUpdateSettings]
+  );
+
+  const handleTitleModelChange = useCallback(
+    (e: ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      if (value === CUSTOM_MODEL_OPTION) {
+        setShowCustomTitleModelInput(true);
+        return;
+      }
+      setShowCustomTitleModelInput(false);
+      onUpdateSettings({ titleModelName: value || undefined });
+    },
+    [onUpdateSettings]
   );
 
   const handleOverlayClick = useCallback(
@@ -233,7 +271,7 @@ export function SettingsSidebar({
               <select
                 id="modelName"
                 className="settings-field__select"
-                value={settings.modelName}
+                value={showCustomModelInput ? CUSTOM_MODEL_OPTION : settings.modelName}
                 onChange={handleModelChange}
               >
                 {AVAILABLE_MODELS.map((model) => (
@@ -241,7 +279,19 @@ export function SettingsSidebar({
                     {model}
                   </option>
                 ))}
+                <option value={CUSTOM_MODEL_OPTION}>Custom…</option>
               </select>
+              {showCustomModelInput && (
+                <input
+                  id="customModelName"
+                  type="text"
+                  className="settings-field__input"
+                  value={settings.modelName}
+                  onChange={handleCustomModelChange}
+                  placeholder="Enter model or deployment name"
+                  autoFocus
+                />
+              )}
             </div>
 
             <div className="settings-field">
@@ -535,16 +585,23 @@ export function SettingsSidebar({
               <select
                 id="titleModelName"
                 className="settings-field__select"
-                value={settings.titleModelName ?? ''}
-                onChange={handleInputChange('titleModelName')}
+                value={showCustomTitleModelInput ? CUSTOM_MODEL_OPTION : (settings.titleModelName ?? '')}
+                onChange={handleTitleModelChange}
               >
                 <option value="">Same as chat model (default)</option>
-                {AVAILABLE_MODELS.map((model) => (
-                  <option key={model} value={model}>
-                    {model}
-                  </option>
-                ))}
+                <option value={CUSTOM_MODEL_OPTION}>Custom…</option>
               </select>
+              {showCustomTitleModelInput && (
+                <input
+                  id="customTitleModelName"
+                  type="text"
+                  className="settings-field__input"
+                  value={settings.titleModelName ?? ''}
+                  onChange={handleInputChange('titleModelName')}
+                  placeholder="Enter model or deployment name"
+                  autoFocus
+                />
+              )}
               <span className="settings-field__hint">
                 Model used to auto-generate thread titles. Defaults to the chat model.
               </span>

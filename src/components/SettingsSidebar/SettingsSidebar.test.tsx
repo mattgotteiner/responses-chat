@@ -249,9 +249,11 @@ describe('SettingsSidebar', () => {
       expect(screen.getByLabelText('API Key')).toBeInTheDocument();
     });
 
-    it('renders model select', () => {
+    it('renders model select dropdown', () => {
       render(<SettingsSidebar {...defaultProps} />);
-      expect(screen.getByLabelText('Model')).toBeInTheDocument();
+      const modelSelect = screen.getByLabelText('Model');
+      expect(modelSelect).toBeInTheDocument();
+      expect(modelSelect.tagName).toBe('SELECT');
     });
 
     it('renders deployment name input', () => {

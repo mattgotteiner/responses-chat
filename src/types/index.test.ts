@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
+  getReasoningEfforts,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   DEFAULT_SETTINGS,
@@ -10,27 +11,37 @@ import {
 
 describe('types constants', () => {
   describe('AVAILABLE_MODELS', () => {
-    it('contains expected models', () => {
+    it('contains the expected built-in models', () => {
+      expect(AVAILABLE_MODELS).toContain('gpt-5-nano');
       expect(AVAILABLE_MODELS).toContain('gpt-5-mini');
       expect(AVAILABLE_MODELS).toContain('gpt-5');
-      expect(AVAILABLE_MODELS.length).toBeGreaterThan(0);
+      expect(AVAILABLE_MODELS).toContain('gpt-5.1');
+      expect(AVAILABLE_MODELS).toContain('gpt-5.2');
+      expect(AVAILABLE_MODELS).not.toContain('gpt-oss-120b');
     });
   });
 
   describe('MODEL_REASONING_EFFORTS', () => {
-    it('has entries for all available models', () => {
+    it('has per-model reasoning effort configurations', () => {
+      expect(MODEL_REASONING_EFFORTS['gpt-5-nano']).toEqual(['low', 'medium', 'high']);
+      expect(MODEL_REASONING_EFFORTS['gpt-5']).toContain('minimal');
+      expect(MODEL_REASONING_EFFORTS['gpt-5.1']).toContain('none');
+    });
+
+    it('all AVAILABLE_MODELS support low, medium, high effort via getReasoningEfforts', () => {
       for (const model of AVAILABLE_MODELS) {
-        expect(MODEL_REASONING_EFFORTS[model]).toBeDefined();
-        expect(Array.isArray(MODEL_REASONING_EFFORTS[model])).toBe(true);
+        const efforts = getReasoningEfforts(model);
+        expect(efforts).toContain('low');
+        expect(efforts).toContain('medium');
+        expect(efforts).toContain('high');
       }
     });
 
-    it('all models support low, medium, high effort', () => {
-      for (const model of AVAILABLE_MODELS) {
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('low');
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('medium');
-        expect(MODEL_REASONING_EFFORTS[model]).toContain('high');
-      }
+    it('returns default efforts for unknown models', () => {
+      const efforts = getReasoningEfforts('some-unknown-model');
+      expect(efforts).toContain('low');
+      expect(efforts).toContain('medium');
+      expect(efforts).toContain('high');
     });
   });
 
@@ -56,13 +67,10 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS).toHaveProperty('deploymentName');
     });
 
-    it('has empty credentials by default', () => {
+    it('has empty credentials and model by default', () => {
       expect(DEFAULT_SETTINGS.endpoint).toBe('');
       expect(DEFAULT_SETTINGS.apiKey).toBe('');
-    });
-
-    it('has a valid default model', () => {
-      expect(AVAILABLE_MODELS).toContain(DEFAULT_SETTINGS.modelName);
+      expect(DEFAULT_SETTINGS.modelName).toBe('');
     });
   });
 
