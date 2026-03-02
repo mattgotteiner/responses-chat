@@ -139,7 +139,7 @@ export function ChatContainer() {
     (threadId: string, msgs: Message[]) => {
       if (titleGeneratedRef.current === threadId || !isConfigured || msgs.length !== 2) return;
       const currentThread = threadsRef.current.find((t) => t.id === threadId);
-      if (currentThread && currentThread.title !== 'New Chat') return;
+      if (currentThread && currentThread.title !== 'Untitled chat') return;
       const userMsg = msgs[0];
       const assistantMsg = msgs[1];
       if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
@@ -157,7 +157,7 @@ export function ChatContainer() {
         })
         .then((title) => {
           const latestThread = threadsRef.current.find((t) => t.id === threadId);
-          if (title && (!latestThread || latestThread.title === 'New Chat')) {
+          if (title && (!latestThread || latestThread.title === 'Untitled chat')) {
             updateThreadTitle(threadId, title);
           }
         })
@@ -223,7 +223,7 @@ export function ChatContainer() {
         // Only mark as "titled" if the thread already has a real title — otherwise
         // triggerTitleGeneration (called from onComplete) must be allowed to run.
         const reattachedThread = threads.find((t) => t.id === id);
-        if (reattachedThread && reattachedThread.title !== 'New Chat') {
+        if (reattachedThread && reattachedThread.title !== 'Untitled chat') {
           titleGeneratedRef.current = id;
         }
         return;
@@ -261,7 +261,7 @@ export function ChatContainer() {
         prevMessageCountRef.current = data.messages.length;
         // Only mark as "titled" if the thread already has a real title.
         const targetThread = threads.find((t) => t.id === id);
-        if (targetThread && targetThread.title !== 'New Chat') {
+        if (targetThread && targetThread.title !== 'Untitled chat') {
           titleGeneratedRef.current = id;
         }
       }
@@ -441,7 +441,20 @@ export function ChatContainer() {
             </button>
           )}
         </div>
-        <SettingsButton onClick={handleOpenSettings} isConfigured={isConfigured} />
+        <div className="chat-container__header-actions">
+          <button
+            className="chat-container__new-chat-btn"
+            onClick={handleNewChat}
+            aria-label="New chat"
+            title="New chat"
+          >
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+          </button>
+          <SettingsButton onClick={handleOpenSettings} isConfigured={isConfigured} />
+        </div>
       </header>
 
       <MessageList

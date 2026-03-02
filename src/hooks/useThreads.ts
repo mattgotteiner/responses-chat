@@ -106,7 +106,7 @@ export function useThreads(): UseThreadsReturn {
       const now = Date.now();
       const thread: Thread = {
         id,
-        title: 'New Chat',
+        title: 'Untitled chat',
         createdAt: now,
         updatedAt: now,
         messages,

@@ -13,11 +13,6 @@
   transition: background-color 0.2s, border-color 0.2s;
 }
 
-.settings-button:hover {
-  background-color: var(--color-surface);
-  border-color: var(--color-border-muted);
-}
-
 .settings-button:focus {
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -29,8 +24,15 @@
   color: var(--color-text-secondary);
 }
 
-.settings-button:hover .settings-button__icon {
-  color: var(--color-text);
+@media (hover: hover) {
+  .settings-button:hover {
+    background-color: var(--color-surface);
+    border-color: var(--color-border-muted);
+  }
+
+  .settings-button:hover .settings-button__icon {
+    color: var(--color-text);
+  }
 }
 
 .settings-button__badge {
