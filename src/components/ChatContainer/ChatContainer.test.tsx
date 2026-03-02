@@ -360,7 +360,7 @@ describe('handleSwitchThread: background reattach fallback', () => {
     mockUseThreads.mockReturnValue(
       makeThreadsReturn({
         activeThreadId: 'thread-untitled',
-        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
+        threads: [{ id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
         switchThread: switchThreadFn,
       })
     );
@@ -378,7 +378,7 @@ describe('handleSwitchThread: background reattach fallback', () => {
     mockUseThreads.mockReturnValue(
       makeThreadsReturn({
         activeThreadId: null,
-        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
+        threads: [{ id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: switchedMessages, previousResponseId: 'resp-prev', uploadedFileIds: ['file_1'] }],
         switchThread: switchThreadFn,
       })
     );
@@ -408,7 +408,7 @@ describe('handleSwitchThread: background reattach fallback', () => {
     mockUseThreads.mockReturnValue(
       makeThreadsReturn({
         activeThreadId: 'thread-untitled',
-        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] }],
+        threads: [{ id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] }],
         switchThread: switchThreadFn,
       })
     );
@@ -427,8 +427,8 @@ describe('handleSwitchThread: background reattach fallback', () => {
       makeThreadsReturn({
         activeThreadId: 'thread-current',
         threads: [
-          { id: 'thread-current', title: 'New Chat', createdAt: 1, updatedAt: 3, messages: currentMessages, previousResponseId: 'resp-current', uploadedFileIds: [] },
-          { id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] },
+          { id: 'thread-current', title: 'Untitled chat', createdAt: 1, updatedAt: 3, messages: currentMessages, previousResponseId: 'resp-current', uploadedFileIds: [] },
+          { id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: backgroundMessages, previousResponseId: null, uploadedFileIds: [] },
         ],
         switchThread: switchThreadFn,
       })
@@ -472,7 +472,7 @@ describe('handleSwitchThread: background reattach fallback', () => {
         activeThreadId: null,
         isEphemeral: true,
         startEphemeral,
-        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
+        threads: [{ id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
         switchThread: switchThreadFn,
       })
     );
@@ -500,7 +500,7 @@ describe('handleSwitchThread: background reattach fallback', () => {
         activeThreadId: 'thread-untitled',
         isEphemeral: false,
         startEphemeral,
-        threads: [{ id: 'thread-untitled', title: 'New Chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
+        threads: [{ id: 'thread-untitled', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages: [], previousResponseId: null, uploadedFileIds: [] }],
         switchThread: switchThreadFn,
       })
     );
@@ -634,7 +634,7 @@ describe('Title generation', () => {
     mockUseThreads.mockReturnValue(
       makeThreadsReturn({
         activeThreadId: 'thread-123',
-        threads: [{ id: 'thread-123', title: 'New Chat', createdAt: 1, updatedAt: 2, messages, previousResponseId: 'resp-2', uploadedFileIds: [] }],
+        threads: [{ id: 'thread-123', title: 'Untitled chat', createdAt: 1, updatedAt: 2, messages, previousResponseId: 'resp-2', uploadedFileIds: [] }],
         updateThreadTitle,
       })
     );
@@ -953,7 +953,7 @@ describe('handleSwitchThread: does not block title generation for "New Chat" thr
     const updateThreadTitle = vi.fn();
     const switchThreadFn = vi.fn().mockReturnValue({ messages: threadMessages, previousResponseId: null, uploadedFileIds: [] });
     const loadThread = vi.fn();
-    const untitledThread = makeThread('thread-untitled', 'New Chat', threadMessages);
+    const untitledThread = makeThread('thread-untitled', 'Untitled chat', threadMessages);
 
     // Initial state: on a different thread with no messages
     mockUseChat.mockReturnValue(makeChatReturn({ messages: [], isStreaming: false, loadThread }));

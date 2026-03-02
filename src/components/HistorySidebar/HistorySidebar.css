@@ -64,9 +64,11 @@
   cursor: pointer;
 }
 
-.history-sidebar__close:hover {
-  background-color: var(--color-surface-elevated);
-  color: var(--color-text);
+@media (hover: hover) {
+  .history-sidebar__close:hover {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+  }
 }
 
 .history-sidebar__actions {
@@ -89,8 +91,10 @@
   transition: background-color 0.15s;
 }
 
-.history-sidebar__new-chat:hover {
-  background-color: var(--color-primary-hover);
+@media (hover: hover) {
+  .history-sidebar__new-chat:hover {
+    background-color: var(--color-primary-hover);
+  }
 }
 
 .history-sidebar__ephemeral-chat {
@@ -105,9 +109,11 @@
   transition: background-color 0.15s, color 0.15s;
 }
 
-.history-sidebar__ephemeral-chat:hover {
-  background-color: var(--color-surface-elevated);
-  color: var(--color-text);
+@media (hover: hover) {
+  .history-sidebar__ephemeral-chat:hover {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+  }
 }
 
 .history-sidebar__list {
@@ -276,9 +282,11 @@
   }
 }
 
-.history-sidebar__item-edit:hover {
-  background-color: var(--color-surface-elevated);
-  color: var(--color-text);
+@media (hover: hover) {
+  .history-sidebar__item-edit:hover {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+  }
 }
 
 .history-sidebar__item-title-input {
@@ -319,9 +327,11 @@
   }
 }
 
-.history-sidebar__item-delete:hover {
-  background-color: var(--color-error-bg);
-  color: var(--color-danger);
+@media (hover: hover) {
+  .history-sidebar__item-delete:hover {
+    background-color: var(--color-error-bg);
+    color: var(--color-danger);
+  }
 }
 
 .history-sidebar__item-bookmark {
@@ -347,9 +357,11 @@
   color: #f5a623;
 }
 
-.history-sidebar__item-bookmark:hover {
-  background-color: var(--color-surface-elevated);
-  color: #f5a623;
+@media (hover: hover) {
+  .history-sidebar__item-bookmark:hover {
+    background-color: var(--color-surface-elevated);
+    color: #f5a623;
+  }
 }
 
 @media (hover: none) {
