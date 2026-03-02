@@ -3,6 +3,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { RateLimitError } from 'openai';
 import type { Message, Settings, Attachment } from '../types';
 import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
@@ -26,7 +27,11 @@ function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: st
   const include: string[] = [];
 
   if (settings.webSearchEnabled) {
-    tools.push({ type: 'web_search_preview' });
+    const webSearchTool: Record<string, unknown> = { type: 'web_search_preview' };
+    if (settings.webSearchContextSize) {
+      webSearchTool.search_context_size = settings.webSearchContextSize;
+    }
+    tools.push(webSearchTool);
   }
   if (settings.codeInterpreterEnabled) {
     // Include file_ids if any were uploaded for code interpreter
@@ -511,8 +516,17 @@ export function useChat(): UseChatReturn {
             setMessages(abortUpdater);
           }
         } else {
-          const errorMessage =
+          let errorMessage =
             err instanceof Error ? err.message : 'An unknown error occurred';
+
+          // Provide actionable guidance for rate limit errors
+          if (err instanceof RateLimitError) {
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+            if (settings.webSearchEnabled) {
+              errorMessage += ' Web search significantly increases token usage — try disabling it or setting Search Context Size to "low".';
+            }
+          }
+
           setError(errorMessage);
 
           // Update assistant message to show error
@@ -886,8 +900,13 @@ export function useChat(): UseChatReturn {
             setMessages(abortUpdater);
           }
         } else {
-          const errorMessage =
+          let errorMessage =
             err instanceof Error ? err.message : 'An unknown error occurred';
+
+          if (err instanceof RateLimitError) {
+            errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
+          }
+
           setError(errorMessage);
           const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>

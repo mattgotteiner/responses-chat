@@ -44,6 +44,7 @@ export function createAzureClient(credentials: AzureCredentials): OpenAI {
   return new OpenAI({
     baseURL,
     apiKey: credentials.apiKey,
+    maxRetries: 3,
     dangerouslyAllowBrowser: true, // Required for browser usage
   });
 }
@@ -161,23 +162,34 @@ export async function uploadFileForCodeInterpreter(
 export async function downloadContainerFile(
   credentials: AzureCredentials,
   containerId: string,
-  fileId: string
+  fileId: string,
+  maxRetries = 3
 ): Promise<Blob> {
   const baseURL = normalizeEndpoint(credentials.endpoint);
   const url = `${baseURL}/containers/${containerId}/files/${fileId}/content`;
   
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'api-key': credentials.apiKey,
-    },
-  });
-  
-  if (!response.ok) {
-    throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'api-key': credentials.apiKey,
+      },
+    });
+    
+    if (response.status === 429) {
+      const retryAfter = parseInt(response.headers.get('Retry-After') || '1', 10);
+      await new Promise((r) => setTimeout(r, retryAfter * 1000));
+      continue;
+    }
+    
+    if (!response.ok) {
+      throw new Error(`Failed to download file: ${response.status} ${response.statusText}`);
+    }
+    
+    return response.blob();
   }
   
-  return response.blob();
+  throw new Error('Failed to download file: rate limit exceeded after retries');
 }
 
 /**

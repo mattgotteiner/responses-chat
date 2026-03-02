@@ -79,6 +79,11 @@ describe('API utilities', () => {
       });
       expect(client.baseURL).toBe('https://my-resource.openai.azure.com/openai/v1');
     });
+
+    it('configures maxRetries to 3', () => {
+      const client = createAzureClient(baseSettings);
+      expect(client.maxRetries).toBe(3);
+    });
   });
 
   describe('uploadFileForCodeInterpreter', () => {
@@ -215,6 +220,73 @@ describe('API utilities', () => {
 
       const calledUrl = mockFetch.mock.calls[0][0] as string;
       expect(calledUrl).toBe('https://my-resource.openai.azure.com/openai/v1/containers/cont_1/files/file_1/content');
+    });
+
+    it('retries on 429 and succeeds on subsequent attempt', async () => {
+      const mockBlob = new Blob(['file content'], { type: 'text/csv' });
+      const mockFetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          headers: new Headers({ 'Retry-After': '0' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          blob: vi.fn().mockResolvedValue(mockBlob),
+        });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await downloadContainerFile(
+        { endpoint: 'https://my-resource.openai.azure.com', apiKey: 'test-key' },
+        'container_123',
+        'file_abc'
+      );
+
+      expect(result).toBe(mockBlob);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('throws after exhausting retries on repeated 429', async () => {
+      const mockFetch = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        headers: new Headers({ 'Retry-After': '0' }),
+      });
+      vi.stubGlobal('fetch', mockFetch);
+
+      await expect(
+        downloadContainerFile(
+          { endpoint: 'https://my-resource.openai.azure.com', apiKey: 'test-key' },
+          'container_123',
+          'file_abc',
+          2
+        )
+      ).rejects.toThrow('rate limit exceeded after retries');
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('respects Retry-After header value', async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      const mockBlob = new Blob(['ok']);
+      const mockFetch = vi.fn()
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 429,
+          headers: new Headers({ 'Retry-After': '0' }),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          blob: vi.fn().mockResolvedValue(mockBlob),
+        });
+      vi.stubGlobal('fetch', mockFetch);
+
+      const result = await downloadContainerFile(
+        { endpoint: 'https://my-resource.openai.azure.com', apiKey: 'key' },
+        'c1', 'f1'
+      );
+
+      expect(result).toBe(mockBlob);
+      vi.useRealTimers();
     });
   });
 
