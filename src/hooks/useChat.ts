@@ -151,6 +151,9 @@ export function useChat(): UseChatReturn {
   // Recording session ref - persists across sendMessage and handleMcpApproval
   // to support recording approval flows as a single session
   const recordingSessionRef = useRef<ReturnType<typeof createRecordingSession>>(null);
+  // Stopped-context queue: user+assistant turn pairs that were stopped before getting a
+  // response ID. Injected into the next sendMessage input so the model can see them.
+  const stoppedContextRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
   // Abort all background streams on unmount to prevent dangling fetch requests
   useEffect(() => {
@@ -168,6 +171,9 @@ export function useChat(): UseChatReturn {
       if (!content.trim() && (!attachments || attachments.length === 0)) return;
 
       setError(null);
+
+      // Capture user text now for potential stopped-context injection later
+      const pendingUserContent = content.trim();
 
       const client = createAzureClient(settings);
       const deployment = settings.deploymentName || settings.modelName;
@@ -337,6 +343,22 @@ export function useChat(): UseChatReturn {
         input = content.trim();
       }
 
+      // If there are stopped messages from a previous interrupted turn, inject them
+      // before the new user message so the model can see the partial conversation.
+      if (stoppedContextRef.current.length > 0) {
+        const stoppedTurns = stoppedContextRef.current.map(({ role, content: c }) => ({
+          role,
+          content: role === 'user'
+            ? [{ type: 'input_text', text: c }]
+            : [{ type: 'output_text', text: c }],
+        }));
+        // Normalise the current user input to array form too
+        const currentUserTurn = typeof input === 'string'
+          ? { role: 'user', content: [{ type: 'input_text', text: input }] }
+          : (input as Record<string, unknown>[])[0];
+        input = [...stoppedTurns, currentUserTurn];
+      }
+
       // Build the request parameters
       const requestParams: Record<string, unknown> = {
         model: deployment,
@@ -405,10 +427,14 @@ export function useChat(): UseChatReturn {
 
       // Track the accumulator to check for pending approvals at stream end
       let finalAccumulator: StreamAccumulator | null = null;
+      // Hoist accumulator so the catch block can read partial content on early abort
+      let accumulator = createInitialAccumulator();
 
       try {
-        // Create abort controller for this request
-        abortControllerRef.current = new AbortController();
+        // Create abort controller for this request — capture local ref so we can
+        // check signal.aborted after the finally block sets the ref to null.
+        const abortController = new AbortController();
+        abortControllerRef.current = abortController;
 
         // Record the request payload if recording is active
         recordingSession?.recordRequest(requestParams);
@@ -419,10 +445,8 @@ export function useChat(): UseChatReturn {
             ...requestParams,
             stream: true,
           } as Parameters<typeof client.responses.create>[0],
-          { signal: abortControllerRef.current.signal }
+          { signal: abortController.signal }
         );
-
-        let accumulator = createInitialAccumulator();
 
         // Helper to update message state from accumulator
         const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
@@ -451,6 +475,9 @@ export function useChat(): UseChatReturn {
           }
         };
 
+        // Track whether we received a terminal event (response.completed / incomplete / failed)
+        let streamCompletedNormally = false;
+
         // Process the stream using the stream processor
         for await (const event of stream as AsyncIterable<StreamEvent>) {
           // Record event if recording is active
@@ -472,7 +499,10 @@ export function useChat(): UseChatReturn {
               bgStream.previousResponseId = accumulator.responseId;
             } else {
               previousResponseIdRef.current = accumulator.responseId;
+              // Successful response subsumes any previously stopped context
+              stoppedContextRef.current = [];
             }
+            streamCompletedNormally = true;
             // Terminal event received (response.completed / response.incomplete / response.failed).
             // Break immediately so we don't wait for the transport to close — on mobile or
             // behind certain proxies the TCP connection can stay open indefinitely, which
@@ -484,11 +514,32 @@ export function useChat(): UseChatReturn {
         // Store final accumulator to check for pending approvals
         finalAccumulator = accumulator;
 
-        // Mark message as no longer streaming — route to buffer if detached
-        const completionUpdater = (prev: Message[]) =>
-          prev.map((msg) =>
-            msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
+        // The OpenAI SDK swallows AbortError internally and ends the stream cleanly,
+        // so we detect user-initiated stops here by checking the abort signal directly.
+        const isForegroundStream = !backgroundStreamsRef.current.has(assistantMessage.id);
+        if (!streamCompletedNormally && isForegroundStream && abortController.signal.aborted) {
+          // Foreground stream was stopped by user — save context so the next
+          // sendMessage can inject this turn and the model can see it.
+          const newEntries: Array<{ role: 'user' | 'assistant'; content: string }> = [
+            { role: 'user', content: pendingUserContent },
+          ];
+          if (accumulator.content.trim()) {
+            newEntries.push({ role: 'assistant', content: accumulator.content });
+          }
+          stoppedContextRef.current = [...stoppedContextRef.current, ...newEntries];
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id
+                ? { ...msg, isStreaming: false, isStopped: true }
+                : msg
+            )
           );
+        } else {
+          // Normal completion, background stream, or stream ended without abort
+          const completionUpdater = (prev: Message[]) =>
+            prev.map((msg) =>
+              msg.id === assistantMessage.id ? { ...msg, isStreaming: false } : msg
+            );
           const bgStreamComplete = backgroundStreamsRef.current.get(assistantMessage.id);
           if (bgStreamComplete) {
             bgStreamComplete.messages = completionUpdater(bgStreamComplete.messages);
@@ -496,11 +547,19 @@ export function useChat(): UseChatReturn {
             backgroundStreamsRef.current.delete(assistantMessage.id);
           } else {
             setMessages(completionUpdater);
+          }
         }
       } catch (err) {
         // Handle user-initiated abort differently from errors
         if (err instanceof Error && err.name === 'AbortError') {
-          // User stopped the stream - mark as stopped, preserve partial content
+          // User stopped the stream - mark as stopped, preserve partial content.
+          // Build the context entries we want to inject into the next sendMessage.
+          const newEntries: Array<{ role: 'user' | 'assistant'; content: string }> = [
+            { role: 'user', content: pendingUserContent },
+          ];
+          if (accumulator.content.trim()) {
+            newEntries.push({ role: 'assistant', content: accumulator.content });
+          }
           const abortUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
@@ -509,10 +568,13 @@ export function useChat(): UseChatReturn {
             );
           const bgStreamAbort = backgroundStreamsRef.current.get(assistantMessage.id);
           if (bgStreamAbort) {
+            // Background stream aborted (e.g. thread deleted) — don't touch foreground context
             bgStreamAbort.messages = abortUpdater(bgStreamAbort.messages);
             bgStreamAbort.onComplete(bgStreamAbort.messages, bgStreamAbort.previousResponseId, bgStreamAbort.uploadedFileIds);
             backgroundStreamsRef.current.delete(assistantMessage.id);
           } else {
+            // Foreground stream stopped by user — save context so next sendMessage can inject it
+            stoppedContextRef.current = [...stoppedContextRef.current, ...newEntries];
             setMessages(abortUpdater);
           }
         } else {
@@ -596,6 +658,7 @@ export function useChat(): UseChatReturn {
     setMessages([]);
     previousResponseIdRef.current = null;
     allUploadedFileIdsRef.current = [];
+    stoppedContextRef.current = [];
     setError(null);
   }, []);
 
@@ -604,6 +667,7 @@ export function useChat(): UseChatReturn {
       setMessages(threadMessages);
       previousResponseIdRef.current = prevResponseId;
       allUploadedFileIdsRef.current = uploadedFileIds;
+      stoppedContextRef.current = [];
       setError(null);
     },
     []

@@ -177,7 +177,7 @@ describe('Message', () => {
       isStopped: true,
     };
     renderWithSettings(<Message message={stoppedMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.getByText('stopped')).toBeInTheDocument();
     expect(screen.getByText('Partial response')).toBeInTheDocument();
   });
 
@@ -189,7 +189,7 @@ describe('Message', () => {
       isStopped: true,
     };
     const { container } = renderWithSettings(<Message message={stoppedMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-    expect(screen.getByText('cancelled')).toBeInTheDocument();
+    expect(screen.getByText('stopped')).toBeInTheDocument();
     expect(container.querySelector('.message__cancelled--standalone')).toBeInTheDocument();
   });
 
@@ -201,7 +201,7 @@ describe('Message', () => {
       isStopped: false,
     };
     renderWithSettings(<Message message={normalMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-    expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
+    expect(screen.queryByText('stopped')).not.toBeInTheDocument();
   });
 
   it('does not show cancelled indicator when isStopped is undefined', () => {
@@ -211,7 +211,7 @@ describe('Message', () => {
       content: 'Complete response',
     };
     renderWithSettings(<Message message={normalMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
-    expect(screen.queryByText('cancelled')).not.toBeInTheDocument();
+    expect(screen.queryByText('stopped')).not.toBeInTheDocument();
   });
 
 describe('citations', () => {
