@@ -139,7 +139,7 @@ describe('HistorySidebar', () => {
         hasMessages={true}
       />
     );
-    expect(screen.getByText('● New Chat')).toBeInTheDocument();
+    expect(screen.getByText('● Untitled chat')).toBeInTheDocument();
   });
 
   it('renders bookmark button for each thread', () => {

@@ -93,7 +93,7 @@ describe('useThreads', () => {
     });
 
     expect(result.current.threads).toHaveLength(1);
-    expect(result.current.threads[0].title).toBe('New Chat');
+    expect(result.current.threads[0].title).toBe('Untitled chat');
     expect(result.current.threads[0].messages).toHaveLength(2);
     expect(result.current.activeThreadId).toBe(threadId!);
     expect(putThread).toHaveBeenCalledOnce();

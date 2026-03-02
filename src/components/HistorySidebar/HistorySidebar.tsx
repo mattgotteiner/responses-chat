@@ -215,7 +215,7 @@ export function HistorySidebar({
           {!isEphemeral && !activeThreadId && hasMessages && (
             <div className="history-sidebar__item history-sidebar__item--active history-sidebar__item--unsaved">
               <div className="history-sidebar__item-content">
-                <span className="history-sidebar__item-title">● New Chat</span>
+                <span className="history-sidebar__item-title">● Untitled chat</span>
                 <span className="history-sidebar__item-time">Unsaved</span>
               </div>
             </div>
