@@ -394,16 +394,16 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
                 onDownloadFile={handleFileDownload}
               />
             )}
-            {/* Cancelled indicator - inline when there's content */}
+            {/* Stopped indicator - inline when there's content */}
             {message.isStopped && message.content && (
-              <span className="message__cancelled"> cancelled</span>
+              <span className="message__cancelled"> stopped</span>
             )}
           </div>
         )}
 
-        {/* Cancelled indicator - standalone when no content */}
+        {/* Stopped indicator - standalone when no content */}
         {message.isStopped && !message.content && (
-          <div className="message__cancelled message__cancelled--standalone">cancelled</div>
+          <div className="message__cancelled message__cancelled--standalone">stopped</div>
         )}
 
         {/* Truncated indicator */}

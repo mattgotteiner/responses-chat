@@ -477,3 +477,152 @@ describe('useChat - unmount cleanup', () => {
     expect(onComplete).not.toHaveBeenCalled();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Helpers for stopped-context tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Async generator that yields a text delta then throws AbortError,
+ * simulating a user-stopped stream with partial content.
+ */
+async function* abortedStream(partialText: string): AsyncGenerator<unknown> {
+  yield {
+    type: 'response.output_text.delta',
+    delta: partialText,
+    item_id: 'item-1',
+    output_index: 0,
+    content_index: 0,
+  };
+  const err = new Error('The user aborted a request.');
+  err.name = 'AbortError';
+  throw err;
+}
+
+/** Async generator that throws AbortError immediately (no partial content). */
+// eslint-disable-next-line require-yield
+async function* abortedStreamEmpty(): AsyncGenerator<never> {
+  const err = new Error('The user aborted a request.');
+  err.name = 'AbortError';
+  throw err;
+}
+
+describe('useChat - stopped-context injection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('injects stopped context into the next sendMessage input', async () => {
+    const mockClient = {
+      responses: {
+        create: vi.fn()
+          .mockResolvedValueOnce(abortedStream('Partial response'))
+          .mockResolvedValueOnce(completedStream('resp-after-stop')),
+      },
+    };
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    // First message — stream aborts with partial text
+    await act(async () => {
+      await result.current.sendMessage('First question', testSettings);
+    });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const stopped = result.current.messages.find((m) => m.isStopped);
+    expect(stopped).toBeDefined();
+    expect(stopped?.content).toBe('Partial response');
+
+    // Follow-up message
+    await act(async () => {
+      await result.current.sendMessage('Follow-up', testSettings);
+    });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const secondCallArgs = mockClient.responses.create.mock.calls[1][0] as Record<string, unknown>;
+    const inputArray = secondCallArgs.input as Array<{ role: string; content: unknown }>;
+    expect(Array.isArray(inputArray)).toBe(true);
+    expect(inputArray[0]).toEqual({ role: 'user', content: [{ type: 'input_text', text: 'First question' }] });
+    expect(inputArray[1]).toEqual({ role: 'assistant', content: [{ type: 'output_text', text: 'Partial response' }] });
+    expect(inputArray[2]).toEqual({ role: 'user', content: [{ type: 'input_text', text: 'Follow-up' }] });
+  });
+
+  it('injects stopped user message even when assistant produced no text', async () => {
+    const mockClient = {
+      responses: {
+        create: vi.fn()
+          .mockResolvedValueOnce(abortedStreamEmpty())
+          .mockResolvedValueOnce(completedStream('resp-2')),
+      },
+    };
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => {
+      await result.current.sendMessage('Hello', testSettings);
+    });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    await act(async () => {
+      await result.current.sendMessage('Follow-up', testSettings);
+    });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    // User message should still be injected even though assistant said nothing
+    const secondCallArgs = mockClient.responses.create.mock.calls[1][0] as Record<string, unknown>;
+    const inputArray = secondCallArgs.input as Array<{ role: string; content: unknown }>;
+    expect(Array.isArray(inputArray)).toBe(true);
+    expect(inputArray[0]).toEqual({ role: 'user', content: [{ type: 'input_text', text: 'Hello' }] });
+    expect(inputArray[1]).toEqual({ role: 'user', content: [{ type: 'input_text', text: 'Follow-up' }] });
+  });
+
+  it('clears stopped context after a successful response', async () => {
+    const mockClient = {
+      responses: {
+        create: vi.fn()
+          .mockResolvedValueOnce(abortedStream('partial'))
+          .mockResolvedValueOnce(completedStream('resp-success'))
+          .mockResolvedValueOnce(completedStream('resp-clean')),
+      },
+    };
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => { await result.current.sendMessage('Q1', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    // Success — consumes stopped context
+    await act(async () => { await result.current.sendMessage('Q2', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    // Third message should NOT carry stopped context
+    await act(async () => { await result.current.sendMessage('Q3', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const thirdCallArgs = mockClient.responses.create.mock.calls[2][0] as Record<string, unknown>;
+    expect(thirdCallArgs.input).toBe('Q3');
+  });
+
+  it('clearConversation resets stopped context', async () => {
+    const mockClient = {
+      responses: {
+        create: vi.fn()
+          .mockResolvedValueOnce(abortedStream('partial'))
+          .mockResolvedValueOnce(completedStream('resp-clean')),
+      },
+    };
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    await act(async () => { await result.current.sendMessage('Q1', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    act(() => { result.current.clearConversation(); });
+
+    await act(async () => { await result.current.sendMessage('Q2', testSettings); });
+    await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+    const secondCallArgs = mockClient.responses.create.mock.calls[1][0] as Record<string, unknown>;
+    expect(secondCallArgs.input).toBe('Q2');
+  });
+});
