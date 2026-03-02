@@ -309,11 +309,12 @@ export function SettingsSidebar({
                 <select
                   id="webSearchContextSize"
                   className="settings-field__select"
-                  value={settings.webSearchContextSize || 'medium'}
+                  value={settings.webSearchContextSize || ''}
                   onChange={handleInputChange('webSearchContextSize')}
                 >
+                  <option value="">Default (API decides)</option>
                   <option value="low">Low (fewer tokens, faster)</option>
-                  <option value="medium">Medium (default)</option>
+                  <option value="medium">Medium</option>
                   <option value="high">High (more context, more tokens)</option>
                 </select>
                 <span className="settings-field__hint">

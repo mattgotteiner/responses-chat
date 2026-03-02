@@ -121,11 +121,11 @@ describe('SettingsSidebar', () => {
       expect(screen.getByLabelText('Search Context Size')).toBeInTheDocument();
     });
 
-    it('defaults to medium when webSearchContextSize is not set', () => {
+    it('defaults to "Default" option when webSearchContextSize is not set', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, webSearchEnabled: true };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
       const select = screen.getByLabelText('Search Context Size') as HTMLSelectElement;
-      expect(select.value).toBe('medium');
+      expect(select.value).toBe('');
     });
 
     it('reflects the configured webSearchContextSize value', () => {
