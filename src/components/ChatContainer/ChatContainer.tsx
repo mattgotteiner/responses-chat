@@ -360,8 +360,21 @@ export function ChatContainer() {
 
   // Auto-create and auto-save thread when messages change
   useEffect(() => {
-    // No messages — don't touch prevMessageCountRef so the mount-restore value survives
-    if (messages.length === 0) return;
+    // No messages — don't touch prevMessageCountRef so the mount-restore value survives.
+    // Exception: if we previously had messages, they were intentionally cleared (e.g., all
+    // pairs deleted) and the thread should be persisted as empty.
+    if (messages.length === 0) {
+      if (
+        prevMessageCountRef.current > 0 &&
+        !isEphemeral &&
+        !settings.noLocalStorage &&
+        activeThreadId
+      ) {
+        updateThread(activeThreadId, [], previousResponseId, uploadedFileIds);
+        prevMessageCountRef.current = 0;
+      }
+      return;
+    }
 
     // Ephemeral / no-storage: keep ref in sync but skip saving
     if (isEphemeral || settings.noLocalStorage) {
