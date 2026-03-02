@@ -847,7 +847,7 @@ describe('attachments', () => {
       expect(screen.queryByLabelText('Delete message pair')).not.toBeInTheDocument();
     });
 
-    it('shows confirm/cancel after clicking delete button', () => {
+    it('shows armed confirm button after clicking delete', () => {
       const mockOnDeletePair = vi.fn();
       renderWithSettings(
         <Message
@@ -858,7 +858,6 @@ describe('attachments', () => {
       );
       fireEvent.click(screen.getByLabelText('Delete message pair'));
       expect(screen.getByLabelText('Confirm delete')).toBeInTheDocument();
-      expect(screen.getByLabelText('Cancel delete')).toBeInTheDocument();
       expect(screen.queryByLabelText('Delete message pair')).not.toBeInTheDocument();
     });
 
@@ -876,7 +875,7 @@ describe('attachments', () => {
       expect(mockOnDeletePair).toHaveBeenCalledWith('msg-1');
     });
 
-    it('cancels deletion and restores delete button', () => {
+    it('cancels deletion on blur and restores delete button', () => {
       const mockOnDeletePair = vi.fn();
       renderWithSettings(
         <Message
@@ -886,7 +885,7 @@ describe('attachments', () => {
         />
       );
       fireEvent.click(screen.getByLabelText('Delete message pair'));
-      fireEvent.click(screen.getByLabelText('Cancel delete'));
+      fireEvent.blur(screen.getByLabelText('Confirm delete'));
       expect(mockOnDeletePair).not.toHaveBeenCalled();
       expect(screen.getByLabelText('Delete message pair')).toBeInTheDocument();
     });

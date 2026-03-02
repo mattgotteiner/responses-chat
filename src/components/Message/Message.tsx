@@ -352,25 +352,17 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
           {/* Delete pair button — shown on all messages, hidden while streaming */}
           {onDeletePair && !isStreaming && (
             confirmingDelete ? (
-              <>
-                <span className="message__delete-confirm-label">Delete?</span>
-                <button
-                  className="message__delete-confirm-button"
-                  onClick={() => { onDeletePair(message.id); setConfirmingDelete(false); }}
-                  aria-label="Confirm delete"
-                  title="Confirm delete"
-                >
-                  ✓
-                </button>
-                <button
-                  className="message__delete-cancel-button"
-                  onClick={() => setConfirmingDelete(false)}
-                  aria-label="Cancel delete"
-                  title="Cancel"
-                >
-                  ✗
-                </button>
-              </>
+              <button
+                className="message__delete-armed"
+                onClick={() => { onDeletePair(message.id); setConfirmingDelete(false); }}
+                onBlur={() => setConfirmingDelete(false)}
+                aria-label="Confirm delete"
+                title="Click to confirm deletion"
+                // eslint-disable-next-line jsx-a11y/no-autofocus
+                autoFocus
+              >
+                Delete
+              </button>
             ) : (
               <button
                 className="message__delete-button"

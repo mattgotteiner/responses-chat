@@ -153,7 +153,7 @@
   border-radius: var(--radius-sm);
   cursor: pointer;
   background: transparent;
-  opacity: 0.45;
+  opacity: 0.35;
   transition: opacity 0.15s, background-color 0.15s;
 }
 
@@ -162,42 +162,29 @@
   background-color: var(--color-error-border);
 }
 
-.message__delete-confirm-label {
-  font-size: 11px;
-  font-weight: 600;
-  opacity: 0.8;
-}
-
-.message__delete-confirm-button,
-.message__delete-cancel-button {
+.message__delete-armed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 7px;
-  font-size: 12px;
-  font-weight: 700;
+  padding: 2px 9px;
+  font-size: 11px;
+  font-weight: 600;
   border: none;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  background-color: var(--color-error-border);
+  color: var(--color-error-text);
+  animation: delete-armed-in 0.12s ease-out;
   transition: opacity 0.15s;
 }
 
-.message__delete-confirm-button {
-  background-color: var(--color-error-border);
-  color: var(--color-error-text);
+.message__delete-armed:hover {
+  opacity: 0.8;
 }
 
-.message__delete-confirm-button:hover {
-  opacity: 0.75;
-}
-
-.message__delete-cancel-button {
-  background: transparent;
-  opacity: 0.6;
-}
-
-.message__delete-cancel-button:hover {
-  opacity: 1;
+@keyframes delete-armed-in {
+  from { opacity: 0; transform: scale(0.85); }
+  to   { opacity: 1; transform: scale(1); }
 }
 
 .message__content-wrapper {
