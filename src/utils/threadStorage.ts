@@ -56,6 +56,7 @@ export async function putThread(thread: Thread): Promise<void> {
     updatedAt: thread.updatedAt,
     previousResponseId: thread.previousResponseId,
     uploadedFileIds: thread.uploadedFileIds,
+    bookmarked: thread.bookmarked,
     messages: serializeMessages(thread.messages),
   };
   await db.threads.put(stored);
@@ -88,6 +89,13 @@ export async function updateThreadData(
  */
 export async function updateThreadTitle(id: string, title: string): Promise<void> {
   await db.threads.update(id, { title });
+}
+
+/**
+ * Partially update the bookmarked state of a thread.
+ */
+export async function updateThreadBookmarked(id: string, bookmarked: boolean): Promise<void> {
+  await db.threads.update(id, { bookmarked });
 }
 
 /**

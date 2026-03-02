@@ -29,6 +29,7 @@ describe('HistorySidebar', () => {
     onSwitchThread: vi.fn(),
     onDeleteThread: vi.fn(),
     onRenameThread: vi.fn(),
+    onBookmarkThread: vi.fn(),
     onNewChat: vi.fn(),
     onNewEphemeralChat: vi.fn(),
     hasMessages: false,
@@ -139,5 +140,67 @@ describe('HistorySidebar', () => {
       />
     );
     expect(screen.getByText('● New Chat')).toBeInTheDocument();
+  });
+
+  it('renders bookmark button for each thread', () => {
+    const threads = [createThread('t1', 'My Thread', Date.now())];
+    render(<HistorySidebar {...defaultProps} threads={threads} />);
+    expect(screen.getByRole('button', { name: /Bookmark "My Thread"/ })).toBeInTheDocument();
+  });
+
+  it('calls onBookmarkThread when bookmark button is clicked', () => {
+    const onBookmarkThread = vi.fn();
+    const threads = [createThread('t1', 'My Thread', Date.now())];
+    render(
+      <HistorySidebar
+        {...defaultProps}
+        threads={threads}
+        onBookmarkThread={onBookmarkThread}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Bookmark "My Thread"/ }));
+    expect(onBookmarkThread).toHaveBeenCalledWith('t1', true);
+  });
+
+  it('shows filled star and remove bookmark label for bookmarked thread', () => {
+    const threads = [{ ...createThread('t1', 'My Thread', Date.now()), bookmarked: true }];
+    render(<HistorySidebar {...defaultProps} threads={threads} />);
+    const btns = screen.getAllByRole('button', { name: /Remove bookmark for "My Thread"/ });
+    expect(btns.length).toBeGreaterThan(0);
+  });
+
+  it('calls onBookmarkThread with false when removing bookmark', () => {
+    const onBookmarkThread = vi.fn();
+    const threads = [{ ...createThread('t1', 'My Thread', Date.now()), bookmarked: true }];
+    render(
+      <HistorySidebar
+        {...defaultProps}
+        threads={threads}
+        onBookmarkThread={onBookmarkThread}
+      />
+    );
+    // Remove from bookmarks section (first occurrence)
+    fireEvent.click(screen.getAllByRole('button', { name: /Remove bookmark for "My Thread"/ })[0]);
+    expect(onBookmarkThread).toHaveBeenCalledWith('t1', false);
+  });
+
+  it('shows Bookmarks section when there are bookmarked threads', () => {
+    const threads = [{ ...createThread('t1', 'My Thread', Date.now()), bookmarked: true }];
+    render(<HistorySidebar {...defaultProps} threads={threads} />);
+    expect(screen.getByText('Bookmarks')).toBeInTheDocument();
+  });
+
+  it('does not show Bookmarks section when no threads are bookmarked', () => {
+    const threads = [createThread('t1', 'My Thread', Date.now())];
+    render(<HistorySidebar {...defaultProps} threads={threads} />);
+    expect(screen.queryByText('Bookmarks')).not.toBeInTheDocument();
+  });
+
+  it('bookmarks section items have rename and delete buttons', () => {
+    const threads = [{ ...createThread('t1', 'My Thread', Date.now()), bookmarked: true }];
+    render(<HistorySidebar {...defaultProps} threads={threads} />);
+    // Both the bookmarks section and the regular list render these buttons
+    expect(screen.getAllByRole('button', { name: /Rename "My Thread"/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /Delete "My Thread"/ })).toHaveLength(2);
   });
 });

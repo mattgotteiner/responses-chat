@@ -17,6 +17,7 @@ vi.mock('../utils/threadStorage', () => ({
   putThread: vi.fn(async (thread: Thread) => { mockDb.set(thread.id, thread); }),
   updateThreadData: vi.fn(async () => {}),
   updateThreadTitle: vi.fn(async () => {}),
+  updateThreadBookmarked: vi.fn(async () => {}),
   deleteThread: vi.fn(async (id: string) => { mockDb.delete(id); }),
   clearAllThreads: vi.fn(async () => { mockDb.clear(); }),
   getActiveThreadId: vi.fn(() => null),
@@ -28,6 +29,7 @@ import {
   putThread,
   updateThreadData,
   updateThreadTitle as updateThreadTitleMock,
+  updateThreadBookmarked as updateThreadBookmarkedMock,
   deleteThread as deleteThreadMock,
   clearAllThreads as clearAllThreadsMock,
   getActiveThreadId,
@@ -65,6 +67,7 @@ describe('useThreads', () => {
     vi.mocked(putThread).mockImplementation(async (thread) => { mockDb.set(thread.id, thread); });
     vi.mocked(updateThreadData).mockImplementation(async () => {});
     vi.mocked(updateThreadTitleMock).mockImplementation(async () => {});
+    vi.mocked(updateThreadBookmarkedMock).mockImplementation(async () => {});
     vi.mocked(deleteThreadMock).mockImplementation(async (id) => { mockDb.delete(id); });
     vi.mocked(getActiveThreadId).mockReturnValue(null);
     vi.mocked(saveActiveThreadId).mockImplementation(() => {});
@@ -294,5 +297,32 @@ describe('useThreads', () => {
     expect(updateThreadTitleMock).toHaveBeenCalledWith(threadId!, 'My Title');
     // putThread should only have been called once (for createThread)
     expect(putThread).toHaveBeenCalledOnce();
+  });
+
+  it('bookmarkThread sets bookmarked=true on thread in state', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    let threadId: string;
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hi')], null, []); });
+    act(() => { result.current.bookmarkThread(threadId!, true); });
+
+    const thread = result.current.threads.find((t) => t.id === threadId);
+    expect(thread?.bookmarked).toBe(true);
+    expect(updateThreadBookmarkedMock).toHaveBeenCalledWith(threadId!, true);
+  });
+
+  it('bookmarkThread sets bookmarked=false on thread in state', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    let threadId: string;
+    act(() => { threadId = result.current.createThread([createMessage('user', 'Hi')], null, []); });
+    act(() => { result.current.bookmarkThread(threadId!, true); });
+    act(() => { result.current.bookmarkThread(threadId!, false); });
+
+    const thread = result.current.threads.find((t) => t.id === threadId);
+    expect(thread?.bookmarked).toBe(false);
+    expect(updateThreadBookmarkedMock).toHaveBeenLastCalledWith(threadId!, false);
   });
 });
