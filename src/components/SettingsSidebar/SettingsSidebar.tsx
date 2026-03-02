@@ -310,6 +310,28 @@ export function SettingsSidebar({
               </span>
             </div>
 
+            {settings.webSearchEnabled && (
+              <div className="settings-field">
+                <label className="settings-field__label" htmlFor="webSearchContextSize">
+                  Search Context Size
+                </label>
+                <select
+                  id="webSearchContextSize"
+                  className="settings-field__select"
+                  value={settings.webSearchContextSize || ''}
+                  onChange={handleInputChange('webSearchContextSize')}
+                >
+                  <option value="">Default</option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                </select>
+                <span className="settings-field__hint">
+                  Lower values reduce token usage and help avoid rate limits.
+                </span>
+              </div>
+            )}
+
             <div className="settings-field">
               <label className="settings-field__checkbox-wrapper">
                 <input
