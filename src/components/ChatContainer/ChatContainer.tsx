@@ -147,30 +147,27 @@ export function ChatContainer() {
       const mainModel = settings.deploymentName || settings.modelName;
       const client = createAzureClient(settings);
       setGeneratingTitleThreadIds((prev) => new Set([...prev, threadId]));
-      // Delay title generation to avoid RPM burst immediately after the main response
-      setTimeout(() => {
-        generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
-          .catch(() => {
-            if (mainModel && mainModel !== titleModel) {
-              return generateThreadTitle(client, mainModel, userMsg.content, assistantMsg.content);
-            }
-            return undefined;
-          })
-          .then((title) => {
-            const latestThread = threadsRef.current.find((t) => t.id === threadId);
-            if (title && (!latestThread || latestThread.title === 'New Chat')) {
-              updateThreadTitle(threadId, title);
-            }
-          })
-          .catch(() => {})
-          .finally(() => {
-            setGeneratingTitleThreadIds((prev) => {
-              const next = new Set(prev);
-              next.delete(threadId);
-              return next;
-            });
+      generateThreadTitle(client, titleModel, userMsg.content, assistantMsg.content)
+        .catch(() => {
+          if (mainModel && mainModel !== titleModel) {
+            return generateThreadTitle(client, mainModel, userMsg.content, assistantMsg.content);
+          }
+          return undefined;
+        })
+        .then((title) => {
+          const latestThread = threadsRef.current.find((t) => t.id === threadId);
+          if (title && (!latestThread || latestThread.title === 'New Chat')) {
+            updateThreadTitle(threadId, title);
+          }
+        })
+        .catch(() => {})
+        .finally(() => {
+          setGeneratingTitleThreadIds((prev) => {
+            const next = new Set(prev);
+            next.delete(threadId);
+            return next;
           });
-      }, 3000);
+        });
     },
     [isConfigured, settings, updateThreadTitle]
   );
