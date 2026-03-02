@@ -3,9 +3,20 @@
  */
 
 import type OpenAI from 'openai';
+import type { ReasoningEffort } from '../types';
+import { getReasoningEfforts } from '../types';
 
 const TITLE_PROMPT =
   'Generate a concise 3-6 word title for this conversation. Reply with ONLY the title, no quotes or punctuation.';
+
+/** Effort levels ordered from cheapest to most expensive */
+const EFFORT_ORDER: ReasoningEffort[] = ['none', 'minimal', 'low', 'medium', 'high'];
+
+/** Pick the cheapest reasoning effort the model supports */
+export function getLowestEffort(model: string): ReasoningEffort {
+  const supported = getReasoningEfforts(model);
+  return EFFORT_ORDER.find((e) => supported.includes(e)) ?? 'low';
+}
 
 /**
  * Generate a short title for a conversation thread
@@ -32,7 +43,7 @@ export async function generateThreadTitle(
     model: deployment,
     instructions: TITLE_PROMPT,
     input,
-    reasoning: { effort: 'minimal' },
+    reasoning: { effort: getLowestEffort(deployment) },
   } as Parameters<typeof client.responses.create>[0]);
 
   // Extract text from the response

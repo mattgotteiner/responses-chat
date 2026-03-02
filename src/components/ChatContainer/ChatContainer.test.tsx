@@ -9,7 +9,7 @@
  * - Background detach completion calls updateThread with final messages
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { Message, Settings, Thread } from '../../types';
@@ -573,8 +573,6 @@ describe('handleSwitchThread: background reattach fallback', () => {
 // ---------------------------------------------------------------------------
 
 describe('Title generation', () => {
-  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
-  afterEach(() => { vi.useRealTimers(); });
 
   function setupTitleTest(settingsOverrides: Partial<Settings> = {}) {
     const userMsg = makeUserMessage('Tell me a joke');
@@ -605,7 +603,6 @@ describe('Title generation', () => {
     const { userMsg, assistantMsg, updateThreadTitle } = setupTitleTest();
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
@@ -643,7 +640,6 @@ describe('Title generation', () => {
     );
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
     await new Promise((r) => setTimeout(r, 50));
     expect(mockGenerateThreadTitle).not.toHaveBeenCalled();
     expect(updateThreadTitle).not.toHaveBeenCalled();
@@ -661,7 +657,6 @@ describe('Title generation', () => {
       .mockResolvedValueOnce('Fallback Title');
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(2));
     expect(mockGenerateThreadTitle.mock.calls[1][1]).toBe('gpt-5');
@@ -677,11 +672,10 @@ describe('Title generation', () => {
     mockGenerateThreadTitle.mockRejectedValue(new Error('Model not found'));
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     // Only one attempt — same model, no point retrying
-    await act(async () => { vi.advanceTimersByTime(50); });
+    await new Promise((r) => setTimeout(r, 50));
     expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1);
     expect(updateThreadTitle).not.toHaveBeenCalled();
   });
@@ -695,11 +689,10 @@ describe('Title generation', () => {
     mockGenerateThreadTitle.mockRejectedValue(new Error('Service unavailable'));
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     // Both calls fail — updateThreadTitle should never be called
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(2));
-    await act(async () => { vi.advanceTimersByTime(50); });
+    await new Promise((r) => setTimeout(r, 50));
     expect(updateThreadTitle).not.toHaveBeenCalled();
   });
 
@@ -712,7 +705,6 @@ describe('Title generation', () => {
     });
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle.mock.calls[0][1]).toBe('gpt-5-mini');
@@ -727,10 +719,55 @@ describe('Title generation', () => {
     });
 
     render(<ChatContainer />);
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle.mock.calls[0][1]).toBe('gpt-5-nano');
+    await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Regression: title generation must fire immediately (no timer) — mobile fix
+// ---------------------------------------------------------------------------
+
+describe('triggerTitleGeneration: fires immediately without a timer (mobile regression)', () => {
+  it('calls generateThreadTitle without requiring any timer advancement', async () => {
+    // Regression guard: if a setTimeout is reintroduced, this test will fail because
+    // waitFor will time out before the title mock is ever called (no fake timers here).
+    const { userMsg, assistantMsg, updateThreadTitle } = (() => {
+      const userMsg = makeUserMessage('Tell me a joke');
+      const assistantMsg = makeAssistantMessage('Why did the chicken cross the road?', false);
+      const messages = [userMsg, assistantMsg];
+      const updateThreadTitle = vi.fn();
+
+      mockUseSettingsContext.mockReturnValue({
+        settings: defaultSettings as Settings,
+        updateSettings: vi.fn(),
+        resetSettings: vi.fn(),
+        clearStoredData: vi.fn(),
+        isConfigured: true,
+        vectorStoreCache: {} as import('../../types').VectorStoreCache,
+        setVectorStores: vi.fn(),
+        setStoreFiles: vi.fn(),
+        setStoreFilesLoading: vi.fn(),
+        clearVectorStoreCache: vi.fn(),
+      });
+      mockUseChat.mockReturnValue(makeChatReturn({ messages, isStreaming: false, previousResponseId: 'resp-1' }));
+      mockUseThreads.mockReturnValue(makeThreadsReturn({ activeThreadId: 'thread-123', updateThreadTitle }));
+
+      return { userMsg, assistantMsg, updateThreadTitle };
+    })();
+
+    render(<ChatContainer />);
+
+    // No vi.useFakeTimers, no vi.advanceTimersByTime — title must be called immediately
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      userMsg.content,
+      assistantMsg.content,
+    );
     await waitFor(() => expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title'));
   });
 });
@@ -904,8 +941,6 @@ describe('handleNewChat: tracks detached stream in backgroundStreamingThreadIds 
 // ---------------------------------------------------------------------------
 
 describe('handleSwitchThread: does not block title generation for "New Chat" threads (Bug 3 regression)', () => {
-  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
-  afterEach(() => { vi.useRealTimers(); });
 
   function makeThread(id: string, title: string, msgs: Message[]): Thread {
     return { id, title, messages: msgs, previousResponseId: null, uploadedFileIds: [], createdAt: Date.now(), updatedAt: Date.now() };
@@ -947,7 +982,6 @@ describe('handleSwitchThread: does not block title generation for "New Chat" thr
     // Navigate away — triggerTitleGeneration(activeThreadId='thread-untitled', messages) should
     // fire because titleGeneratedRef was NOT set for this thread (it has title "New Chat")
     await userEvent.click(screen.getByTestId('new-chat-btn'));
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
@@ -1001,8 +1035,6 @@ describe('handleSwitchThread: does not block title generation for "New Chat" thr
 // ---------------------------------------------------------------------------
 
 describe('triggerTitleGeneration: called when switching away from completed conversation (Bug 4 regression)', () => {
-  beforeEach(() => { vi.useFakeTimers({ shouldAdvanceTime: true }); });
-  afterEach(() => { vi.useRealTimers(); });
   it('generates a title when switching away from a completed conversation (non-streaming)', async () => {
     const userMsg = makeUserMessage('Tell me a joke');
     const assistantMsg = makeAssistantMessage('Why did the chicken...', false);
@@ -1017,7 +1049,6 @@ describe('triggerTitleGeneration: called when switching away from completed conv
     render(<ChatContainer />);
     // Clicking "New Chat" should trigger triggerTitleGeneration for the current thread
     await userEvent.click(screen.getByTestId('new-chat-btn'));
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
@@ -1046,7 +1077,6 @@ describe('triggerTitleGeneration: called when switching away from completed conv
     const onComplete = detachStream.mock.calls[0][3] as (msgs: Message[], prevId: string | null, uploadedFileIds: string[]) => void;
     const finalMessages = [makeUserMessage('Question'), makeAssistantMessage('Full answer', false)];
     act(() => { onComplete(finalMessages, 'resp-1', []); });
-    await act(async () => { vi.advanceTimersByTime(3000); });
 
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
