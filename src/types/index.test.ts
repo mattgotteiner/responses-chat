@@ -11,22 +11,17 @@ import {
 
 describe('types constants', () => {
   describe('AVAILABLE_MODELS', () => {
-    it('contains expected models', () => {
-      expect(AVAILABLE_MODELS).toContain('gpt-5-mini');
-      expect(AVAILABLE_MODELS).toContain('gpt-5');
-      expect(AVAILABLE_MODELS.length).toBeGreaterThan(0);
+    it('is empty (no built-in models; all models require custom configuration)', () => {
+      expect(AVAILABLE_MODELS).toEqual([]);
     });
   });
 
   describe('MODEL_REASONING_EFFORTS', () => {
-    it('has entries for models with specific reasoning configs', () => {
-      for (const model of Object.keys(MODEL_REASONING_EFFORTS)) {
-        expect(MODEL_REASONING_EFFORTS[model]).toBeDefined();
-        expect(Array.isArray(MODEL_REASONING_EFFORTS[model])).toBe(true);
-      }
+    it('is empty (no built-in model configs; custom models use defaults)', () => {
+      expect(Object.keys(MODEL_REASONING_EFFORTS)).toHaveLength(0);
     });
 
-    it('all models support low, medium, high effort via getReasoningEfforts', () => {
+    it('all AVAILABLE_MODELS (empty) support low, medium, high effort via getReasoningEfforts', () => {
       for (const model of AVAILABLE_MODELS) {
         const efforts = getReasoningEfforts(model);
         expect(efforts).toContain('low');
@@ -65,13 +60,10 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS).toHaveProperty('deploymentName');
     });
 
-    it('has empty credentials by default', () => {
+    it('has empty credentials and model by default', () => {
       expect(DEFAULT_SETTINGS.endpoint).toBe('');
       expect(DEFAULT_SETTINGS.apiKey).toBe('');
-    });
-
-    it('has a valid default model', () => {
-      expect(AVAILABLE_MODELS).toContain(DEFAULT_SETTINGS.modelName);
+      expect(DEFAULT_SETTINGS.modelName).toBe('');
     });
   });
 

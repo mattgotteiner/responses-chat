@@ -14,14 +14,8 @@ export type Verbosity = 'low' | 'medium' | 'high';
 /** Default reasoning efforts for models without a specific configuration */
 const DEFAULT_REASONING_EFFORTS: ReasoningEffort[] = ['low', 'medium', 'high'];
 
-/** Model configuration for reasoning effort options */
-export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {
-  'gpt-5-nano': ['low', 'medium', 'high'],
-  'gpt-5-mini': ['low', 'medium', 'high'],
-  'gpt-5': ['low', 'medium', 'high', 'minimal'],
-  'gpt-5.1': ['low', 'medium', 'high', 'minimal', 'none'],
-  'gpt-5.2': ['low', 'medium', 'high', 'minimal', 'none'],
-};
+/** Model configuration for reasoning effort options (custom override) */
+export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {};
 
 /** Get reasoning effort options for a model, falling back to defaults for unknown models */
 export function getReasoningEfforts(model: ModelName): ReasoningEffort[] {
@@ -31,15 +25,8 @@ export function getReasoningEfforts(model: ModelName): ReasoningEffort[] {
 /** Sentinel value for the "Custom…" option in model dropdowns */
 export const CUSTOM_MODEL_OPTION = '__custom__';
 
-/** All available built-in models */
-export const AVAILABLE_MODELS: ModelName[] = [
-  'gpt-5-nano',
-  'gpt-5-mini',
-  'gpt-5',
-  'gpt-5.1',
-  'gpt-5.2',
-  'gpt-oss-120b',
-];
+/** All available built-in models — intentionally empty; all models require custom configuration */
+export const AVAILABLE_MODELS: ModelName[] = [];
 
 /** All verbosity options */
 export const VERBOSITY_OPTIONS: Verbosity[] = ['low', 'medium', 'high'];
@@ -204,7 +191,7 @@ export interface Settings {
   fileSearchVectorStoreId?: string;
   /** Allow the model to call multiple tools simultaneously in a single turn */
   parallelToolCallsEnabled?: boolean;
-  /** Model used for auto-generating thread titles (defaults to gpt-5-nano) */
+  /** Model used for auto-generating thread titles (defaults to the chat model) */
   titleModelName?: ModelName;
 }
 
@@ -212,7 +199,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   endpoint: '',
   apiKey: '',
-  modelName: 'gpt-5-mini',
+  modelName: '',
   deploymentName: '',
   reasoningEffort: undefined,
   reasoningSummary: 'detailed',

@@ -157,7 +157,7 @@ Open the settings sidebar (gear icon) to configure:
 |---------|-------------|
 | Endpoint | Azure OpenAI endpoint URL |
 | API Key | API key for authentication |
-| Model | Select from available models (gpt-5-nano, gpt-5-mini, etc.) |
+| Model | Enter your deployment/model name (free-form text) |
 | Deployment Name | Optional custom deployment name |
 | Reasoning Effort | none, minimal, low, medium, high |
 | Reasoning Summary | auto, concise, detailed |
