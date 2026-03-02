@@ -160,7 +160,8 @@
   }
 
   .history-sidebar__item:hover .history-sidebar__item-delete,
-  .history-sidebar__item:hover .history-sidebar__item-edit {
+  .history-sidebar__item:hover .history-sidebar__item-edit,
+  .history-sidebar__item:hover .history-sidebar__item-bookmark:not(.history-sidebar__item-bookmark--active) {
     opacity: 1;
   }
 }
@@ -321,6 +322,46 @@
 .history-sidebar__item-delete:hover {
   background-color: var(--color-error-bg);
   color: var(--color-danger);
+}
+
+.history-sidebar__item-bookmark {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 16px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.history-sidebar__item-bookmark--active {
+  opacity: 1;
+  color: #f5a623;
+}
+
+.history-sidebar__item-bookmark:hover {
+  background-color: var(--color-surface-elevated);
+  color: #f5a623;
+}
+
+@media (hover: none) {
+  .history-sidebar__item-bookmark {
+    opacity: 1;
+  }
+}
+
+.history-sidebar__bookmarks-section {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: 4px;
+  margin-bottom: 4px;
 }
 
 @media (max-width: 600px) {

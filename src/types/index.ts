@@ -162,6 +162,8 @@ export interface Thread {
   previousResponseId: string | null;
   /** Uploaded file IDs available to code interpreter for this thread */
   uploadedFileIds: string[];
+  /** Whether this thread is bookmarked */
+  bookmarked?: boolean;
 }
 /** Application settings stored in localStorage */
 export interface Settings {

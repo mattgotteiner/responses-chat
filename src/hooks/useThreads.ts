@@ -9,6 +9,7 @@ import {
   putThread,
   updateThreadData,
   updateThreadTitle as updateThreadTitleInDb,
+  updateThreadBookmarked as updateThreadBookmarkedInDb,
   deleteThread as deleteThreadFromDb,
   clearAllThreads as clearAllThreadsFromDb,
   getActiveThreadId,
@@ -40,6 +41,8 @@ export interface UseThreadsReturn {
   updateThread: (id: string, messages: Message[], previousResponseId: string | null, uploadedFileIds: string[]) => void;
   /** Update a thread's title */
   updateThreadTitle: (id: string, title: string) => void;
+  /** Toggle the bookmarked state of a thread */
+  bookmarkThread: (id: string, bookmarked: boolean) => void;
   /** Start a new chat (clears active thread) */
   startNewChat: () => void;
   /** Start an ephemeral chat that won't be saved */
@@ -165,7 +168,12 @@ export function useThreads(): UseThreadsReturn {
     void updateThreadTitleInDb(id, title);
   }, []);
 
-  const startNewChat = useCallback(() => {
+  const bookmarkThread = useCallback((id: string, bookmarked: boolean) => {
+    setThreads((prev) => prev.map((t) => (t.id === id ? { ...t, bookmarked } : t)));
+    void updateThreadBookmarkedInDb(id, bookmarked);
+  }, []);
+
+  const startNewChat= useCallback(() => {
     setActiveThreadId(null);
     setIsEphemeral(false);
     saveActiveThreadId(null);
@@ -200,6 +208,7 @@ export function useThreads(): UseThreadsReturn {
     switchThread,
     updateThread,
     updateThreadTitle,
+    bookmarkThread,
     startNewChat,
     startEphemeral,
     clearAllThreads,
