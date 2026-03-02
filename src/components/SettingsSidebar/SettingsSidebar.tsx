@@ -3,8 +3,9 @@
  */
 
 import { useCallback, useState, type ChangeEvent } from 'react';
-import type { Settings, McpServerConfig, VectorStoreCache, VectorStore, VectorStoreFile } from '../../types';
+import type { Settings, ModelName, McpServerConfig, VectorStoreCache, VectorStore, VectorStoreFile } from '../../types';
 import {
+  AVAILABLE_MODELS,
   CUSTOM_MODEL_OPTION,
   getReasoningEfforts,
   VERBOSITY_OPTIONS,
@@ -55,7 +56,9 @@ export function SettingsSidebar({
   setStoreFiles,
   setStoreFilesLoading,
 }: SettingsSidebarProps) {
-  const isCustomTitleModel = settings.titleModelName != null && settings.titleModelName !== '';
+  const isCustomModel = !AVAILABLE_MODELS.includes(settings.modelName);
+  const [showCustomModelInput, setShowCustomModelInput] = useState(isCustomModel);
+  const isCustomTitleModel = settings.titleModelName != null && settings.titleModelName !== '' && !AVAILABLE_MODELS.includes(settings.titleModelName);
   const [showCustomTitleModelInput, setShowCustomTitleModelInput] = useState(isCustomTitleModel);
 
   const availableReasoningEfforts = getReasoningEfforts(settings.modelName);
@@ -92,6 +95,28 @@ export function SettingsSidebar({
       onUpdateSettings({ mcpServers: servers });
     },
     [onUpdateSettings]
+  );
+
+  const handleModelChange = useCallback(
+    (e: ChangeEvent<HTMLSelectElement>) => {
+      const value = e.target.value;
+      if (value === CUSTOM_MODEL_OPTION) {
+        setShowCustomModelInput(true);
+        return;
+      }
+      setShowCustomModelInput(false);
+      const newModel = value as ModelName;
+      const newAvailableEfforts = getReasoningEfforts(newModel);
+      const updates: Partial<Settings> = { modelName: newModel };
+      if (
+        settings.reasoningEffort &&
+        !newAvailableEfforts.includes(settings.reasoningEffort)
+      ) {
+        updates.reasoningEffort = undefined;
+      }
+      onUpdateSettings(updates);
+    },
+    [settings.reasoningEffort, onUpdateSettings]
   );
 
   const handleCustomModelChange = useCallback(
@@ -243,14 +268,30 @@ export function SettingsSidebar({
               <label className="settings-field__label" htmlFor="modelName">
                 Model
               </label>
-              <input
+              <select
                 id="modelName"
-                type="text"
-                className="settings-field__input"
-                value={settings.modelName}
-                onChange={handleCustomModelChange}
-                placeholder="Enter model or deployment name"
-              />
+                className="settings-field__select"
+                value={showCustomModelInput ? CUSTOM_MODEL_OPTION : settings.modelName}
+                onChange={handleModelChange}
+              >
+                {AVAILABLE_MODELS.map((model) => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+                <option value={CUSTOM_MODEL_OPTION}>Custom…</option>
+              </select>
+              {showCustomModelInput && (
+                <input
+                  id="customModelName"
+                  type="text"
+                  className="settings-field__input"
+                  value={settings.modelName}
+                  onChange={handleCustomModelChange}
+                  placeholder="Enter model or deployment name"
+                  autoFocus
+                />
+              )}
             </div>
 
             <div className="settings-field">
