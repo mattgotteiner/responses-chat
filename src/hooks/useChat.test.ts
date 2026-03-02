@@ -6,7 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useChat } from './useChat';
 import { DEFAULT_SETTINGS } from '../types';
-import type { Settings, Message } from '../types';
+import type { Settings, Message, Attachment } from '../types';
 
 // vi.hoisted ensures these references are available inside the vi.mock factory
 const { mockCreateAzureClient, mockUploadFileForCodeInterpreter } = vi.hoisted(() => ({
@@ -495,7 +495,7 @@ describe('useChat - unmount cleanup', () => {
     const { result } = renderHook(() => useChat());
 
     // Start a send with a file attachment (CSV — not an image, so it goes through upload path)
-    const csvAttachment = { name: 'data.csv', mimeType: 'text/csv', base64: 'dGVzdA==' };
+    const csvAttachment: Attachment = { id: 'att-1', name: 'data.csv', type: 'file', mimeType: 'text/csv', base64: 'dGVzdA==', size: 4 };
     act(() => { void result.current.sendMessage('Analyse this', testSettings, [csvAttachment]); });
 
     // Messages appear immediately (user + assistant placeholder), but upload is still pending
