@@ -229,6 +229,12 @@ export function useChat(): UseChatReturn {
       };
 
       setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      // Create the AbortController NOW — before any async work — so detachStream can
+      // find it even if the user switches chats while files are still uploading.
+      // Capture as a local const so we can check signal.aborted after the finally
+      // block sets the ref to null.
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
       setIsStreaming(true);
       foregroundStreamIdRef.current = assistantMessage.id;
 
@@ -431,10 +437,10 @@ export function useChat(): UseChatReturn {
       let accumulator = createInitialAccumulator();
 
       try {
-        // Create abort controller for this request — capture local ref so we can
-        // check signal.aborted after the finally block sets the ref to null.
-        const abortController = new AbortController();
-        abortControllerRef.current = abortController;
+        // AbortController was created before file uploads (abortController above) — capture
+        // local ref so we can check signal.aborted after the finally block sets the ref to null.
+        // We do NOT create a new one here — that would replace the controller that
+        // detachStream may have already stored in backgroundStreamsRef during the upload.
 
         // Record the request payload if recording is active
         recordingSession?.recordRequest(requestParams);
