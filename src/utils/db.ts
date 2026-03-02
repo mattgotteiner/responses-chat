@@ -14,6 +14,8 @@ export interface StoredThread {
   updatedAt: number;
   previousResponseId: string | null;
   uploadedFileIds?: string[];
+  /** Whether this thread is bookmarked */
+  bookmarked?: boolean;
   /** Serialized messages: Date fields stored as ISO strings */
   messages: unknown[];
 }

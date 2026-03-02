@@ -63,6 +63,8 @@ interface HistorySidebarProps {
   hasMessages: boolean;
   /** Handler to rename a thread */
   onRenameThread: (id: string, title: string) => void;
+  /** Handler to toggle bookmark on a thread */
+  onBookmarkThread: (id: string, bookmarked: boolean) => void;
   /** Thread IDs that have a stream running in the background */
   backgroundStreamingThreadIds?: Set<string>;
   /** Thread IDs that are currently having a title generated */
@@ -81,6 +83,7 @@ export function HistorySidebar({
   onSwitchThread,
   onDeleteThread,
   onRenameThread,
+  onBookmarkThread,
   onNewChat,
   onNewEphemeralChat,
   hasMessages,
@@ -105,6 +108,14 @@ export function HistorySidebar({
       onDeleteThread(threadId);
     },
     [onDeleteThread]
+  );
+
+  const handleBookmarkClick = useCallback(
+    (e: React.MouseEvent, thread: Thread) => {
+      e.stopPropagation();
+      onBookmarkThread(thread.id, !thread.bookmarked);
+    },
+    [onBookmarkThread]
   );
 
   const handleEditClick = useCallback(
@@ -148,6 +159,12 @@ export function HistorySidebar({
       const showGroupHeader = group !== (i > 0 ? getDateGroup(threads[i - 1].updatedAt) : '');
       return { thread, group, showGroupHeader };
     }),
+    [threads]
+  );
+
+  // Bookmarked threads sorted by updatedAt descending (threads prop is already sorted)
+  const bookmarkedThreads = useMemo(
+    () => threads.filter((t) => t.bookmarked),
     [threads]
   );
 
@@ -210,6 +227,83 @@ export function HistorySidebar({
             </div>
           )}
 
+          {bookmarkedThreads.length > 0 && (
+            <div className="history-sidebar__bookmarks-section">
+              <div className="history-sidebar__date-group">Bookmarks</div>
+              {bookmarkedThreads.map((thread) => (
+                <div
+                  key={thread.id}
+                  className={`history-sidebar__item ${
+                    thread.id === activeThreadId ? 'history-sidebar__item--active' : ''
+                  }`}
+                >
+                  {editingThreadId === thread.id ? (
+                    <input
+                      ref={editInputRef}
+                      className="history-sidebar__item-title-input"
+                      value={editingTitle}
+                      onChange={(e) => setEditingTitle(e.target.value)}
+                      onBlur={() => handleEditSave(thread.id)}
+                      onKeyDown={(e) => handleEditKeyDown(e, thread.id)}
+                      aria-label="Edit thread title"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <button
+                      className="history-sidebar__item-main"
+                      onClick={() => { onSwitchThread(thread.id); onClose(); }}
+                    >
+                      <div className="history-sidebar__item-content">
+                        <span className="history-sidebar__item-title">
+                          {backgroundStreamingThreadIds?.has(thread.id) && (
+                            <span className="history-sidebar__streaming-dot" title="Streaming in background" />
+                          )}
+                          {generatingTitleThreadIds?.has(thread.id) ? (
+                            <span className="history-sidebar__generating-title" title="Generating title…">
+                              <span className="history-sidebar__generating-dots" />
+                              <span className="history-sidebar__item-title-text">{thread.title}</span>
+                            </span>
+                          ) : (
+                            <span className="history-sidebar__item-title-text">{thread.title}</span>
+                          )}
+                        </span>
+                        <span className="history-sidebar__item-time" title={new Date(thread.updatedAt).toLocaleString()}>
+                          {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
+                        </span>
+                      </div>
+                    </button>
+                  )}
+                  {editingThreadId !== thread.id && (
+                    <button
+                      className="history-sidebar__item-edit"
+                      onClick={(e) => handleEditClick(e, thread)}
+                      aria-label={`Rename "${thread.title}"`}
+                      title="Rename thread"
+                    >
+                      ✏️
+                    </button>
+                  )}
+                  <button
+                    className="history-sidebar__item-bookmark history-sidebar__item-bookmark--active"
+                    onClick={(e) => handleBookmarkClick(e, thread)}
+                    aria-label={`Remove bookmark for "${thread.title}"`}
+                    title="Remove bookmark"
+                  >
+                    ★
+                  </button>
+                  <button
+                    className="history-sidebar__item-delete"
+                    onClick={(e) => handleDeleteClick(e, thread.id)}
+                    aria-label={`Delete "${thread.title}"`}
+                    title="Delete thread"
+                  >
+                    🗑
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {threadsWithGroups.map(({ thread, showGroupHeader, group }) => (
             <div key={thread.id}>
               {showGroupHeader && (
@@ -266,6 +360,14 @@ export function HistorySidebar({
                         ✏️
                       </button>
                     )}
+                    <button
+                      className={`history-sidebar__item-bookmark${thread.bookmarked ? ' history-sidebar__item-bookmark--active' : ''}`}
+                      onClick={(e) => handleBookmarkClick(e, thread)}
+                      aria-label={thread.bookmarked ? `Remove bookmark for "${thread.title}"` : `Bookmark "${thread.title}"`}
+                      title={thread.bookmarked ? 'Remove bookmark' : 'Bookmark thread'}
+                    >
+                      {thread.bookmarked ? '★' : '☆'}
+                    </button>
                     <button
                       className="history-sidebar__item-delete"
                       onClick={(e) => handleDeleteClick(e, thread.id)}

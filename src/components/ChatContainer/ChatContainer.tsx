@@ -38,6 +38,7 @@ export function ChatContainer() {
     switchThread,
     updateThread,
     updateThreadTitle,
+    bookmarkThread,
     startNewChat,
     startEphemeral,
     clearAllThreads,
@@ -483,6 +484,7 @@ export function ChatContainer() {
         onSwitchThread={handleSwitchThread}
         onDeleteThread={handleDeleteThread}
         onRenameThread={updateThreadTitle}
+        onBookmarkThread={bookmarkThread}
         onNewChat={handleNewChat}
         onNewEphemeralChat={handleNewEphemeralChat}
         hasMessages={messages.length > 0}

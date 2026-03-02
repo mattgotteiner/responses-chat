@@ -124,6 +124,7 @@ function makeThreadsReturn(overrides: Partial<ReturnType<typeof useThreads>> = {
     switchThread: vi.fn(),
     updateThread: vi.fn(),
     updateThreadTitle: vi.fn(),
+    bookmarkThread: vi.fn(),
     startNewChat: vi.fn(),
     startEphemeral: vi.fn(),
     clearAllThreads: vi.fn(),
