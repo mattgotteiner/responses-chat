@@ -21,6 +21,7 @@ export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {
   'gpt-5': ['low', 'medium', 'high', 'minimal'],
   'gpt-5.1': ['low', 'medium', 'high', 'minimal', 'none'],
   'gpt-5.2': ['low', 'medium', 'high', 'minimal', 'none'],
+  'gpt-5.4': ['low', 'medium', 'high', 'minimal', 'none'],
 };
 
 /** Get reasoning effort options for a model, falling back to defaults for unknown models */
@@ -38,6 +39,7 @@ export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5',
   'gpt-5.1',
   'gpt-5.2',
+  'gpt-5.4',
 ];
 
 /** All verbosity options */
