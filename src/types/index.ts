@@ -376,6 +376,8 @@ export interface Message {
   isStreaming?: boolean;
   /** Whether this message represents an error */
   isError?: boolean;
+  /** Structured error code for failed assistant messages */
+  errorCode?: string;
   /** Whether this message was stopped by the user */
   isStopped?: boolean;
   /** Attachments included with the message */

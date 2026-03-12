@@ -675,6 +675,7 @@ describe('attachments', () => {
       role: 'assistant',
       isError: true,
       content: 'Error: something went wrong',
+      errorCode: 'rate_limit_exceeded',
       responseJson: { error: 'bad request', status: 400 },
     };
 
@@ -702,6 +703,15 @@ describe('attachments', () => {
         title: 'Response JSON',
         data: errorMessage.responseJson,
       });
+    });
+
+    it('renders the error code inline for failed messages', () => {
+      renderWithSettings(
+        <Message message={errorMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />
+      );
+
+      expect(screen.getByText('Error code:')).toBeInTheDocument();
+      expect(screen.getByText('rate_limit_exceeded')).toBeInTheDocument();
     });
 
     it('disables View JSON button while isStreaming', () => {
