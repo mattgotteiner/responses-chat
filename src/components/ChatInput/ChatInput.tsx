@@ -2,10 +2,11 @@
  * Chat input component with textarea and send button
  */
 
-import { useState, useCallback, useRef, useEffect, type KeyboardEvent, type ChangeEvent } from 'react';
+import { useState, useCallback, useRef, useEffect, type KeyboardEvent, type ChangeEvent, type ClipboardEvent } from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAudioInput } from '../../hooks/useAudioInput';
+import { MAX_FILE_SIZE_BYTES, processAttachmentFiles, type AttachmentResult } from '../../utils/attachment';
 import { AttachmentButton } from '../AttachmentButton';
 import { AttachmentPreview } from '../AttachmentPreview';
 import { TokenUsageDisplay } from '../TokenUsageDisplay';
@@ -52,6 +53,7 @@ export function ChatInput({
     placeholder ?? (isMobile ? 'Type a message...' : 'Type a message... (Enter ↵ to send)');
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [attachmentFeedback, setAttachmentFeedback] = useState<string | null>(null);
   const { isSupported: isAudioSupported, isRecording, start: startRecording, stop: stopRecording } = useAudioInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -67,14 +69,16 @@ export function ChatInput({
   }, []);
 
   const handleSend = useCallback(() => {
-    if (value.trim() && !disabled) {
-      if (isRecording) {
-        stopRecording();
-      }
-      onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
-      setValue('');
-      setAttachments([]);
+    if ((!value.trim() && attachments.length === 0) || disabled) return;
+
+    if (isRecording) {
+      stopRecording();
     }
+
+    onSendMessage(value.trim(), attachments.length > 0 ? attachments : undefined);
+    setValue('');
+    setAttachments([]);
+    setAttachmentFeedback(null);
   }, [value, disabled, onSendMessage, attachments, isRecording, stopRecording]);
 
   const handleToggleRecording = useCallback(() => {
@@ -87,6 +91,13 @@ export function ChatInput({
 
   const handleAttach = useCallback((newAttachments: Attachment[]) => {
     setAttachments((prev) => [...prev, ...newAttachments]);
+    if (newAttachments.length > 0) {
+      setAttachmentFeedback(null);
+    }
+  }, []);
+
+  const handleAttachResult = useCallback((result: AttachmentResult) => {
+    setAttachmentFeedback(result.rejectedFiles[0]?.message ?? null);
   }, []);
 
   const handleRemoveAttachment = useCallback((id: string) => {
@@ -102,6 +113,40 @@ export function ChatInput({
       }
     },
     [isMobile, handleSend]
+  );
+
+  const handlePaste = useCallback(
+    async (e: ClipboardEvent<HTMLTextAreaElement>) => {
+      if (isMobile || disabled || isRecording) return;
+
+      const imageFiles = Array.from(e.clipboardData?.items ?? [])
+        .filter((item) => item.kind === 'file')
+        .map((item) => item.getAsFile())
+        .filter((file): file is File => file !== null && file.type.startsWith('image/'));
+
+      if (imageFiles.length === 0) {
+        return;
+      }
+
+      e.preventDefault();
+
+      try {
+        const result = await processAttachmentFiles(imageFiles, {
+          maxFileSize: MAX_FILE_SIZE_BYTES,
+          codeInterpreterEnabled,
+        });
+
+        if (result.attachments.length > 0) {
+          setAttachments((prev) => [...prev, ...result.attachments]);
+        }
+
+        setAttachmentFeedback(result.rejectedFiles[0]?.message ?? null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to process pasted image.';
+        setAttachmentFeedback(message);
+      }
+    },
+    [isMobile, disabled, isRecording, codeInterpreterEnabled]
   );
 
   const handleCopyConversation = useCallback(async () => {
@@ -140,6 +185,7 @@ export function ChatInput({
           value={value}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
+          onPaste={handlePaste}
           placeholder={resolvedPlaceholder}
           disabled={disabled || isRecording}
           rows={1}
@@ -163,7 +209,7 @@ export function ChatInput({
           <button
             className="chat-input__send"
             onClick={handleSend}
-            disabled={disabled || !value.trim()}
+            disabled={disabled || (!value.trim() && attachments.length === 0)}
             aria-label="Send message"
             title="Send message"
           >
@@ -180,16 +226,26 @@ export function ChatInput({
             </svg>
           </button>
         )}
-        <AttachmentButton onAttach={handleAttach} disabled={disabled} codeInterpreterEnabled={codeInterpreterEnabled} />
-        <AudioInputButton
-          isSupported={isAudioSupported}
-          isRecording={isRecording}
-          disabled={disabled}
-          onClick={handleToggleRecording}
-        />
-      </div>
-      <div className="chat-input__actions">
-        <div className="chat-input__actions-left">
+         <AttachmentButton
+           onAttach={handleAttach}
+           onAttachResult={handleAttachResult}
+           disabled={disabled}
+           codeInterpreterEnabled={codeInterpreterEnabled}
+         />
+         <AudioInputButton
+           isSupported={isAudioSupported}
+           isRecording={isRecording}
+           disabled={disabled}
+           onClick={handleToggleRecording}
+         />
+       </div>
+       {attachmentFeedback && (
+         <div className="chat-input__attachment-feedback" role="alert">
+           {attachmentFeedback}
+         </div>
+       )}
+       <div className="chat-input__actions">
+         <div className="chat-input__actions-left">
           <button
             className="chat-input__clear"
             onClick={onClearConversation}

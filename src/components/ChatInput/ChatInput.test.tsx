@@ -1,8 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { ChatInput } from './ChatInput';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAudioInput } from '../../hooks/useAudioInput';
+import { processAttachmentFiles } from '../../utils/attachment';
 import type { Message } from '../../types';
 
 vi.mock('../../hooks/useIsMobile', () => ({
@@ -13,11 +14,20 @@ vi.mock('../../hooks/useAudioInput', () => ({
   useAudioInput: vi.fn(),
 }));
 
+vi.mock('../../utils/attachment', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/attachment')>();
+  return {
+    ...actual,
+    processAttachmentFiles: vi.fn(),
+  };
+});
+
 describe('ChatInput', () => {
   const mockOnSendMessage = vi.fn();
   const mockOnClearConversation = vi.fn();
   const mockOnStopStreaming = vi.fn();
   const mockClipboardWriteText = vi.fn();
+  const mockProcessAttachmentFiles = vi.mocked(processAttachmentFiles);
   const mockAudioStart = vi.fn();
   const mockAudioStop = vi.fn();
   let originalClipboard: Clipboard | undefined;
@@ -36,6 +46,8 @@ describe('ChatInput', () => {
     mockOnStopStreaming.mockClear();
     mockAudioStart.mockClear();
     mockAudioStop.mockClear();
+    mockProcessAttachmentFiles.mockReset();
+    mockProcessAttachmentFiles.mockResolvedValue({ attachments: [], rejectedFiles: [] });
     mockClipboardWriteText.mockClear().mockResolvedValue(undefined);
     originalClipboard = navigator.clipboard;
     Object.defineProperty(navigator, 'clipboard', {
@@ -377,6 +389,167 @@ describe('ChatInput', () => {
           ], null, 2)
         );
       });
+    });
+  });
+
+  describe('desktop image paste', () => {
+    const pastedAttachment = {
+      id: 'attach-pasted',
+      name: 'pasted-image.png',
+      type: 'image' as const,
+      mimeType: 'image/png',
+      base64: 'abc123',
+      previewUrl: 'data:image/png;base64,abc123',
+      size: 1024,
+    };
+
+    function createClipboardFileItem(file: File) {
+      return {
+        kind: 'file',
+        type: file.type,
+        getAsFile: () => file,
+      };
+    }
+
+    it('attaches pasted images on desktop and enables sending without text', async () => {
+      mockProcessAttachmentFiles.mockResolvedValue({
+        attachments: [pastedAttachment],
+        rejectedFiles: [],
+      });
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const imageFile = new File(['image-bytes'], 'pasted-image.png', { type: 'image/png' });
+
+      await act(async () => {
+        fireEvent.paste(textarea, {
+          clipboardData: {
+            items: [createClipboardFileItem(imageFile)],
+          },
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(mockProcessAttachmentFiles).toHaveBeenCalledTimes(1);
+      });
+
+      expect(await screen.findByRole('img', { name: 'pasted-image.png' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Send message')).not.toBeDisabled();
+    });
+
+    it('sends pasted images even when the text input is empty', async () => {
+      mockProcessAttachmentFiles.mockResolvedValue({
+        attachments: [pastedAttachment],
+        rejectedFiles: [],
+      });
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const imageFile = new File(['image-bytes'], 'pasted-image.png', { type: 'image/png' });
+
+      await act(async () => {
+        fireEvent.paste(textarea, {
+          clipboardData: {
+            items: [createClipboardFileItem(imageFile)],
+          },
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(screen.getByRole('img', { name: 'pasted-image.png' })).toBeInTheDocument();
+      });
+
+      fireEvent.click(screen.getByLabelText('Send message'));
+
+      expect(mockOnSendMessage).toHaveBeenCalledWith('', [pastedAttachment]);
+    });
+
+    it('ignores non-image clipboard items so normal paste behavior can continue', () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      fireEvent.paste(screen.getByLabelText('Message input'), {
+        clipboardData: {
+          items: [{
+            kind: 'string',
+            type: 'text/plain',
+            getAsFile: () => null,
+          }],
+        },
+      });
+
+      expect(mockProcessAttachmentFiles).not.toHaveBeenCalled();
+    });
+
+    it('does not attach pasted images on mobile', async () => {
+      vi.mocked(useIsMobile).mockReturnValue(true);
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const imageFile = new File(['image-bytes'], 'pasted-image.png', { type: 'image/png' });
+
+      await act(async () => {
+        fireEvent.paste(screen.getByLabelText('Message input'), {
+          clipboardData: {
+            items: [createClipboardFileItem(imageFile)],
+          },
+        });
+      });
+
+      expect(mockProcessAttachmentFiles).not.toHaveBeenCalled();
+    });
+
+    it('shows paste validation feedback when a pasted image is rejected', async () => {
+      mockProcessAttachmentFiles.mockResolvedValue({
+        attachments: [],
+        rejectedFiles: [
+          {
+            name: 'pasted-image.png',
+            reason: 'file-too-large',
+            message: '"pasted-image.png" is too large (15.0 MB). Maximum file size is 10.0 MB.',
+          },
+        ],
+      });
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const imageFile = new File(['image-bytes'], 'pasted-image.png', { type: 'image/png' });
+
+      await act(async () => {
+        fireEvent.paste(screen.getByLabelText('Message input'), {
+          clipboardData: {
+            items: [createClipboardFileItem(imageFile)],
+          },
+        });
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Maximum file size is 10.0 MB.');
     });
   });
 

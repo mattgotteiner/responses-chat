@@ -2,8 +2,10 @@
  * Tests for attachment utility functions
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import {
+  MAX_FILE_SIZE_BYTES,
+  processAttachmentFiles,
   generateAttachmentId,
   isImageMimeType,
   isCodeInterpreterMimeType,
@@ -16,10 +18,34 @@ import {
   formatFileSize,
   getFileCategory,
   getFileTypeDescription,
+  getSupportedTypesMessage,
 } from './attachment';
 import type { Attachment } from '../types';
 
+class MockFileReader {
+  static result = 'data:image/png;base64,YWJjMTIz';
+
+  public result: string | ArrayBuffer | null = null;
+  public onload: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+  public onerror: ((this: FileReader, ev: ProgressEvent<FileReader>) => unknown) | null = null;
+
+  readAsDataURL(): void {
+    this.result = MockFileReader.result;
+    this.onload?.call(this as unknown as FileReader, {} as ProgressEvent<FileReader>);
+  }
+}
+
 describe('attachment utilities', () => {
+  const originalFileReader = globalThis.FileReader;
+
+  beforeEach(() => {
+    MockFileReader.result = 'data:image/png;base64,YWJjMTIz';
+  });
+
+  afterEach(() => {
+    globalThis.FileReader = originalFileReader;
+  });
+
   describe('generateAttachmentId', () => {
     it('generates unique IDs', () => {
       const id1 = generateAttachmentId();
@@ -341,6 +367,64 @@ describe('attachment utilities', () => {
     });
   });
 
-  // Note: readFileAsBase64 and createAttachmentFromFile are tested via integration
-  // with real File/FileReader which requires browser environment or more complex mocking
+  describe('getSupportedTypesMessage', () => {
+    it('returns the limited message when code interpreter is disabled', () => {
+      expect(getSupportedTypesMessage(false)).toContain('images and PDF only');
+    });
+
+    it('returns the expanded message when code interpreter is enabled', () => {
+      expect(getSupportedTypesMessage(true)).toContain('CSV, JSON, Excel, Word, and text files');
+    });
+  });
+
+  describe('processAttachmentFiles', () => {
+    it('rejects unsupported files for the current tool context', async () => {
+      const videoFile = new File(['video'], 'movie.mp4', { type: 'video/mp4' });
+
+      const result = await processAttachmentFiles([videoFile], { codeInterpreterEnabled: false });
+
+      expect(result.attachments).toEqual([]);
+      expect(result.rejectedFiles).toEqual([
+        expect.objectContaining({
+          name: 'movie.mp4',
+          reason: 'unsupported-type',
+        }),
+      ]);
+    });
+
+    it('rejects oversized files', async () => {
+      const largeFile = new File(['x'.repeat(200)], 'large.png', { type: 'image/png' });
+
+      const result = await processAttachmentFiles([largeFile], { maxFileSize: 100 });
+
+      expect(result.attachments).toEqual([]);
+      expect(result.rejectedFiles).toEqual([
+        expect.objectContaining({
+          name: 'large.png',
+          reason: 'file-too-large',
+        }),
+      ]);
+    });
+
+    it('creates attachments for valid files', async () => {
+      globalThis.FileReader = MockFileReader as unknown as typeof FileReader;
+      const imageFile = new File(['abc123'], 'pasted.png', { type: 'image/png' });
+
+      const result = await processAttachmentFiles([imageFile], {
+        maxFileSize: MAX_FILE_SIZE_BYTES,
+        codeInterpreterEnabled: false,
+      });
+
+      expect(result.rejectedFiles).toEqual([]);
+      expect(result.attachments).toHaveLength(1);
+      expect(result.attachments[0]).toMatchObject({
+        name: 'pasted.png',
+        type: 'image',
+        mimeType: 'image/png',
+        base64: 'YWJjMTIz',
+        previewUrl: 'data:image/png;base64,YWJjMTIz',
+        size: imageFile.size,
+      });
+    });
+  });
 });

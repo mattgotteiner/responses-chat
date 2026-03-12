@@ -5,6 +5,27 @@
 import type { Attachment, AttachmentType } from '../types';
 import { SUPPORTED_IMAGE_TYPES, SUPPORTED_CODE_INTERPRETER_TYPES } from '../types';
 
+/** Maximum attachment size in bytes (10 MB) */
+export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024;
+
+/** Information about a rejected file */
+export interface RejectedFile {
+  /** Original filename */
+  name: string;
+  /** Reason for rejection */
+  reason: 'unsupported-type' | 'file-too-large';
+  /** Human-readable message */
+  message: string;
+}
+
+/** Result of processing selected or pasted files */
+export interface AttachmentResult {
+  /** Successfully processed attachments */
+  attachments: Attachment[];
+  /** Files that were rejected */
+  rejectedFiles: RejectedFile[];
+}
+
 /**
  * Generate a unique attachment ID
  */
@@ -131,6 +152,15 @@ export function getFileTypeDescription(mimeType: string): string {
 }
 
 /**
+ * Get the supported file types message for the current tool context
+ */
+export function getSupportedTypesMessage(codeInterpreterEnabled: boolean): string {
+  return codeInterpreterEnabled
+    ? 'Supported: images, PDF, CSV, JSON, Excel, Word, and text files.'
+    : 'Supported: images and PDF only. Enable Code Interpreter to attach other file types.';
+}
+
+/**
  * Result from reading a file as base64
  */
 export interface FileReadResult {
@@ -192,6 +222,59 @@ export async function createAttachmentFromFile(file: File): Promise<Attachment> 
     // Only include preview URL for images
     previewUrl: type === 'image' ? dataUrl : undefined,
     size: file.size,
+  };
+}
+
+interface ProcessAttachmentFilesOptions {
+  /** Maximum allowed file size in bytes */
+  maxFileSize?: number;
+  /** Whether code interpreter is enabled */
+  codeInterpreterEnabled?: boolean;
+}
+
+/**
+ * Validate and convert files into attachments for the current tool context
+ */
+export async function processAttachmentFiles(
+  files: Iterable<File>,
+  {
+    maxFileSize = MAX_FILE_SIZE_BYTES,
+    codeInterpreterEnabled = false,
+  }: ProcessAttachmentFilesOptions = {}
+): Promise<AttachmentResult> {
+  const rejectedFiles: RejectedFile[] = [];
+  const validFiles: File[] = [];
+  const supportedTypesMessage = getSupportedTypesMessage(codeInterpreterEnabled);
+
+  for (const file of files) {
+    if (!isSupportedMimeTypeForContext(file.type, codeInterpreterEnabled)) {
+      rejectedFiles.push({
+        name: file.name,
+        reason: 'unsupported-type',
+        message: `"${file.name}" has an unsupported file type (${file.type || 'unknown'}). ${supportedTypesMessage}`,
+      });
+      continue;
+    }
+
+    if (file.size > maxFileSize) {
+      rejectedFiles.push({
+        name: file.name,
+        reason: 'file-too-large',
+        message: `"${file.name}" is too large (${formatFileSize(file.size)}). Maximum file size is ${formatFileSize(maxFileSize)}.`,
+      });
+      continue;
+    }
+
+    validFiles.push(file);
+  }
+
+  const attachments = validFiles.length > 0
+    ? await Promise.all(validFiles.map((file) => createAttachmentFromFile(file)))
+    : [];
+
+  return {
+    attachments,
+    rejectedFiles,
   };
 }
 
