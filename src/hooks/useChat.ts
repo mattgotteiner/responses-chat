@@ -90,6 +90,83 @@ type BackgroundStream = {
   onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void;
 };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getNestedRecord(source: Record<string, unknown>, key: string): Record<string, unknown> | null {
+  const value = source[key];
+  return isRecord(value) ? value : null;
+}
+
+function toNonEmptyString(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) {
+    return value.trim();
+  }
+  if (typeof value === 'number') {
+    return String(value);
+  }
+  return undefined;
+}
+
+function toSerializableValue(value: unknown): string | number | boolean | null | undefined {
+  if (
+    typeof value === 'string' ||
+    typeof value === 'number' ||
+    typeof value === 'boolean' ||
+    value === null
+  ) {
+    return value;
+  }
+  return undefined;
+}
+
+function buildErrorResponseJson(
+  err: unknown,
+  errorMessage: string,
+  existingResponseJson?: Record<string, unknown> | null
+): { errorCode?: string; responseJson: Record<string, unknown> } {
+  const errorRecord = isRecord(err) ? err : null;
+  const nestedError = errorRecord ? getNestedRecord(errorRecord, 'error') : null;
+
+  const errorCode =
+    toNonEmptyString(nestedError?.code) ??
+    toNonEmptyString(errorRecord?.code) ??
+    (err instanceof RateLimitError ? 'rate_limit_exceeded' : undefined);
+
+  const errorType =
+    toNonEmptyString(nestedError?.type) ??
+    toNonEmptyString(errorRecord?.type);
+
+  const errorParam =
+    toNonEmptyString(nestedError?.param) ??
+    toNonEmptyString(errorRecord?.param);
+
+  const statusCode =
+    toSerializableValue(nestedError?.status) ??
+    toSerializableValue(errorRecord?.status);
+
+  const mergedError = {
+    ...(existingResponseJson && isRecord(existingResponseJson.error) ? existingResponseJson.error : {}),
+    ...(nestedError ?? {}),
+    message: errorMessage,
+    ...(errorCode && { code: errorCode }),
+    ...(errorType && { type: errorType }),
+    ...(errorParam && { param: errorParam }),
+  };
+
+  return {
+    errorCode,
+    responseJson: {
+      ...(existingResponseJson ?? {}),
+      ...(statusCode !== undefined && { status_code: statusCode }),
+      status: 'failed',
+      error: mergedError,
+      ...(err instanceof Error && { error_name: err.name }),
+    },
+  };
+}
+
 export interface UseChatReturn {
   /** All messages in the conversation */
   messages: Message[];
@@ -596,12 +673,24 @@ export function useChat(): UseChatReturn {
           }
 
           setError(errorMessage);
+          const { errorCode, responseJson } = buildErrorResponseJson(
+            err,
+            errorMessage,
+            accumulator.responseJson
+          );
 
           // Update assistant message to show error
           const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === assistantMessage.id
-                ? { ...msg, content: `Error: ${errorMessage}`, isStreaming: false, isError: true }
+                ? {
+                    ...msg,
+                    content: `Error: ${errorMessage}`,
+                    isStreaming: false,
+                    isError: true,
+                    responseJson,
+                    ...(errorCode && { errorCode }),
+                  }
                 : msg
             );
           const bgStreamError = backgroundStreamsRef.current.get(assistantMessage.id);
@@ -864,6 +953,8 @@ export function useChat(): UseChatReturn {
       // Track final accumulator to check for more pending approvals at stream end
       let finalAccumulator: StreamAccumulator | null = null;
 
+      let accumulator = createInitialAccumulator();
+
       try {
         abortControllerRef.current = new AbortController();
         recordingSession?.recordRequest(requestParams);
@@ -875,8 +966,6 @@ export function useChat(): UseChatReturn {
           } as Parameters<typeof client.responses.create>[0],
           { signal: abortControllerRef.current.signal }
         );
-
-        let accumulator = createInitialAccumulator();
 
         const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
           // Merge existing content with new content from this continuation
@@ -978,10 +1067,22 @@ export function useChat(): UseChatReturn {
           }
 
           setError(errorMessage);
+          const { errorCode, responseJson } = buildErrorResponseJson(
+            err,
+            errorMessage,
+            accumulator.responseJson
+          );
           const errorUpdater = (prev: Message[]) =>
             prev.map((msg) =>
               msg.id === targetMessageId
-                ? { ...msg, content: msg.content + `\n\nError: ${errorMessage}`, isStreaming: false, isError: true }
+                ? {
+                    ...msg,
+                    content: msg.content + `\n\nError: ${errorMessage}`,
+                    isStreaming: false,
+                    isError: true,
+                    responseJson,
+                    ...(errorCode && { errorCode }),
+                  }
                 : msg
             );
           const bgStreamError = backgroundStreamsRef.current.get(targetMessageId);

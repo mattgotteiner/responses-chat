@@ -45,6 +45,14 @@ async function* errorStream(): AsyncGenerator<never> {
   throw new Error('API request failed');
 }
 
+/** Async generator that throws immediately with structured error metadata */
+function errorStreamWithMetadata(error: Error) {
+  // eslint-disable-next-line require-yield
+  return async function* (): AsyncGenerator<never> {
+    throw error;
+  };
+}
+
 /** Build a minimal mock client whose create() returns a fresh stream each call */
 function makeMockClient(streamFactory: () => AsyncIterable<unknown>) {
   return {
@@ -160,6 +168,68 @@ describe('useChat - retryMessage', () => {
       await waitFor(() => expect(result.current.isStreaming).toBe(false));
 
       expect(retryClient.responses.create).toHaveBeenCalledOnce();
+    });
+
+    it('stores structured error metadata on failed assistant messages', async () => {
+      const codedError = Object.assign(new Error('API request failed'), {
+        code: 'bad_request',
+        status: 400,
+        type: 'invalid_request_error',
+      });
+      mockCreateAzureClient.mockReturnValue(makeMockClient(errorStreamWithMetadata(codedError)));
+
+      const { result } = renderHook(() => useChat());
+
+      await act(async () => {
+        await result.current.sendMessage('Hello', testSettings);
+      });
+      await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+      const failedMessage = result.current.messages[1];
+      expect(failedMessage.isError).toBe(true);
+      expect(failedMessage.errorCode).toBe('bad_request');
+      expect(failedMessage.responseJson).toEqual(
+        expect.objectContaining({
+          status: 'failed',
+          status_code: 400,
+          error_name: 'Error',
+          error: expect.objectContaining({
+            message: 'API request failed',
+            code: 'bad_request',
+            type: 'invalid_request_error',
+          }),
+        })
+      );
+    });
+
+    it('preserves error metadata when a retry fails again', async () => {
+      const result = await setupWithFailedMessage();
+      const failedId = result.current.messages[1].id;
+
+      const retryError = Object.assign(new Error('Retry failed'), {
+        code: 'server_error',
+        status: 500,
+      });
+      mockCreateAzureClient.mockReturnValue(makeMockClient(errorStreamWithMetadata(retryError)));
+
+      await act(async () => {
+        await result.current.retryMessage(failedId, testSettings);
+      });
+      await waitFor(() => expect(result.current.isStreaming).toBe(false));
+
+      const retriedFailure = result.current.messages[1];
+      expect(retriedFailure.isError).toBe(true);
+      expect(retriedFailure.errorCode).toBe('server_error');
+      expect(retriedFailure.responseJson).toEqual(
+        expect.objectContaining({
+          status: 'failed',
+          status_code: 500,
+          error: expect.objectContaining({
+            message: 'Retry failed',
+            code: 'server_error',
+          }),
+        })
+      );
     });
   });
 

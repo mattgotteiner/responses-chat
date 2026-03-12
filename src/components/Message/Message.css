@@ -154,6 +154,18 @@
   word-break: break-word;
 }
 
+.message__error-code {
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--color-error-text);
+  font-weight: 600;
+}
+
+.message__error-code code {
+  font-family: 'Monaco', 'Menlo', 'Consolas', monospace;
+  font-size: 12px;
+}
+
 .message__cursor {
   animation: blink-cursor 0.8s infinite;
   color: var(--color-primary);

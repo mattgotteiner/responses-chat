@@ -383,8 +383,14 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
         ) : (
           <div className="message__content">
             {isUser || message.isError ? (
-              // User messages and errors always render as plaintext
-              message.content
+              <>
+                {message.content}
+                {message.errorCode && (
+                  <div className="message__error-code">
+                    Error code: <code>{message.errorCode}</code>
+                  </div>
+                )}
+              </>
             ) : (
               // Assistant messages use render mode
               <MessageContent
