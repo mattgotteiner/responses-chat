@@ -281,8 +281,8 @@ describe('SettingsSidebar', () => {
         reasoningEffort: 'none',
       };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      expect(screen.getByLabelText('Temperature')).toBeInTheDocument();
-      expect(screen.getByLabelText('Top P')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Temperature:/)).toBeInTheDocument();
+      expect(screen.getByLabelText(/Top P:/)).toBeInTheDocument();
     });
 
     it('does not render sampling controls for gpt-5.1 when reasoning effort is none', () => {
@@ -292,11 +292,11 @@ describe('SettingsSidebar', () => {
         reasoningEffort: 'none',
       };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      expect(screen.queryByLabelText('Temperature')).not.toBeInTheDocument();
-      expect(screen.queryByLabelText('Top P')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Temperature:/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Top P:/)).not.toBeInTheDocument();
     });
 
-    it('calls onUpdateSettings with parsed sampling values', () => {
+    it('renders sampling controls as sliders with default labels', () => {
       const settings: Settings = {
         ...DEFAULT_SETTINGS,
         modelName: 'gpt-5.4',
@@ -304,15 +304,45 @@ describe('SettingsSidebar', () => {
       };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
 
-      fireEvent.change(screen.getByLabelText('Temperature'), {
+      expect(screen.getByLabelText(/Temperature: Default \(1.0\)/)).toHaveAttribute('type', 'range');
+      expect(screen.getByLabelText(/Top P: Default \(1.00\)/)).toHaveAttribute('type', 'range');
+      expect(screen.getByText('0.0')).toBeInTheDocument();
+      expect(screen.getByText('2.0')).toBeInTheDocument();
+      expect(screen.getByText('0.00')).toBeInTheDocument();
+      expect(screen.getByText('1.00')).toBeInTheDocument();
+    });
+
+    it('calls onUpdateSettings with parsed sampling slider values', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      fireEvent.change(screen.getByLabelText(/Temperature:/), {
         target: { value: '0.7' },
       });
-      fireEvent.change(screen.getByLabelText('Top P'), {
-        target: { value: '0.9' },
+      fireEvent.change(screen.getByLabelText(/Top P:/), {
+        target: { value: '0.85' },
       });
 
       expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(1, { temperature: 0.7 });
-      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { topP: 0.9 });
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { topP: 0.85 });
+    });
+
+    it('shows configured sampling values in slider labels', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+        temperature: 0.6,
+        topP: 0.85,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByLabelText('Temperature: 0.6')).toHaveValue('0.6');
+      expect(screen.getByLabelText('Top P: 0.85')).toHaveValue('0.85');
     });
 
     it('preserves sampling values when switching to an ineligible model', () => {
