@@ -8,6 +8,7 @@ import {
   AVAILABLE_MODELS,
   CUSTOM_MODEL_OPTION,
   getReasoningEfforts,
+  supportsSamplingControls,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
@@ -20,6 +21,7 @@ import './SettingsSidebar.css';
 
 /** Handler type for checkbox change events */
 type CheckboxChangeHandler = (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => void;
+type OptionalNumberField = 'temperature' | 'topP';
 
 interface SettingsSidebarProps {
   /** Whether the sidebar is open */
@@ -62,6 +64,10 @@ export function SettingsSidebar({
   const [showCustomTitleModelInput, setShowCustomTitleModelInput] = useState(isCustomTitleModel);
 
   const availableReasoningEfforts = getReasoningEfforts(settings.modelName);
+  const samplingControlsSupported = supportsSamplingControls(
+    settings.modelName,
+    settings.reasoningEffort
+  );
 
   const handleInputChange = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -85,6 +91,22 @@ export function SettingsSidebar({
       const parsed = parseInt(e.target.value, 10);
       if (!isNaN(parsed)) {
         onUpdateSettings({ [field]: parsed });
+      }
+    },
+    [onUpdateSettings]
+  );
+
+  const handleOptionalNumberChange = useCallback(
+    (field: OptionalNumberField) => (e: ChangeEvent<HTMLInputElement>) => {
+      const { value } = e.target;
+      if (value === '') {
+        onUpdateSettings({ [field]: undefined } as Partial<Settings>);
+        return;
+      }
+
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) {
+        onUpdateSettings({ [field]: parsed } as Partial<Settings>);
       }
     },
     [onUpdateSettings]
@@ -451,6 +473,84 @@ export function SettingsSidebar({
                 ))}
               </select>
             </div>
+
+            {samplingControlsSupported && (
+              <>
+                <div className="settings-field">
+                  <label className="settings-field__checkbox-wrapper">
+                    <input
+                      id="temperatureEnabled"
+                      type="checkbox"
+                      className="settings-field__checkbox"
+                      checked={settings.temperatureEnabled || false}
+                      onChange={handleCheckboxChange('temperatureEnabled')}
+                    />
+                    <span className="settings-field__checkbox-label">Set Temperature</span>
+                  </label>
+                  {settings.temperatureEnabled && (
+                    <>
+                      <label className="settings-field__label" htmlFor="temperature">
+                        Temperature: {(settings.temperature ?? 1).toFixed(1)}
+                      </label>
+                      <input
+                        id="temperature"
+                        type="range"
+                        className="settings-field__slider"
+                        value={settings.temperature ?? 1}
+                        onChange={handleOptionalNumberChange('temperature')}
+                        min="0"
+                        max="2"
+                        step="0.1"
+                      />
+                      <div className="settings-field__slider-labels">
+                        <span>0.0</span>
+                        <span>2.0</span>
+                      </div>
+                    </>
+                  )}
+                  <span className="settings-field__hint">
+                    Off by default so the API uses its built-in temperature default.
+                  </span>
+                </div>
+
+                <div className="settings-field">
+                  <label className="settings-field__checkbox-wrapper">
+                    <input
+                      id="topPEnabled"
+                      type="checkbox"
+                      className="settings-field__checkbox"
+                      checked={settings.topPEnabled || false}
+                      onChange={handleCheckboxChange('topPEnabled')}
+                    />
+                    <span className="settings-field__checkbox-label">Set Top P</span>
+                  </label>
+                  {settings.topPEnabled && (
+                    <>
+                      <label className="settings-field__label" htmlFor="topP">
+                        Top P: {(settings.topP ?? 1).toFixed(2)}
+                      </label>
+                      <input
+                        id="topP"
+                        type="range"
+                        className="settings-field__slider"
+                        value={settings.topP ?? 1}
+                        onChange={handleOptionalNumberChange('topP')}
+                        min="0"
+                        max="1"
+                        step="0.05"
+                      />
+                      <div className="settings-field__slider-labels">
+                        <span>0.00</span>
+                        <span>1.00</span>
+                      </div>
+                    </>
+                  )}
+                  <span className="settings-field__hint">
+                    Off by default so the API uses its built-in top_p default.
+                  </span>
+                </div>
+              </>
+            )}
 
             <div className="settings-field">
               <label className="settings-field__label" htmlFor="reasoningSummary">

@@ -268,6 +268,137 @@ describe('SettingsSidebar', () => {
       expect(screen.getByLabelText('Reasoning Effort')).toBeInTheDocument();
     });
 
+    it('does not render sampling controls by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.queryByLabelText('Temperature')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText('Top P')).not.toBeInTheDocument();
+    });
+
+    it('renders sampling controls for gpt-5.2 when reasoning effort is none', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.2',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByRole('checkbox', { name: /set temperature/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /set top p/i })).toBeInTheDocument();
+    });
+
+    it('does not render sampling controls for gpt-5.1 when reasoning effort is none', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.1',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.queryByLabelText(/Temperature:/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Top P:/)).not.toBeInTheDocument();
+    });
+
+    it('keeps sampling sliders hidden until enabled', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByRole('checkbox', { name: /set temperature/i })).not.toBeChecked();
+      expect(screen.getByRole('checkbox', { name: /set top p/i })).not.toBeChecked();
+      expect(screen.queryByLabelText(/Temperature:/)).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Top P:/)).not.toBeInTheDocument();
+    });
+
+    it('renders sampling sliders when enabled', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByLabelText('Temperature: 1.0')).toHaveAttribute('type', 'range');
+      expect(screen.getByLabelText('Top P: 1.00')).toHaveAttribute('type', 'range');
+      expect(screen.getByText('0.0')).toBeInTheDocument();
+      expect(screen.getByText('2.0')).toBeInTheDocument();
+      expect(screen.getByText('0.00')).toBeInTheDocument();
+      expect(screen.getByText('1.00')).toBeInTheDocument();
+    });
+
+    it('calls onUpdateSettings when sampling checkboxes are toggled', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      fireEvent.click(screen.getByRole('checkbox', { name: /set temperature/i }));
+      fireEvent.click(screen.getByRole('checkbox', { name: /set top p/i }));
+
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(1, { temperatureEnabled: true });
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { topPEnabled: true });
+    });
+
+    it('calls onUpdateSettings with parsed sampling slider values', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      fireEvent.change(screen.getByLabelText(/Temperature:/), {
+        target: { value: '0.7' },
+      });
+      fireEvent.change(screen.getByLabelText(/Top P:/), {
+        target: { value: '0.85' },
+      });
+
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(1, { temperature: 0.7 });
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { topP: 0.85 });
+    });
+
+    it('shows configured sampling values in slider labels', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+        temperature: 0.6,
+        topP: 0.85,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByLabelText('Temperature: 0.6')).toHaveValue('0.6');
+      expect(screen.getByLabelText('Top P: 0.85')).toHaveValue('0.85');
+    });
+
+    it('preserves sampling values when switching to an ineligible model', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.2',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+        temperature: 0.6,
+        topP: 0.8,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      fireEvent.change(screen.getByLabelText('Model'), {
+        target: { value: 'gpt-5.1' },
+      });
+
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ modelName: 'gpt-5.1' });
+    });
+
     it('renders verbosity select', () => {
       render(<SettingsSidebar {...defaultProps} />);
       expect(screen.getByLabelText('Verbosity')).toBeInTheDocument();
