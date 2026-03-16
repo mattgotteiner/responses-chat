@@ -477,48 +477,76 @@ export function SettingsSidebar({
             {samplingControlsSupported && (
               <>
                 <div className="settings-field">
-                  <label className="settings-field__label" htmlFor="temperature">
-                    Temperature: {settings.temperature?.toFixed(1) ?? 'Default (1.0)'}
+                  <label className="settings-field__checkbox-wrapper">
+                    <input
+                      id="temperatureEnabled"
+                      type="checkbox"
+                      className="settings-field__checkbox"
+                      checked={settings.temperatureEnabled || false}
+                      onChange={handleCheckboxChange('temperatureEnabled')}
+                    />
+                    <span className="settings-field__checkbox-label">Set Temperature</span>
                   </label>
-                  <input
-                    id="temperature"
-                    type="range"
-                    className="settings-field__slider"
-                    value={settings.temperature ?? 1}
-                    onChange={handleOptionalNumberChange('temperature')}
-                    min="0"
-                    max="2"
-                    step="0.1"
-                  />
-                  <div className="settings-field__slider-labels">
-                    <span>0.0</span>
-                    <span>2.0</span>
-                  </div>
+                  {settings.temperatureEnabled && (
+                    <>
+                      <label className="settings-field__label" htmlFor="temperature">
+                        Temperature: {(settings.temperature ?? 1).toFixed(1)}
+                      </label>
+                      <input
+                        id="temperature"
+                        type="range"
+                        className="settings-field__slider"
+                        value={settings.temperature ?? 1}
+                        onChange={handleOptionalNumberChange('temperature')}
+                        min="0"
+                        max="2"
+                        step="0.1"
+                      />
+                      <div className="settings-field__slider-labels">
+                        <span>0.0</span>
+                        <span>2.0</span>
+                      </div>
+                    </>
+                  )}
                   <span className="settings-field__hint">
-                    Optional. Only sent for gpt-5.2/gpt-5.4 when reasoning effort is none.
+                    Off by default so the API uses its built-in temperature default.
                   </span>
                 </div>
 
                 <div className="settings-field">
-                  <label className="settings-field__label" htmlFor="topP">
-                    Top P: {settings.topP?.toFixed(2) ?? 'Default (1.00)'}
+                  <label className="settings-field__checkbox-wrapper">
+                    <input
+                      id="topPEnabled"
+                      type="checkbox"
+                      className="settings-field__checkbox"
+                      checked={settings.topPEnabled || false}
+                      onChange={handleCheckboxChange('topPEnabled')}
+                    />
+                    <span className="settings-field__checkbox-label">Set Top P</span>
                   </label>
-                  <input
-                    id="topP"
-                    type="range"
-                    className="settings-field__slider"
-                    value={settings.topP ?? 1}
-                    onChange={handleOptionalNumberChange('topP')}
-                    min="0"
-                    max="1"
-                    step="0.05"
-                  />
-                  <div className="settings-field__slider-labels">
-                    <span>0.00</span>
-                    <span>1.00</span>
-                  </div>
+                  {settings.topPEnabled && (
+                    <>
+                      <label className="settings-field__label" htmlFor="topP">
+                        Top P: {(settings.topP ?? 1).toFixed(2)}
+                      </label>
+                      <input
+                        id="topP"
+                        type="range"
+                        className="settings-field__slider"
+                        value={settings.topP ?? 1}
+                        onChange={handleOptionalNumberChange('topP')}
+                        min="0"
+                        max="1"
+                        step="0.05"
+                      />
+                      <div className="settings-field__slider-labels">
+                        <span>0.00</span>
+                        <span>1.00</span>
+                      </div>
+                    </>
+                  )}
                   <span className="settings-field__hint">
-                    Optional. Uses nucleus sampling when provided.
+                    Off by default so the API uses its built-in top_p default.
                   </span>
                 </div>
               </>

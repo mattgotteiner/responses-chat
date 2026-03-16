@@ -86,12 +86,12 @@ function addSamplingParameters(requestParams: Record<string, unknown>, settings:
     return;
   }
 
-  if (settings.temperature !== undefined) {
-    requestParams.temperature = settings.temperature;
+  if (settings.temperatureEnabled) {
+    requestParams.temperature = settings.temperature ?? 1;
   }
 
-  if (settings.topP !== undefined) {
-    requestParams.top_p = settings.topP;
+  if (settings.topPEnabled) {
+    requestParams.top_p = settings.topP ?? 1;
   }
 }
 

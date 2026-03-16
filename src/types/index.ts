@@ -194,8 +194,12 @@ export interface Settings {
   reasoningSummary?: ReasoningSummary;
   /** Optional verbosity level */
   verbosity?: Verbosity;
+  /** Whether to send an explicit temperature value */
+  temperatureEnabled?: boolean;
   /** Optional sampling temperature (0.0-2.0) */
   temperature?: number;
+  /** Whether to send an explicit top_p value */
+  topPEnabled?: boolean;
   /** Optional nucleus sampling value (0.0-1.0) */
   topP?: number;
   /** Optional developer/system instructions */
@@ -237,7 +241,9 @@ export const DEFAULT_SETTINGS: Settings = {
   reasoningEffort: undefined,
   reasoningSummary: 'detailed',
   verbosity: undefined,
+  temperatureEnabled: false,
   temperature: undefined,
+  topPEnabled: false,
   topP: undefined,
   developerInstructions: undefined,
   messageRenderMode: 'markdown',

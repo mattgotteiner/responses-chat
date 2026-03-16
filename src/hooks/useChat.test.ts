@@ -341,6 +341,8 @@ describe('useChat - sendMessage request payload', () => {
         ...testSettings,
         modelName: 'gpt-5.2',
         reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
         temperature: 0.6,
         topP: 0.8,
       };
@@ -360,6 +362,8 @@ describe('useChat - sendMessage request payload', () => {
         ...testSettings,
         modelName: 'gpt-5.1',
         reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
         temperature: 0.6,
         topP: 0.8,
       };
@@ -379,6 +383,8 @@ describe('useChat - sendMessage request payload', () => {
         ...testSettings,
         modelName: 'gpt-5.4',
         reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
         temperature: 0.4,
         topP: 0.9,
       };
@@ -424,6 +430,44 @@ describe('useChat - sendMessage request payload', () => {
           previous_response_id: 'resp-prev',
           temperature: 0.4,
           top_p: 0.9,
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('omits temperature and top_p when the sampling checkboxes are disabled', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5.2',
+        reasoningEffort: 'none',
+        temperature: 0.6,
+        topP: 0.8,
+      };
+      const createSpy = await sendWithSettings(settings);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          temperature: expect.anything(),
+          top_p: expect.anything(),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('sends default sampling values when enabled without custom slider values', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5.2',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+      };
+      const createSpy = await sendWithSettings(settings);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: 1,
+          top_p: 1,
         }),
         expect.anything(),
       );
