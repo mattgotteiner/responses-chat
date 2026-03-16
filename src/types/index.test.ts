@@ -3,6 +3,7 @@ import {
   AVAILABLE_MODELS,
   MODEL_REASONING_EFFORTS,
   getReasoningEfforts,
+  supportsSamplingControls,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   DEFAULT_SETTINGS,
@@ -45,6 +46,24 @@ describe('types constants', () => {
     });
   });
 
+  describe('supportsSamplingControls', () => {
+    it('returns true for gpt-5.2 when reasoning effort is none', () => {
+      expect(supportsSamplingControls('gpt-5.2', 'none')).toBe(true);
+    });
+
+    it('returns true for gpt-5.4 when reasoning effort is none', () => {
+      expect(supportsSamplingControls('gpt-5.4', 'none')).toBe(true);
+    });
+
+    it('returns false for gpt-5.1 even when reasoning effort is none', () => {
+      expect(supportsSamplingControls('gpt-5.1', 'none')).toBe(false);
+    });
+
+    it('returns false when reasoning effort is not none', () => {
+      expect(supportsSamplingControls('gpt-5.2', 'minimal')).toBe(false);
+    });
+  });
+
   describe('VERBOSITY_OPTIONS', () => {
     it('contains low, medium, high', () => {
       expect(VERBOSITY_OPTIONS).toEqual(['low', 'medium', 'high']);
@@ -71,6 +90,8 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS.endpoint).toBe('');
       expect(DEFAULT_SETTINGS.apiKey).toBe('');
       expect(DEFAULT_SETTINGS.modelName).toBe('');
+      expect(DEFAULT_SETTINGS.temperature).toBeUndefined();
+      expect(DEFAULT_SETTINGS.topP).toBeUndefined();
     });
   });
 

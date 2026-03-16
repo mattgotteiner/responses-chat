@@ -8,6 +8,7 @@ import {
   AVAILABLE_MODELS,
   CUSTOM_MODEL_OPTION,
   getReasoningEfforts,
+  supportsSamplingControls,
   VERBOSITY_OPTIONS,
   REASONING_SUMMARY_OPTIONS,
   MESSAGE_RENDER_MODE_OPTIONS,
@@ -20,6 +21,7 @@ import './SettingsSidebar.css';
 
 /** Handler type for checkbox change events */
 type CheckboxChangeHandler = (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => void;
+type OptionalNumberField = 'temperature' | 'topP';
 
 interface SettingsSidebarProps {
   /** Whether the sidebar is open */
@@ -62,6 +64,10 @@ export function SettingsSidebar({
   const [showCustomTitleModelInput, setShowCustomTitleModelInput] = useState(isCustomTitleModel);
 
   const availableReasoningEfforts = getReasoningEfforts(settings.modelName);
+  const samplingControlsSupported = supportsSamplingControls(
+    settings.modelName,
+    settings.reasoningEffort
+  );
 
   const handleInputChange = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -85,6 +91,22 @@ export function SettingsSidebar({
       const parsed = parseInt(e.target.value, 10);
       if (!isNaN(parsed)) {
         onUpdateSettings({ [field]: parsed });
+      }
+    },
+    [onUpdateSettings]
+  );
+
+  const handleOptionalNumberChange = useCallback(
+    (field: OptionalNumberField) => (e: ChangeEvent<HTMLInputElement>) => {
+      const { value } = e.target;
+      if (value === '') {
+        onUpdateSettings({ [field]: undefined } as Partial<Settings>);
+        return;
+      }
+
+      const parsed = Number(value);
+      if (!Number.isNaN(parsed)) {
+        onUpdateSettings({ [field]: parsed } as Partial<Settings>);
       }
     },
     [onUpdateSettings]
@@ -451,6 +473,50 @@ export function SettingsSidebar({
                 ))}
               </select>
             </div>
+
+            {samplingControlsSupported && (
+              <>
+                <div className="settings-field">
+                  <label className="settings-field__label" htmlFor="temperature">
+                    Temperature
+                  </label>
+                  <input
+                    id="temperature"
+                    type="number"
+                    className="settings-field__input"
+                    value={settings.temperature ?? ''}
+                    onChange={handleOptionalNumberChange('temperature')}
+                    min="0"
+                    max="2"
+                    step="0.1"
+                    placeholder="Default (1.0)"
+                  />
+                  <span className="settings-field__hint">
+                    Optional. Only sent for gpt-5.2/gpt-5.4 when reasoning effort is none.
+                  </span>
+                </div>
+
+                <div className="settings-field">
+                  <label className="settings-field__label" htmlFor="topP">
+                    Top P
+                  </label>
+                  <input
+                    id="topP"
+                    type="number"
+                    className="settings-field__input"
+                    value={settings.topP ?? ''}
+                    onChange={handleOptionalNumberChange('topP')}
+                    min="0"
+                    max="1"
+                    step="0.1"
+                    placeholder="Default (1.0)"
+                  />
+                  <span className="settings-field__hint">
+                    Optional. Uses nucleus sampling when provided.
+                  </span>
+                </div>
+              </>
+            )}
 
             <div className="settings-field">
               <label className="settings-field__label" htmlFor="reasoningSummary">

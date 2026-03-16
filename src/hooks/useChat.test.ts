@@ -335,6 +335,101 @@ describe('useChat - sendMessage request payload', () => {
     });
   });
 
+  describe('sampling parameters', () => {
+    it('includes temperature and top_p when gpt-5.2 uses reasoning effort none', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5.2',
+        reasoningEffort: 'none',
+        temperature: 0.6,
+        topP: 0.8,
+      };
+      const createSpy = await sendWithSettings(settings);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: 0.6,
+          top_p: 0.8,
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('omits temperature and top_p for unsupported models even when reasoning effort is none', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5.1',
+        reasoningEffort: 'none',
+        temperature: 0.6,
+        topP: 0.8,
+      };
+      const createSpy = await sendWithSettings(settings);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.not.objectContaining({
+          temperature: expect.anything(),
+          top_p: expect.anything(),
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('includes temperature and top_p for MCP approval requests when eligible', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5.4',
+        reasoningEffort: 'none',
+        temperature: 0.4,
+        topP: 0.9,
+      };
+      const mockClient = makeMockClient(() => completedStream());
+      mockCreateAzureClient.mockReturnValue(mockClient);
+      const { result } = renderHook(() => useChat());
+
+      act(() => {
+        result.current.loadThread(
+          [
+            {
+              id: 'assistant-1',
+              role: 'assistant',
+              content: 'Approval required',
+              toolCalls: [
+                {
+                  id: 'tool-1',
+                  name: 'mcp',
+                  type: 'mcp_approval',
+                  arguments: '{}',
+                  approvalRequestId: 'approval-1',
+                  status: 'pending_approval',
+                },
+              ],
+              timestamp: new Date(),
+            },
+          ],
+          'resp-prev',
+          [],
+        );
+      });
+
+      await act(async () => {
+        await result.current.handleMcpApproval('approval-1', true, settings);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isStreaming).toBe(false);
+      });
+
+      expect(mockClient.responses.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          previous_response_id: 'resp-prev',
+          temperature: 0.4,
+          top_p: 0.9,
+        }),
+        expect.anything(),
+      );
+    });
+  });
+
   it('reuses uploaded file IDs from loaded thread when code interpreter is enabled', async () => {
     const mockClient = makeMockClient(() => completedStream());
     mockCreateAzureClient.mockReturnValue(mockClient);

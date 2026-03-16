@@ -5,6 +5,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { RateLimitError } from 'openai';
 import type { Message, Settings, Attachment } from '../types';
+import { supportsSamplingControls } from '../types';
 import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
 import { isImageAttachment } from '../utils/attachment';
@@ -78,6 +79,20 @@ function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: st
   }
 
   return { tools, include };
+}
+
+function addSamplingParameters(requestParams: Record<string, unknown>, settings: Settings): void {
+  if (!supportsSamplingControls(settings.modelName, settings.reasoningEffort)) {
+    return;
+  }
+
+  if (settings.temperature !== undefined) {
+    requestParams.temperature = settings.temperature;
+  }
+
+  if (settings.topP !== undefined) {
+    requestParams.top_p = settings.topP;
+  }
 }
 
 /** State for a stream running in the background while the user views another thread */
@@ -472,6 +487,8 @@ export function useChat(): UseChatReturn {
       if (settings.verbosity) {
         requestParams.verbosity = settings.verbosity;
       }
+
+      addSamplingParameters(requestParams, settings);
 
       // Add max output tokens if enabled
       if (settings.maxOutputTokensEnabled && settings.maxOutputTokens) {
@@ -912,6 +929,8 @@ export function useChat(): UseChatReturn {
       if (settings.verbosity) {
         requestParams.verbosity = settings.verbosity;
       }
+
+      addSamplingParameters(requestParams, settings);
 
       // Re-add tools configuration (required for continuing MCP calls)
       const { tools, include } = buildToolsConfiguration(settings);

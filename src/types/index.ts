@@ -42,6 +42,17 @@ export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5.4',
 ];
 
+/** Models that support temperature/top_p when reasoning effort is none */
+const SAMPLING_CONTROL_MODELS: ModelName[] = ['gpt-5.2', 'gpt-5.4'];
+
+/** Returns true when temperature/top_p controls are supported for the selected model and reasoning effort */
+export function supportsSamplingControls(
+  model: ModelName,
+  reasoningEffort?: ReasoningEffort
+): boolean {
+  return reasoningEffort === 'none' && SAMPLING_CONTROL_MODELS.includes(model);
+}
+
 /** All verbosity options */
 export const VERBOSITY_OPTIONS: Verbosity[] = ['low', 'medium', 'high'];
 
@@ -183,6 +194,10 @@ export interface Settings {
   reasoningSummary?: ReasoningSummary;
   /** Optional verbosity level */
   verbosity?: Verbosity;
+  /** Optional sampling temperature (0.0-2.0) */
+  temperature?: number;
+  /** Optional nucleus sampling value (0.0-1.0) */
+  topP?: number;
   /** Optional developer/system instructions */
   developerInstructions?: string;
   /** Enable web search tool for grounding responses with real-time web data */
@@ -222,6 +237,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reasoningEffort: undefined,
   reasoningSummary: 'detailed',
   verbosity: undefined,
+  temperature: undefined,
+  topP: undefined,
   developerInstructions: undefined,
   messageRenderMode: 'markdown',
   mcpServers: [],
