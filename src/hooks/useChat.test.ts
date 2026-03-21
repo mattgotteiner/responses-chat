@@ -357,10 +357,31 @@ describe('useChat - sendMessage request payload', () => {
       );
     });
 
-    it('omits temperature and top_p for unsupported models even when reasoning effort is none', async () => {
+    it('includes temperature and top_p for models that support none', async () => {
       const settings: Settings = {
         ...testSettings,
-        modelName: 'gpt-5.1',
+        modelName: 'gpt-5.4-mini',
+        reasoningEffort: 'none',
+        temperatureEnabled: true,
+        topPEnabled: true,
+        temperature: 0.6,
+        topP: 0.8,
+      };
+      const createSpy = await sendWithSettings(settings);
+
+      expect(createSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          temperature: 0.6,
+          top_p: 0.8,
+        }),
+        expect.anything(),
+      );
+    });
+
+    it('omits temperature and top_p for models that do not support none', async () => {
+      const settings: Settings = {
+        ...testSettings,
+        modelName: 'gpt-5-mini',
         reasoningEffort: 'none',
         temperatureEnabled: true,
         topPEnabled: true,

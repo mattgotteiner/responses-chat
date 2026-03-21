@@ -254,6 +254,8 @@ describe('SettingsSidebar', () => {
       const modelSelect = screen.getByLabelText('Model');
       expect(modelSelect).toBeInTheDocument();
       expect(modelSelect.tagName).toBe('SELECT');
+      expect(screen.getByRole('option', { name: 'gpt-5.4-nano' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'gpt-5.4-mini' })).toBeInTheDocument();
     });
 
     it('renders deployment name input', () => {
@@ -266,6 +268,16 @@ describe('SettingsSidebar', () => {
     it('renders reasoning effort select', () => {
       render(<SettingsSidebar {...defaultProps} />);
       expect(screen.getByLabelText('Reasoning Effort')).toBeInTheDocument();
+    });
+
+    it('shows none as a reasoning effort option for gpt-5.4-mini', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.4-mini',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByRole('option', { name: 'none' })).toBeInTheDocument();
     });
 
     it('does not render sampling controls by default', () => {
@@ -285,10 +297,21 @@ describe('SettingsSidebar', () => {
       expect(screen.getByRole('checkbox', { name: /set top p/i })).toBeInTheDocument();
     });
 
-    it('does not render sampling controls for gpt-5.1 when reasoning effort is none', () => {
+    it('renders sampling controls for gpt-5.4-mini when reasoning effort is none', () => {
       const settings: Settings = {
         ...DEFAULT_SETTINGS,
-        modelName: 'gpt-5.1',
+        modelName: 'gpt-5.4-mini',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByRole('checkbox', { name: /set temperature/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /set top p/i })).toBeInTheDocument();
+    });
+
+    it('does not render sampling controls for models without none support', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5-mini',
         reasoningEffort: 'none',
       };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
