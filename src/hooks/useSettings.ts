@@ -6,12 +6,14 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import type { Settings, VectorStoreCache, VectorStore, VectorStoreFile } from '../types';
 import { DEFAULT_SETTINGS } from '../types';
 import {
-  getStoredValue,
-  setStoredValue,
-  removeStoredValue,
   clearAllStoredValues,
-  SETTINGS_STORAGE_KEY,
 } from '../utils/localStorage';
+import {
+  clearStoredSettings,
+  hydrateStoredApiKey,
+  persistStoredSettings,
+  readStoredSettingsSnapshot,
+} from '../utils/settingsStorage';
 import { createAzureClient } from '../utils/api';
 import { listVectorStores } from '../utils/vectorStore';
 
@@ -27,6 +29,8 @@ export interface UseSettingsReturn {
   clearStoredData: () => void;
   /** Whether required settings are configured */
   isConfigured: boolean;
+  /** Whether persisted settings have finished loading */
+  isHydrated?: boolean;
   /** Vector store cache for persisting data across sidebar open/close */
   vectorStoreCache: VectorStoreCache;
   /** Update the cached vector stores list */
@@ -62,8 +66,15 @@ const EMPTY_CACHE: VectorStoreCache = {
 };
 
 export function useSettings(): UseSettingsReturn {
+  const initialStoredSettingsSnapshotRef = useRef(readStoredSettingsSnapshot());
+  const initialStoredSettingsSnapshot = initialStoredSettingsSnapshotRef.current;
+  const hasEncryptedStoredApiKey = initialStoredSettingsSnapshot.hasEncryptedApiKey;
+
   // Vector store cache (not persisted to localStorage, just in-memory)
   const [vectorStoreCache, setVectorStoreCache] = useState<VectorStoreCache>(EMPTY_CACHE);
+  const [isHydrated, setIsHydrated] = useState<boolean>(
+    !initialStoredSettingsSnapshot.hasEncryptedApiKey
+  );
 
   const setVectorStores = useCallback((stores: VectorStore[]) => {
     setVectorStoreCache(prev => ({
@@ -108,26 +119,55 @@ export function useSettings(): UseSettingsReturn {
     setVectorStoreCache(EMPTY_CACHE);
   }, []);
 
-  const [settings, setSettings] = useState<Settings>(() => {
-    const stored = getStoredValue(SETTINGS_STORAGE_KEY, DEFAULT_SETTINGS);
-    // Merge with defaults to ensure new fields have default values
-    const merged = { ...DEFAULT_SETTINGS, ...stored };
-    // If noLocalStorage was enabled, don't use stored values (except noLocalStorage itself)
-    if (merged.noLocalStorage) {
-      return { ...DEFAULT_SETTINGS, noLocalStorage: true };
-    }
-    return merged;
-  });
+  const [settings, setSettings] = useState<Settings>(initialStoredSettingsSnapshot.settings);
 
-  // Sync to localStorage whenever settings change (unless noLocalStorage is enabled)
   useEffect(() => {
-    if (settings.noLocalStorage) {
-      // Clear any existing stored data when noLocalStorage is enabled
-      removeStoredValue(SETTINGS_STORAGE_KEY);
-    } else {
-      setStoredValue(SETTINGS_STORAGE_KEY, settings);
+    if (!hasEncryptedStoredApiKey) {
+      setIsHydrated(true);
+      return;
     }
-  }, [settings]);
+
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const storedApiKey = await hydrateStoredApiKey();
+        if (cancelled) {
+          return;
+        }
+
+        setSettings(prev => ({ ...prev, apiKey: storedApiKey }));
+      } catch (error) {
+        console.error('Failed to hydrate encrypted API key from browser storage:', error);
+      } finally {
+        if (!cancelled) {
+          setIsHydrated(true);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasEncryptedStoredApiKey]);
+
+  useEffect(() => {
+    if (!isHydrated) {
+      return;
+    }
+
+    void (async () => {
+      try {
+        if (settings.noLocalStorage) {
+          await clearStoredSettings();
+        } else {
+          await persistStoredSettings(settings);
+        }
+      } catch (error) {
+        console.error('Failed to persist encrypted settings to browser storage:', error);
+      }
+    })();
+  }, [isHydrated, settings]);
 
   const updateSettings = useCallback((updates: Partial<Settings>) => {
     setSettings((prev) => ({ ...prev, ...updates }));
@@ -139,14 +179,18 @@ export function useSettings(): UseSettingsReturn {
   }, []);
 
   const clearStoredData = useCallback(() => {
+    void clearStoredSettings();
     clearAllStoredValues();
     setSettings(DEFAULT_SETTINGS);
+    setIsHydrated(true);
     setVectorStoreCache(EMPTY_CACHE);
   }, []);
 
   // Check if required fields are configured
   const isConfigured =
-    (settings.endpoint || '').trim() !== '' && (settings.apiKey || '').trim() !== '';
+    isHydrated &&
+    (settings.endpoint || '').trim() !== '' &&
+    (settings.apiKey || '').trim() !== '';
 
   // Track the last endpoint/apiKey to detect credential changes  
   const lastCredentialsRef = useRef<{ endpoint: string; apiKey: string } | null>(null);
@@ -164,7 +208,7 @@ export function useSettings(): UseSettingsReturn {
     lastCredentialsRef.current = currentCredentials;
 
     // Skip if no valid credentials (but clear cache asynchronously via IIFE first)
-    if (!isConfigured) {
+    if (!isHydrated || !isConfigured) {
       // Clear stale cache when credentials become invalid
       if (credentialsChanged) {
         (async () => setVectorStoreCache(EMPTY_CACHE))();
@@ -212,7 +256,7 @@ export function useSettings(): UseSettingsReturn {
         setVectorStoreCache(prev => ({ ...prev, isStoresLoading: false }));
       }
     })();
-  }, [isConfigured, settings.endpoint, settings.apiKey, vectorStoreCache.storesFetchedAt, vectorStoreCache.isStoresLoading]);
+  }, [isConfigured, isHydrated, settings.endpoint, settings.apiKey, vectorStoreCache.storesFetchedAt, vectorStoreCache.isStoresLoading]);
 
   return {
     settings,
@@ -220,6 +264,7 @@ export function useSettings(): UseSettingsReturn {
     resetSettings,
     clearStoredData,
     isConfigured,
+    isHydrated,
     vectorStoreCache,
     setVectorStores,
     setStoreFiles,

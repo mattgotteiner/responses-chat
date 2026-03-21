@@ -26,7 +26,17 @@ export function ChatContainer() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
-  const { settings, updateSettings, clearStoredData, isConfigured, vectorStoreCache, setVectorStores, setStoreFiles, setStoreFilesLoading } = useSettingsContext();
+  const {
+    settings,
+    updateSettings,
+    clearStoredData,
+    isConfigured,
+    isHydrated = true,
+    vectorStoreCache,
+    setVectorStores,
+    setStoreFiles,
+    setStoreFilesLoading,
+  } = useSettingsContext();
   const { messages, isStreaming, sendMessage, stopStreaming, clearConversation, handleMcpApproval, retryMessage, loadThread, detachStream, reattachStream, abortBackgroundStream, previousResponseId, uploadedFileIds } = useChat();
   const {
     threads,
@@ -399,9 +409,11 @@ export function ChatContainer() {
     prevMessageCountRef.current = messages.length;
   }, [messages, isStreaming, isEphemeral, activeThreadId, previousResponseId, uploadedFileIds, createThread, updateThread, triggerTitleGeneration, settings.noLocalStorage]);
 
-  const inputPlaceholder = isConfigured
-    ? undefined
-    : 'Configure settings to start chatting...';
+  const inputPlaceholder = !isHydrated
+    ? 'Loading saved settings...'
+    : isConfigured
+      ? undefined
+      : 'Configure settings to start chatting...';
 
   // Calculate total token usage across all messages
   const conversationUsage = useMemo(
@@ -461,6 +473,7 @@ export function ChatContainer() {
         key={activeThreadId ?? 'ephemeral'}
         messages={messages}
         isConfigured={isConfigured}
+        isHydratingSettings={!isHydrated}
         onOpenJsonPanel={handleOpenJsonPanel}
         onMcpApprove={handleMcpApprove}
         onMcpDeny={handleMcpDeny}
@@ -468,7 +481,7 @@ export function ChatContainer() {
         isStreaming={isStreaming}
       />
 
-      {!isConfigured && (
+      {isHydrated && !isConfigured && (
         <ConfigurationBanner onConfigureClick={handleOpenSettings} />
       )}
 
@@ -477,7 +490,7 @@ export function ChatContainer() {
         onClearConversation={handleNewChat}
         onStopStreaming={stopStreaming}
         isStreaming={isStreaming}
-        disabled={!isConfigured || isStreaming}
+        disabled={!isHydrated || !isConfigured || isStreaming}
         placeholder={inputPlaceholder}
         tokenUsage={conversationUsage}
         messages={messages}

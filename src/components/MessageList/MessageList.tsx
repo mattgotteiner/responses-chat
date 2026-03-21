@@ -13,6 +13,8 @@ interface MessageListProps {
   messages: MessageType[];
   /** Whether settings are configured */
   isConfigured: boolean;
+  /** Whether persisted settings are still hydrating */
+  isHydratingSettings?: boolean;
   /** Handler to open JSON panel */
   onOpenJsonPanel: (data: JsonPanelData) => void;
   /** Handler when user approves an MCP tool call */
@@ -35,6 +37,7 @@ const SCROLL_THRESHOLD = 100;
 export function MessageList({
   messages,
   isConfigured,
+  isHydratingSettings = false,
   onOpenJsonPanel,
   onMcpApprove,
   onMcpDeny,
@@ -77,6 +80,13 @@ export function MessageList({
               <div className="message-list__empty-icon">💬</div>
               <p className="message-list__empty-text">
                 Start a conversation by typing a message below
+              </p>
+            </>
+          ) : isHydratingSettings ? (
+            <>
+              <div className="message-list__empty-icon">🔐</div>
+              <p className="message-list__empty-text">
+                Loading your saved settings...
               </p>
             </>
           ) : (
