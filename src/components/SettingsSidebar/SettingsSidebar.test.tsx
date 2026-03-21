@@ -578,7 +578,7 @@ describe('SettingsSidebar', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, noLocalStorage: false };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
       expect(
-        screen.getByText(/stored in browser localStorage \(unencrypted\)/i)
+        screen.getByText(/encrypted before being saved in browser storage/i)
       ).toBeInTheDocument();
       expect(screen.queryByText(/storage disabled/i)).not.toBeInTheDocument();
     });

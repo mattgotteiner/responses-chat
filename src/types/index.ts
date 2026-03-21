@@ -178,7 +178,7 @@ export interface Thread {
   /** Whether this thread is bookmarked */
   bookmarked?: boolean;
 }
-/** Application settings stored in localStorage */
+/** Application settings persisted in browser storage */
 export interface Settings {
   /** Azure OpenAI endpoint URL */
   endpoint: string;

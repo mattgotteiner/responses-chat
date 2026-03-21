@@ -281,7 +281,7 @@ export function SettingsSidebar({
                 </span>
               ) : (
                 <span className="settings-field__hint settings-field__hint--warning">
-                  ⚠️ Stored in browser localStorage (unencrypted). Use only on trusted devices.
+                  Encrypted before being saved in browser storage. Use only on trusted devices.
                 </span>
               )}
             </div>
