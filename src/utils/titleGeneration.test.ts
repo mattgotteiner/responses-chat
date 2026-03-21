@@ -129,6 +129,27 @@ describe('generateThreadTitle', () => {
     expect(reasoning.effort).toBe('low');
   });
 
+  it('uses none when the model supports non-reasoning mode', async () => {
+    const mockClient = {
+      responses: {
+        create: vi.fn().mockResolvedValue({
+          output: [
+            {
+              type: 'message',
+              content: [{ type: 'output_text', text: 'Test Title' }],
+            },
+          ],
+        }),
+      },
+    };
+
+    await generateThreadTitle(mockClient as never, 'gpt-5.4-mini', 'Hello', 'Hi there');
+
+    const callArgs = mockClient.responses.create.mock.calls[0][0] as Record<string, unknown>;
+    const reasoning = callArgs.reasoning as { effort: string };
+    expect(reasoning.effort).toBe('none');
+  });
+
   it('picks minimal effort for models that support it', async () => {
     const mockClient = {
       responses: {
@@ -155,6 +176,10 @@ describe('generateThreadTitle', () => {
 describe('getLowestEffort', () => {
   it('returns low for gpt-5-mini (no minimal/none support)', () => {
     expect(getLowestEffort('gpt-5-mini')).toBe('low');
+  });
+
+  it('returns none for gpt-5.4-mini', () => {
+    expect(getLowestEffort('gpt-5.4-mini')).toBe('none');
   });
 
   it('returns minimal for gpt-5', () => {

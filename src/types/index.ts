@@ -21,6 +21,8 @@ export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {
   'gpt-5': ['low', 'medium', 'high', 'minimal'],
   'gpt-5.1': ['low', 'medium', 'high', 'minimal', 'none'],
   'gpt-5.2': ['low', 'medium', 'high', 'minimal', 'none'],
+  'gpt-5.4-nano': ['none', 'low', 'medium', 'high'],
+  'gpt-5.4-mini': ['none', 'low', 'medium', 'high'],
   'gpt-5.4': ['low', 'medium', 'high', 'minimal', 'none'],
 };
 
@@ -39,18 +41,17 @@ export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5',
   'gpt-5.1',
   'gpt-5.2',
+  'gpt-5.4-nano',
+  'gpt-5.4-mini',
   'gpt-5.4',
 ];
 
-/** Models that support temperature/top_p when reasoning effort is none */
-const SAMPLING_CONTROL_MODELS: ModelName[] = ['gpt-5.2', 'gpt-5.4'];
-
-/** Returns true when temperature/top_p controls are supported for the selected model and reasoning effort */
+/** Returns true when a model supports non-reasoning mode and the selected effort is none */
 export function supportsSamplingControls(
   model: ModelName,
   reasoningEffort?: ReasoningEffort
 ): boolean {
-  return reasoningEffort === 'none' && SAMPLING_CONTROL_MODELS.includes(model);
+  return reasoningEffort === 'none' && getReasoningEfforts(model).includes('none');
 }
 
 /** All verbosity options */
