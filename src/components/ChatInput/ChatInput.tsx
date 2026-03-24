@@ -2,7 +2,16 @@
  * Chat input component with textarea and send button
  */
 
-import { useState, useCallback, useRef, useEffect, type KeyboardEvent, type ChangeEvent, type ClipboardEvent } from 'react';
+import {
+  useState,
+  useCallback,
+  useRef,
+  useEffect,
+  type KeyboardEvent,
+  type ChangeEvent,
+  type ClipboardEvent,
+  type DragEvent,
+} from 'react';
 import type { Attachment, Message, TokenUsage } from '../../types';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import { useAudioInput } from '../../hooks/useAudioInput';
@@ -54,6 +63,7 @@ export function ChatInput({
   const [value, setValue] = useState('');
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [attachmentFeedback, setAttachmentFeedback] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { isSupported: isAudioSupported, isRecording, start: startRecording, stop: stopRecording } = useAudioInput();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -104,6 +114,52 @@ export function ChatInput({
     setAttachments((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
+  const processImageAttachments = useCallback(
+    async (imageFiles: File[], failureMessage: string) => {
+      try {
+        const result = await processAttachmentFiles(imageFiles, {
+          maxFileSize: MAX_FILE_SIZE_BYTES,
+          codeInterpreterEnabled,
+        });
+
+        if (result.attachments.length > 0) {
+          setAttachments((prev) => [...prev, ...result.attachments]);
+        }
+
+        setAttachmentFeedback(result.rejectedFiles[0]?.message ?? null);
+      } catch (error) {
+        const message = error instanceof Error ? error.message : failureMessage;
+        setAttachmentFeedback(message);
+      }
+    },
+    [codeInterpreterEnabled]
+  );
+
+  const getImageFiles = useCallback((files: Iterable<File>) => {
+    return Array.from(files).filter((file) => file.type.startsWith('image/'));
+  }, []);
+
+  const hasDraggedFiles = useCallback((dataTransfer: DataTransfer | null | undefined) => {
+    return Array.from(dataTransfer?.types ?? []).includes('Files');
+  }, []);
+
+  const hasDraggedImages = useCallback(
+    (dataTransfer: DataTransfer | null | undefined) => {
+      if (!hasDraggedFiles(dataTransfer)) {
+        return false;
+      }
+
+      const fileItems = Array.from(dataTransfer?.items ?? []).filter((item) => item.kind === 'file');
+      if (fileItems.length === 0) {
+        // Some browsers do not expose file metadata until drop, so keep the drop target active.
+        return true;
+      }
+
+      return fileItems.some((item) => item.type.startsWith('image/'));
+    },
+    [hasDraggedFiles]
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (isMobile) return;
@@ -129,24 +185,69 @@ export function ChatInput({
       }
 
       e.preventDefault();
-
-      try {
-        const result = await processAttachmentFiles(imageFiles, {
-          maxFileSize: MAX_FILE_SIZE_BYTES,
-          codeInterpreterEnabled,
-        });
-
-        if (result.attachments.length > 0) {
-          setAttachments((prev) => [...prev, ...result.attachments]);
-        }
-
-        setAttachmentFeedback(result.rejectedFiles[0]?.message ?? null);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Failed to process pasted image.';
-        setAttachmentFeedback(message);
-      }
+      await processImageAttachments(imageFiles, 'Failed to process pasted image.');
     },
-    [isMobile, disabled, isRecording, codeInterpreterEnabled]
+    [isMobile, disabled, isRecording, processImageAttachments]
+  );
+
+  const handleDragEnter = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (isMobile || disabled || isRecording || !hasDraggedFiles(e.dataTransfer)) {
+        return;
+      }
+
+      e.preventDefault();
+      setIsDragOver(hasDraggedImages(e.dataTransfer));
+    },
+    [isMobile, disabled, isRecording, hasDraggedFiles, hasDraggedImages]
+  );
+
+  const handleDragOver = useCallback(
+    (e: DragEvent<HTMLDivElement>) => {
+      if (isMobile || disabled || isRecording || !hasDraggedFiles(e.dataTransfer)) {
+        return;
+      }
+
+      e.preventDefault();
+
+      const canDropImages = hasDraggedImages(e.dataTransfer);
+
+      e.dataTransfer.dropEffect = canDropImages ? 'copy' : 'none';
+      setIsDragOver(canDropImages);
+    },
+    [isMobile, disabled, isRecording, hasDraggedFiles, hasDraggedImages]
+  );
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    const nextTarget = e.relatedTarget;
+    if (nextTarget instanceof Node && e.currentTarget.contains(nextTarget)) {
+      return;
+    }
+
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: DragEvent<HTMLDivElement>) => {
+      if (!hasDraggedFiles(e.dataTransfer)) {
+        return;
+      }
+
+      e.preventDefault();
+      setIsDragOver(false);
+
+      if (isMobile || disabled || isRecording) {
+        return;
+      }
+
+      const imageFiles = getImageFiles(e.dataTransfer.files);
+      if (imageFiles.length === 0) {
+        return;
+      }
+
+      await processImageAttachments(imageFiles, 'Failed to process dropped image.');
+    },
+    [isMobile, disabled, isRecording, hasDraggedFiles, getImageFiles, processImageAttachments]
   );
 
   const handleCopyConversation = useCallback(async () => {
@@ -171,7 +272,13 @@ export function ChatInput({
   }, [messages]);
 
   return (
-    <div className="chat-input">
+    <div
+      className={`chat-input${isDragOver ? ' chat-input--drag-over' : ''}`}
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {attachments.length > 0 && (
         <AttachmentPreview
           attachments={attachments}
