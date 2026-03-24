@@ -7,10 +7,33 @@
   background-color: var(--color-bg);
 }
 
+.chat-input--drag-over .chat-input__textarea {
+  border-color: var(--color-primary);
+  background-color: var(--color-surface-elevated);
+  box-shadow: 0 0 0 3px var(--color-focus-ring);
+}
+
 .chat-input__container {
+  position: relative;
   display: flex;
   gap: 12px;
   align-items: flex-end;
+}
+
+.chat-input--drag-over .chat-input__container::after {
+  content: 'Drop images to attach';
+  position: absolute;
+  inset: -6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--color-primary);
+  border-radius: calc(var(--radius-xl) + 6px);
+  background-color: var(--color-focus-ring);
+  color: var(--color-primary);
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
 }
 
 .chat-input__textarea {

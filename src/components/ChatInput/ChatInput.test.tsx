@@ -553,6 +553,156 @@ describe('ChatInput', () => {
     });
   });
 
+  describe('desktop image drag and drop', () => {
+    const droppedAttachment = {
+      id: 'attach-dropped',
+      name: 'dropped-image.png',
+      type: 'image' as const,
+      mimeType: 'image/png',
+      base64: 'drop123',
+      previewUrl: 'data:image/png;base64,drop123',
+      size: 1024,
+    };
+
+    function createFileDataTransfer(files: File[]) {
+      return {
+        files,
+        types: ['Files'],
+        dropEffect: 'copy',
+      };
+    }
+
+    it('attaches dropped images and enables sending without text', async () => {
+      mockProcessAttachmentFiles.mockResolvedValue({
+        attachments: [droppedAttachment],
+        rejectedFiles: [],
+      });
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const container = textarea.closest('.chat-input');
+      const imageFile = new File(['image-bytes'], 'dropped-image.png', { type: 'image/png' });
+
+      expect(container).not.toHaveClass('chat-input--drag-over');
+
+      fireEvent.dragEnter(container!, {
+        dataTransfer: createFileDataTransfer([imageFile]),
+      });
+
+      expect(container).toHaveClass('chat-input--drag-over');
+
+      await act(async () => {
+        fireEvent.drop(container!, {
+          dataTransfer: createFileDataTransfer([imageFile]),
+        });
+      });
+
+      await vi.waitFor(() => {
+        expect(mockProcessAttachmentFiles).toHaveBeenCalledTimes(1);
+      });
+
+      expect(mockProcessAttachmentFiles).toHaveBeenCalledWith([imageFile], {
+        maxFileSize: 10 * 1024 * 1024,
+        codeInterpreterEnabled: false,
+      });
+      expect(await screen.findByRole('img', { name: 'dropped-image.png' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Send message')).not.toBeDisabled();
+      expect(container).not.toHaveClass('chat-input--drag-over');
+    });
+
+    it('ignores non-image file drops', async () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const container = textarea.closest('.chat-input');
+      const pdfFile = new File(['pdf-bytes'], 'document.pdf', { type: 'application/pdf' });
+
+      fireEvent.dragEnter(container!, {
+        dataTransfer: createFileDataTransfer([pdfFile]),
+      });
+
+      expect(container).not.toHaveClass('chat-input--drag-over');
+
+      await act(async () => {
+        fireEvent.drop(container!, {
+          dataTransfer: createFileDataTransfer([pdfFile]),
+        });
+      });
+
+      expect(mockProcessAttachmentFiles).not.toHaveBeenCalled();
+      expect(screen.queryByRole('img', { name: 'document.pdf' })).not.toBeInTheDocument();
+    });
+
+    it('shows validation feedback when a dropped image is rejected', async () => {
+      mockProcessAttachmentFiles.mockResolvedValue({
+        attachments: [],
+        rejectedFiles: [
+          {
+            name: 'dropped-image.png',
+            reason: 'file-too-large',
+            message: '"dropped-image.png" is too large (15.0 MB). Maximum file size is 10.0 MB.',
+          },
+        ],
+      });
+
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const container = textarea.closest('.chat-input');
+      const imageFile = new File(['image-bytes'], 'dropped-image.png', { type: 'image/png' });
+
+      await act(async () => {
+        fireEvent.drop(container!, {
+          dataTransfer: createFileDataTransfer([imageFile]),
+        });
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Maximum file size is 10.0 MB.');
+    });
+
+    it('clears the drag-over state when the dragged files leave the chat input', () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const container = textarea.closest('.chat-input');
+      const imageFile = new File(['image-bytes'], 'dropped-image.png', { type: 'image/png' });
+
+      fireEvent.dragEnter(container!, {
+        dataTransfer: createFileDataTransfer([imageFile]),
+      });
+
+      expect(container).toHaveClass('chat-input--drag-over');
+
+      fireEvent.dragLeave(container!, {
+        dataTransfer: createFileDataTransfer([imageFile]),
+        relatedTarget: document.body,
+      });
+
+      expect(container).not.toHaveClass('chat-input--drag-over');
+    });
+  });
+
   describe('voice input', () => {
     it('shows voice input button when audio is supported', () => {
       render(
