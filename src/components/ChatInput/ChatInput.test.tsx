@@ -564,9 +564,16 @@ describe('ChatInput', () => {
       size: 1024,
     };
 
-    function createFileDataTransfer(files: File[]) {
+    function createFileDataTransfer(
+      files: File[],
+      items: Array<{ kind: string; type: string }> = files.map((file) => ({
+        kind: 'file',
+        type: file.type,
+      }))
+    ) {
       return {
         files,
+        items,
         types: ['Files'],
         dropEffect: 'copy',
       };
@@ -614,6 +621,24 @@ describe('ChatInput', () => {
       expect(await screen.findByRole('img', { name: 'dropped-image.png' })).toBeInTheDocument();
       expect(screen.getByLabelText('Send message')).not.toBeDisabled();
       expect(container).not.toHaveClass('chat-input--drag-over');
+    });
+
+    it('keeps the drop target active when browsers defer file details until drop', () => {
+      render(
+        <ChatInput
+          onSendMessage={mockOnSendMessage}
+          onClearConversation={mockOnClearConversation}
+        />
+      );
+
+      const textarea = screen.getByLabelText('Message input');
+      const container = textarea.closest('.chat-input');
+
+      fireEvent.dragOver(container!, {
+        dataTransfer: createFileDataTransfer([], [{ kind: 'file', type: 'image/png' }]),
+      });
+
+      expect(container).toHaveClass('chat-input--drag-over');
     });
 
     it('ignores non-image file drops', async () => {

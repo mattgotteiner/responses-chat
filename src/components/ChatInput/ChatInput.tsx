@@ -143,6 +143,23 @@ export function ChatInput({
     return Array.from(dataTransfer?.types ?? []).includes('Files');
   }, []);
 
+  const hasDraggedImages = useCallback(
+    (dataTransfer: DataTransfer | null | undefined) => {
+      if (!hasDraggedFiles(dataTransfer)) {
+        return false;
+      }
+
+      const fileItems = Array.from(dataTransfer?.items ?? []).filter((item) => item.kind === 'file');
+      if (fileItems.length === 0) {
+        // Some browsers do not expose file metadata until drop, so keep the drop target active.
+        return true;
+      }
+
+      return fileItems.some((item) => item.type.startsWith('image/'));
+    },
+    [hasDraggedFiles]
+  );
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (isMobile) return;
@@ -179,14 +196,10 @@ export function ChatInput({
         return;
       }
 
-      if (getImageFiles(e.dataTransfer.files).length === 0) {
-        return;
-      }
-
       e.preventDefault();
-      setIsDragOver(true);
+      setIsDragOver(hasDraggedImages(e.dataTransfer));
     },
-    [isMobile, disabled, isRecording, hasDraggedFiles, getImageFiles]
+    [isMobile, disabled, isRecording, hasDraggedFiles, hasDraggedImages]
   );
 
   const handleDragOver = useCallback(
@@ -197,13 +210,12 @@ export function ChatInput({
 
       e.preventDefault();
 
-      const imageFiles = getImageFiles(e.dataTransfer.files);
-      const canDropImages = imageFiles.length > 0;
+      const canDropImages = hasDraggedImages(e.dataTransfer);
 
       e.dataTransfer.dropEffect = canDropImages ? 'copy' : 'none';
       setIsDragOver(canDropImages);
     },
-    [isMobile, disabled, isRecording, hasDraggedFiles, getImageFiles]
+    [isMobile, disabled, isRecording, hasDraggedFiles, hasDraggedImages]
   );
 
   const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
