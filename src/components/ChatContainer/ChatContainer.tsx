@@ -19,6 +19,29 @@ import { createAzureClient } from '../../utils/api';
 import type { Attachment, Message } from '../../types';
 import './ChatContainer.css';
 
+const UNTITLED_THREAD_TITLE = 'Untitled chat';
+
+interface RetrySnapshot {
+  trimmedMessages: Message[];
+  priorResponseId: string | null;
+}
+
+function getRetrySnapshot(messages: Message[], failedAssistantMessageId: string): RetrySnapshot | null {
+  const failedIdx = messages.findIndex(
+    (message) => message.id === failedAssistantMessageId && message.isError
+  );
+  if (failedIdx < 1) return null;
+
+  const userMessage = messages[failedIdx - 1];
+  if (!userMessage || userMessage.role !== 'user') return null;
+
+  return {
+    trimmedMessages: messages.slice(0, failedIdx - 1),
+    priorResponseId:
+      (userMessage.requestJson?.previous_response_id as string | null | undefined) ?? null,
+  };
+}
+
 /**
  * Main chat container with header, message list, and input
  */
@@ -75,13 +98,14 @@ export function ChatContainer() {
   useEffect(() => {
     if (threadsLoading || hasRestoredRef.current) return;
     hasRestoredRef.current = true;
-        if (activeThreadId) {
-          const thread = threads.find((t) => t.id === activeThreadId);
-          if (thread) {
-          loadThread(thread.messages, thread.previousResponseId, thread.uploadedFileIds);
-          prevMessageCountRef.current = thread.messages.length;
-          titleGeneratedRef.current = activeThreadId;
-        } else {
+    if (activeThreadId) {
+      const thread = threads.find((t) => t.id === activeThreadId);
+      if (thread) {
+        loadThread(thread.messages, thread.previousResponseId, thread.uploadedFileIds);
+        prevMessageCountRef.current = thread.messages.length;
+        titleGeneratedRef.current =
+          thread.title === UNTITLED_THREAD_TITLE ? null : activeThreadId;
+      } else {
         startNewChat(); // stored ID no longer valid
       }
     }
@@ -135,9 +159,27 @@ export function ChatContainer() {
 
   const handleRetry = useCallback(
     (messageId: string) => {
+      const retrySnapshot = getRetrySnapshot(messages, messageId);
+      if (retrySnapshot) {
+        prevMessageCountRef.current = retrySnapshot.trimmedMessages.length;
+        const activeThread = activeThreadId
+          ? threads.find((thread) => thread.id === activeThreadId)
+          : null;
+        if (!activeThread || activeThread.title === UNTITLED_THREAD_TITLE) {
+          titleGeneratedRef.current = null;
+        }
+        if (activeThreadId && !isEphemeral && !settings.noLocalStorage) {
+          updateThread(
+            activeThreadId,
+            retrySnapshot.trimmedMessages,
+            retrySnapshot.priorResponseId,
+            uploadedFileIds
+          );
+        }
+      }
       retryMessage(messageId, settings);
     },
-    [retryMessage, settings]
+    [messages, activeThreadId, threads, isEphemeral, settings, updateThread, uploadedFileIds, retryMessage]
   );
 
   /**
@@ -149,10 +191,10 @@ export function ChatContainer() {
     (threadId: string, msgs: Message[]) => {
       if (titleGeneratedRef.current === threadId || !isConfigured || msgs.length !== 2) return;
       const currentThread = threadsRef.current.find((t) => t.id === threadId);
-      if (currentThread && currentThread.title !== 'Untitled chat') return;
+      if (currentThread && currentThread.title !== UNTITLED_THREAD_TITLE) return;
       const userMsg = msgs[0];
       const assistantMsg = msgs[1];
-      if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant') return;
+      if (userMsg.role !== 'user' || assistantMsg.role !== 'assistant' || assistantMsg.isError) return;
       titleGeneratedRef.current = threadId; // optimistic guard — prevents duplicate calls
       const titleModel = settings.titleModelName || settings.deploymentName || settings.modelName;
       const mainModel = settings.deploymentName || settings.modelName;
@@ -167,7 +209,7 @@ export function ChatContainer() {
         })
         .then((title) => {
           const latestThread = threadsRef.current.find((t) => t.id === threadId);
-          if (title && (!latestThread || latestThread.title === 'Untitled chat')) {
+          if (title && (!latestThread || latestThread.title === UNTITLED_THREAD_TITLE)) {
             updateThreadTitle(threadId, title);
           }
         })
@@ -221,7 +263,7 @@ export function ChatContainer() {
           next.delete(id);
           return next;
         });
-        if (buffer) {
+          if (buffer) {
           // Trick auto-save effect: make count appear lower so it fires when stream completes
           prevMessageCountRef.current = buffer.length - 1;
         }
@@ -233,7 +275,7 @@ export function ChatContainer() {
         // Only mark as "titled" if the thread already has a real title — otherwise
         // triggerTitleGeneration (called from onComplete) must be allowed to run.
         const reattachedThread = threads.find((t) => t.id === id);
-        if (reattachedThread && reattachedThread.title !== 'Untitled chat') {
+        if (reattachedThread && reattachedThread.title !== UNTITLED_THREAD_TITLE) {
           titleGeneratedRef.current = id;
         }
         return;
@@ -271,7 +313,7 @@ export function ChatContainer() {
         prevMessageCountRef.current = data.messages.length;
         // Only mark as "titled" if the thread already has a real title.
         const targetThread = threads.find((t) => t.id === id);
-        if (targetThread && targetThread.title !== 'Untitled chat') {
+        if (targetThread && targetThread.title !== UNTITLED_THREAD_TITLE) {
           titleGeneratedRef.current = id;
         }
       }
