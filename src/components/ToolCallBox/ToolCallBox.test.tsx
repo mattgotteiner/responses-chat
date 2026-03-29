@@ -117,6 +117,7 @@ describe('ToolCallBox', () => {
       arguments: '',
       status: 'completed',
       webSearchActionType: 'open_page',
+      webSearchUrl: 'https://en.wikipedia.org/wiki/Paris',
     };
 
     it('renders Open Page label for open_page action', () => {
@@ -171,6 +172,13 @@ describe('ToolCallBox', () => {
     it('does not show query when open_page has no query', () => {
       render(<ToolCallBox toolCall={openPageCall} />);
       expect(screen.queryByText('Query:')).not.toBeInTheDocument();
+    });
+
+    it('renders the opened page URL as a link', () => {
+      render(<ToolCallBox toolCall={openPageCall} />);
+      const link = screen.getByRole('link', { name: 'https://en.wikipedia.org/wiki/Paris' });
+      expect(link).toHaveAttribute('href', 'https://en.wikipedia.org/wiki/Paris');
+      expect(screen.getByText('URL:')).toBeInTheDocument();
     });
   });
 

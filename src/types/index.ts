@@ -316,6 +316,8 @@ export interface ToolCall {
   webSearchActionType?: 'search' | 'open_page';
   /** Search query (for web search calls with action type 'search') */
   query?: string;
+  /** Opened page URL (for web search calls with action type 'open_page') */
+  webSearchUrl?: string;
   /** Python code being executed (for code interpreter calls) */
   code?: string;
   /** Execution output from code interpreter */

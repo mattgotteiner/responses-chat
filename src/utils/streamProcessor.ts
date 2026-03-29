@@ -110,7 +110,7 @@ export function processStreamEvent(
           type?: string;
           status?: string;
           summary?: Array<{ type?: string; text?: string }>;
-          action?: { type?: string; query?: string };
+          action?: { type?: string; query?: string; url?: string };
         };
       };
 
@@ -159,6 +159,11 @@ export function processStreamEvent(
         const status = itemEvent.item.status as 'in_progress' | 'searching' | 'completed' | undefined;
         const actionType = itemEvent.item.action?.type as 'search' | 'open_page' | undefined;
         const query = itemEvent.item.action?.query;
+        const url = itemEvent.item.action?.url;
+        const webSearchArguments =
+          query ? JSON.stringify({ query }) :
+            url ? JSON.stringify({ url }) :
+              '';
 
         if (existingIndex >= 0) {
           // Update existing tool call
@@ -166,7 +171,9 @@ export function processStreamEvent(
             ...newToolCalls[existingIndex],
             ...(status && { status }),
             ...(actionType && { webSearchActionType: actionType }),
-            ...(query && { query, arguments: JSON.stringify({ query }) }),
+            ...(query && { query }),
+            ...(url && { webSearchUrl: url }),
+            ...(webSearchArguments && { arguments: webSearchArguments }),
           };
         } else {
           // Add new web search call
@@ -174,10 +181,11 @@ export function processStreamEvent(
             id: itemId,
             name: 'web_search',
             type: 'web_search',
-            arguments: query ? JSON.stringify({ query }) : '',
+            arguments: webSearchArguments,
             status: status || 'in_progress',
             webSearchActionType: actionType,
             query,
+            webSearchUrl: url,
           });
         }
 

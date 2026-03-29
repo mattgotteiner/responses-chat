@@ -496,12 +496,14 @@ describe('streamProcessor', () => {
             id: 'ws_open_123',
             type: 'web_search_call',
             status: 'completed',
-            action: { type: 'open_page' },
+            action: { type: 'open_page', url: 'https://en.wikipedia.org/wiki/Paris' },
           },
         };
         const result = processStreamEvent(initialAccumulator, event);
         expect(result.toolCalls[0].status).toBe('completed');
         expect(result.toolCalls[0].webSearchActionType).toBe('open_page');
+        expect(result.toolCalls[0].webSearchUrl).toBe('https://en.wikipedia.org/wiki/Paris');
+        expect(result.toolCalls[0].arguments).toBe('{"url":"https://en.wikipedia.org/wiki/Paris"}');
       });
 
       it('creates new web_search_call with open_page action from output_item.added', () => {
