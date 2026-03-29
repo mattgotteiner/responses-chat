@@ -136,12 +136,9 @@ describe('Recording Replay E2E', () => {
       const recording = loadRecordingFixture(FIXTURE_NAME);
       
       expect(recording.request.type).toBe('request');
-      expect(recording.request.data.model).toBe('gpt-5');
-      expect(recording.request.data.input).toBe('Use the web search tool only to provide a summary of paris');
-      expect(recording.request.data.reasoning).toEqual({
-        effort: 'low',
-        summary: 'detailed',
-      });
+      expect(recording.request.data.model).toBe('gpt-5.4');
+      expect(recording.request.data.input).toBe('Use the web search tool exactly once to provide a summary of paris');
+      expect(recording.request.data.reasoning).toBeUndefined();
       // Verify web search tool is configured
       expect(recording.request.data.tools).toBeDefined();
       expect(recording.request.data.tools).toContainEqual({ type: 'web_search' });
@@ -165,8 +162,8 @@ describe('Recording Replay E2E', () => {
       expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
       expect(stats.eventTypes['response.completed']).toBe(1);
       
-      // Should have reasoning summary deltas (model was configured with reasoning)
-      expect(stats.eventTypes['response.reasoning_summary_text.delta']).toBeGreaterThan(0);
+      // This recording disables reasoning summaries
+      expect(stats.eventTypes['response.reasoning_summary_text.delta'] ?? 0).toBe(0);
       
       // Should have output text deltas for the response content
       expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
@@ -185,17 +182,11 @@ describe('Recording Replay E2E', () => {
       expect(result.content).toContain('France');
     });
 
-    it('replays to produce reasoning steps', () => {
+    it('replays without reasoning steps when reasoning is disabled', () => {
       const recording = loadRecordingFixture(FIXTURE_NAME);
       const result = replayRecording(recording);
       
-      // Should have accumulated reasoning steps
-      expect(result.reasoning).toBeDefined();
-      expect(result.reasoning.length).toBeGreaterThanOrEqual(1);
-      
-      // Reasoning should contain content about searching for Paris
-      const allReasoningText = result.reasoning.map((r) => r.content).join(' ');
-      expect(allReasoningText).toContain('Paris');
+      expect(result.reasoning).toEqual([]);
     });
 
     it('extracts response ID for conversation continuity', () => {
@@ -240,6 +231,19 @@ describe('Recording Replay E2E', () => {
       webSearchCalls.forEach((call) => {
         expect(call.status).toBe('completed');
       });
+    });
+
+    it('replays the search query into tool calls', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+
+      expect(result.toolCalls).toContainEqual(
+        expect.objectContaining({
+          type: 'web_search',
+          webSearchActionType: 'search',
+          query: 'Paris city overview official tourism history geography culture',
+        }),
+      );
     });
 
     it('produces consistent results on multiple replays', () => {
@@ -1218,13 +1222,10 @@ describe('Recording Replay E2E', () => {
       const recording = loadRecordingFixture(FIXTURE_NAME);
       
       expect(recording.request.type).toBe('request');
-      expect(recording.request.data.model).toBe('gpt-5');
+      expect(recording.request.data.model).toBe('gpt-5.4');
       expect(recording.request.data.input).toContain('Paris');
       expect(recording.request.data.input).toContain('opening the page');
-      expect(recording.request.data.reasoning).toEqual({
-        effort: 'medium',
-        summary: 'detailed',
-      });
+      expect(recording.request.data.reasoning).toBeUndefined();
       // Verify web search tool is configured
       expect(recording.request.data.tools).toBeDefined();
       expect(recording.request.data.tools).toContainEqual({ type: 'web_search' });
@@ -1256,8 +1257,8 @@ describe('Recording Replay E2E', () => {
       expect(stats.eventTypes['response.created']).toBeGreaterThan(0);
       expect(stats.eventTypes['response.completed']).toBe(1);
       
-      // Should have reasoning summary deltas (model was configured with reasoning)
-      expect(stats.eventTypes['response.reasoning_summary_text.delta']).toBeGreaterThan(0);
+      // This recording disables reasoning summaries
+      expect(stats.eventTypes['response.reasoning_summary_text.delta'] ?? 0).toBe(0);
       
       // Should have output text deltas for the response content
       expect(stats.eventTypes['response.output_text.delta']).toBeGreaterThan(0);
@@ -1275,17 +1276,11 @@ describe('Recording Replay E2E', () => {
       expect(result.content).toContain('Paris');
     });
 
-    it('replays to produce reasoning steps', () => {
+    it('replays without reasoning steps when reasoning is disabled', () => {
       const recording = loadRecordingFixture(FIXTURE_NAME);
       const result = replayRecording(recording);
       
-      // Should have accumulated reasoning steps
-      expect(result.reasoning).toBeDefined();
-      expect(result.reasoning.length).toBeGreaterThanOrEqual(1);
-      
-      // Reasoning should contain content about searching for Paris
-      const allReasoningText = result.reasoning.map((r) => r.content).join(' ');
-      expect(allReasoningText).toContain('Paris');
+      expect(result.reasoning).toEqual([]);
     });
 
     it('extracts response ID for conversation continuity', () => {
@@ -1330,6 +1325,19 @@ describe('Recording Replay E2E', () => {
       webSearchCalls.forEach((call) => {
         expect(call.status).toBe('completed');
       });
+    });
+
+    it('replays the opened page URL into tool calls', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const result = replayRecording(recording);
+
+      expect(result.toolCalls).toContainEqual(
+        expect.objectContaining({
+          type: 'web_search',
+          webSearchActionType: 'open_page',
+          webSearchUrl: 'https://en.wikipedia.org/wiki/Paris',
+        }),
+      );
     });
 
     it('captures URL citations in message annotations', () => {

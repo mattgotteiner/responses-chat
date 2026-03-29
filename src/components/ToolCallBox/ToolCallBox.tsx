@@ -53,6 +53,19 @@ function WebSearchCallContent({ toolCall }: { toolCall: ToolCall }) {
           <span className="tool-call-box__query-text">{toolCall.query}</span>
         </div>
       ) : null}
+      {isOpenPage && toolCall.webSearchUrl ? (
+        <div className="tool-call-box__query">
+          <span className="tool-call-box__query-label">URL:</span>
+          <a
+            className="tool-call-box__web-link"
+            href={toolCall.webSearchUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {toolCall.webSearchUrl}
+          </a>
+        </div>
+      ) : null}
     </>
   );
 }

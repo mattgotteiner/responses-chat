@@ -180,6 +180,18 @@
   color: #333;
 }
 
+.tool-call-box__web-link {
+  font-family: 'SF Mono', 'Consolas', 'Monaco', monospace;
+  font-size: 13px;
+  color: #1f5fbf;
+  text-decoration: underline;
+  word-break: break-all;
+}
+
+.tool-call-box__web-link:hover {
+  color: #174894;
+}
+
 .tool-call-box__arguments {
   padding: 12px;
 }
