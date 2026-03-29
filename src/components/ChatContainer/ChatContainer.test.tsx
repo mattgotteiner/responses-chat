@@ -33,7 +33,29 @@ vi.mock('../../utils/api', async (importOriginal) => {
 });
 
 // Stub out heavy child components
-vi.mock('../MessageList', () => ({ MessageList: () => <div data-testid="message-list" /> }));
+vi.mock('../MessageList', () => ({
+  MessageList: ({
+    messages,
+    onRetry,
+  }: {
+    messages: Message[];
+    onRetry?: (messageId: string) => void;
+  }) => {
+    const failedMessage = messages.find(
+      (message) => message.role === 'assistant' && message.isError
+    );
+
+    return (
+      <div data-testid="message-list">
+        {failedMessage && onRetry ? (
+          <button data-testid="retry-btn" onClick={() => onRetry(failedMessage.id)}>
+            Retry
+          </button>
+        ) : null}
+      </div>
+    );
+  },
+}));
 vi.mock('../ChatInput', () => ({
   ChatInput: ({ onClearConversation }: { onClearConversation: () => void }) => (
     <button data-testid="new-chat-btn" onClick={onClearConversation}>New Chat</button>
@@ -910,6 +932,68 @@ describe('Auto-save effect: first exchange saved after stream completes (Bug 1 r
   });
 });
 
+describe('handleRetry: retry persistence regression', () => {
+  it('persists the trimmed thread state before retrying a failed assistant response', async () => {
+    const firstUser = makeUserMessage('First');
+    const firstAssistant = makeAssistantMessage('Done', false);
+    const failedUser: Message = {
+      id: 'msg-user-2',
+      role: 'user',
+      content: 'Retry me',
+      timestamp: new Date(),
+      requestJson: { previous_response_id: 'resp-first' },
+    };
+    const failedAssistant: Message = {
+      id: 'msg-asst-2',
+      role: 'assistant',
+      content: 'Error: boom',
+      timestamp: new Date(),
+      isError: true,
+    };
+    const retryMessage = vi.fn();
+    const updateThread = vi.fn();
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [firstUser, firstAssistant, failedUser, failedAssistant],
+        retryMessage,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-123',
+        updateThread,
+        threads: [
+          {
+            id: 'thread-123',
+            title: 'Existing Title',
+            messages: [firstUser, firstAssistant, failedUser, failedAssistant],
+            previousResponseId: 'resp-failed',
+            uploadedFileIds: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+    );
+
+    render(<ChatContainer />);
+
+    await userEvent.click(screen.getByTestId('retry-btn'));
+
+    expect(updateThread).toHaveBeenCalledWith(
+      'thread-123',
+      [firstUser, firstAssistant],
+      'resp-first',
+      []
+    );
+    expect(retryMessage).toHaveBeenCalledWith('msg-asst-2', expect.any(Object));
+    expect(updateThread.mock.invocationCallOrder[0]).toBeLessThan(
+      retryMessage.mock.invocationCallOrder[0]
+    );
+  });
+});
+
 // ---------------------------------------------------------------------------
 // Regression: Bug 2 — handleNewChat must track detached stream in backgroundStreamingThreadIds
 // ---------------------------------------------------------------------------
@@ -1081,6 +1165,106 @@ describe('triggerTitleGeneration: called when switching away from completed conv
     await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
     expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
       expect.anything(), expect.any(String), finalMessages[0].content, finalMessages[1].content
+    );
+  });
+});
+
+describe('triggerTitleGeneration: retry after failed first response regression', () => {
+  it('generates a title after a successful retry of an initial failed response', async () => {
+    const userMsg = makeUserMessage('Tell me something useful');
+    const failedAssistant: Message = {
+      id: 'msg-asst-error',
+      role: 'assistant',
+      content: 'Error: request failed',
+      timestamp: new Date(),
+      isError: true,
+    };
+    const successfulAssistant = {
+      ...failedAssistant,
+      id: 'msg-asst-success',
+      content: 'Here is a successful answer',
+      isError: false,
+    };
+    const retryMessage = vi.fn();
+    const updateThread = vi.fn();
+    const updateThreadTitle = vi.fn();
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [userMsg, failedAssistant],
+        retryMessage,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-123',
+        updateThread,
+        updateThreadTitle,
+        threads: [
+          {
+            id: 'thread-123',
+            title: 'Untitled chat',
+            messages: [userMsg, failedAssistant],
+            previousResponseId: null,
+            uploadedFileIds: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+    );
+
+    const { rerender } = render(<ChatContainer />);
+
+    expect(mockGenerateThreadTitle).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByTestId('retry-btn'));
+
+    expect(updateThread).toHaveBeenCalledWith('thread-123', [], null, []);
+    expect(retryMessage).toHaveBeenCalledWith('msg-asst-error', expect.any(Object));
+
+    mockUseChat.mockReturnValue(
+      makeChatReturn({
+        messages: [userMsg, successfulAssistant],
+        retryMessage,
+      })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        activeThreadId: 'thread-123',
+        updateThread,
+        updateThreadTitle,
+        threads: [
+          {
+            id: 'thread-123',
+            title: 'Untitled chat',
+            messages: [userMsg, successfulAssistant],
+            previousResponseId: null,
+            uploadedFileIds: [],
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          },
+        ],
+      })
+    );
+
+    rerender(<ChatContainer />);
+
+    await waitFor(() => expect(mockGenerateThreadTitle).toHaveBeenCalledTimes(1));
+    expect(mockGenerateThreadTitle).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(String),
+      userMsg.content,
+      successfulAssistant.content
+    );
+    expect(updateThread).toHaveBeenCalledWith(
+      'thread-123',
+      [userMsg, successfulAssistant],
+      null,
+      []
+    );
+    await waitFor(() =>
+      expect(updateThreadTitle).toHaveBeenCalledWith('thread-123', 'Generated Title')
     );
   });
 });
