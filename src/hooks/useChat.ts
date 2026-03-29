@@ -28,7 +28,7 @@ function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: st
   const include: string[] = [];
 
   if (settings.webSearchEnabled) {
-    const webSearchTool: Record<string, unknown> = { type: 'web_search_preview' };
+    const webSearchTool: Record<string, unknown> = { type: 'web_search' };
     if (settings.webSearchContextSize) {
       webSearchTool.search_context_size = settings.webSearchContextSize;
     }

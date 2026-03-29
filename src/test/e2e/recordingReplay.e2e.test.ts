@@ -144,7 +144,7 @@ describe('Recording Replay E2E', () => {
       });
       // Verify web search tool is configured
       expect(recording.request.data.tools).toBeDefined();
-      expect(recording.request.data.tools).toContainEqual({ type: 'web_search_preview' });
+      expect(recording.request.data.tools).toContainEqual({ type: 'web_search' });
     });
 
     it('contains web search call events', () => {
@@ -1227,7 +1227,7 @@ describe('Recording Replay E2E', () => {
       });
       // Verify web search tool is configured
       expect(recording.request.data.tools).toBeDefined();
-      expect(recording.request.data.tools).toContainEqual({ type: 'web_search_preview' });
+      expect(recording.request.data.tools).toContainEqual({ type: 'web_search' });
     });
 
     it('contains web search call events', () => {

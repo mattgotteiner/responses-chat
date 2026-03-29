@@ -495,6 +495,27 @@ describe('useChat - sendMessage request payload', () => {
     });
   });
 
+  it('uses the web_search tool when web search is enabled', async () => {
+    const settings: Settings = {
+      ...testSettings,
+      webSearchEnabled: true,
+      webSearchContextSize: 'high',
+    };
+    const createSpy = await sendWithSettings(settings);
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'web_search',
+            search_context_size: 'high',
+          }),
+        ]),
+      }),
+      expect.anything(),
+    );
+  });
+
   it('reuses uploaded file IDs from loaded thread when code interpreter is enabled', async () => {
     const mockClient = makeMockClient(() => completedStream());
     mockCreateAzureClient.mockReturnValue(mockClient);
