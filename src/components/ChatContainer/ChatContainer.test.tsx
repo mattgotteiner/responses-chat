@@ -644,6 +644,16 @@ describe('Title generation', () => {
     expect(screen.getByRole('heading', { name: 'Ephemeral Chat' })).toBeInTheDocument();
   });
 
+  it('shows the GitHub link in the header beside the title', () => {
+    render(<ChatContainer />);
+
+    expect(screen.getByRole('heading', { name: 'Responses Chat' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'View on GitHub' })).toHaveAttribute(
+      'href',
+      'https://github.com/mattgotteiner/responses-chat'
+    );
+  });
+
   it('does not generate title after first exchange (more than 2 messages)', async () => {
     const messages = [
       makeUserMessage('First'),

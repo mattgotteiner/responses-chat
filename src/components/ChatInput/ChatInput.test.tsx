@@ -226,6 +226,17 @@ describe('ChatInput', () => {
     expect(mockOnClearConversation).toHaveBeenCalledTimes(1);
   });
 
+  it('does not render the GitHub link in the footer actions', () => {
+    render(
+      <ChatInput
+        onSendMessage={mockOnSendMessage}
+        onClearConversation={mockOnClearConversation}
+      />
+    );
+
+    expect(screen.queryByRole('link', { name: 'View on GitHub' })).not.toBeInTheDocument();
+  });
+
   it('disables textarea when disabled prop is true', () => {
     render(
       <ChatInput

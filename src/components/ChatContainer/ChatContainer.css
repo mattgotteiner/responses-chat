@@ -108,7 +108,20 @@
   min-width: 0;
 }
 
-/* Removed: .chat-container__github-link moved to ChatInput footer */
+.chat-container__github-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: var(--color-text-muted);
+  transition: color 0.15s;
+}
+
+@media (hover: hover) {
+  .chat-container__github-link:hover {
+    color: var(--color-text);
+  }
+}
 
 .chat-container__header-actions {
   display: flex;
