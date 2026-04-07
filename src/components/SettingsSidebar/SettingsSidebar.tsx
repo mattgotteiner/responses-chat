@@ -14,6 +14,10 @@ import {
   MESSAGE_RENDER_MODE_OPTIONS,
   THEME_OPTIONS,
   DEFAULT_SETTINGS,
+  DEFAULT_OUTPUT_TEXT_ZOOM,
+  OUTPUT_TEXT_ZOOM_MAX,
+  OUTPUT_TEXT_ZOOM_MIN,
+  OUTPUT_TEXT_ZOOM_STEP,
 } from '../../types';
 import { McpServerSettings } from '../McpServerSettings';
 import { FileSearchSettings } from '../FileSearchSettings';
@@ -242,6 +246,30 @@ export function SettingsSidebar({
                   </label>
                 ))}
               </div>
+            </div>
+
+            <div className="settings-field">
+              <label className="settings-field__label" htmlFor="outputTextZoom">
+                Output Text Zoom: {(settings.outputTextZoom ?? DEFAULT_OUTPUT_TEXT_ZOOM).toString()}%
+              </label>
+              <input
+                id="outputTextZoom"
+                type="range"
+                className="settings-field__slider"
+                value={settings.outputTextZoom ?? DEFAULT_OUTPUT_TEXT_ZOOM}
+                onChange={handleSliderChange('outputTextZoom')}
+                min={OUTPUT_TEXT_ZOOM_MIN.toString()}
+                max={OUTPUT_TEXT_ZOOM_MAX.toString()}
+                step={OUTPUT_TEXT_ZOOM_STEP.toString()}
+              />
+              <div className="settings-field__slider-labels">
+                <span>{OUTPUT_TEXT_ZOOM_MIN}%</span>
+                <span>{DEFAULT_OUTPUT_TEXT_ZOOM}%</span>
+                <span>{OUTPUT_TEXT_ZOOM_MAX}%</span>
+              </div>
+              <span className="settings-field__hint">
+                Scales assistant output content, including markdown tables and code blocks.
+              </span>
             </div>
           </section>
 

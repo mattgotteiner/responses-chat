@@ -66,6 +66,12 @@ export type Theme = 'light' | 'dark' | 'system';
 /** All theme options */
 export const THEME_OPTIONS: Theme[] = ['light', 'dark', 'system'];
 
+/** Output text zoom bounds and defaults (percent) */
+export const OUTPUT_TEXT_ZOOM_MIN = 80;
+export const OUTPUT_TEXT_ZOOM_MAX = 200;
+export const OUTPUT_TEXT_ZOOM_STEP = 5;
+export const DEFAULT_OUTPUT_TEXT_ZOOM = 100;
+
 /** All reasoning summary options */
 export const REASONING_SUMMARY_OPTIONS: ReasoningSummary[] = ['auto', 'concise', 'detailed'];
 
@@ -217,6 +223,8 @@ export interface Settings {
   mcpServers?: McpServerConfig[];
   /** Theme preference */
   theme: Theme;
+  /** Assistant output text zoom percentage */
+  outputTextZoom: number;
   /** Whether to enforce max output tokens limit */
   maxOutputTokensEnabled?: boolean;
   /** Maximum number of output tokens (1000-128000). Only used when maxOutputTokensEnabled is true */
@@ -250,6 +258,7 @@ export const DEFAULT_SETTINGS: Settings = {
   messageRenderMode: 'markdown',
   mcpServers: [],
   theme: 'system',
+  outputTextZoom: DEFAULT_OUTPUT_TEXT_ZOOM,
   maxOutputTokensEnabled: false,
   maxOutputTokens: 16000,
   noLocalStorage: false,

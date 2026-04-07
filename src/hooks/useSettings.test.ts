@@ -125,6 +125,27 @@ describe('useSettings', () => {
       });
     });
 
+    it('persists output text zoom updates', async () => {
+      const { result } = renderHook(() => useSettings());
+
+      await waitFor(() => {
+        expect(storageMocks.persistStoredSettings).toHaveBeenCalledTimes(1);
+      });
+
+      storageMocks.persistStoredSettings.mockClear();
+
+      act(() => {
+        result.current.updateSettings({ outputTextZoom: 145 });
+      });
+
+      await waitFor(() => {
+        expect(storageMocks.persistStoredSettings).toHaveBeenCalledWith({
+          ...DEFAULT_SETTINGS,
+          outputTextZoom: 145,
+        });
+      });
+    });
+
     it('resets settings to defaults with resetSettings', () => {
       const { result } = renderHook(() => useSettings());
 

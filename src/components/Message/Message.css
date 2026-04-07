@@ -148,10 +148,16 @@
 }
 
 .message__content {
-  font-size: 15px;
+  --message-output-scale: 1;
+  --message-output-font-size: calc(15px * var(--message-output-scale));
+  font-size: var(--message-output-font-size);
   line-height: 1.5;
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+.message__content--zoomable {
+  transform-origin: top left;
 }
 
 .message__error-code {
