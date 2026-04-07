@@ -95,6 +95,21 @@ function addSamplingParameters(requestParams: Record<string, unknown>, settings:
   }
 }
 
+function addTextParameters(requestParams: Record<string, unknown>, settings: Settings): void {
+  if (!settings.verbosity) {
+    return;
+  }
+
+  const existingText = requestParams.text;
+
+  requestParams.text = {
+    ...(typeof existingText === 'object' && existingText !== null
+      ? existingText as Record<string, unknown>
+      : {}),
+    verbosity: settings.verbosity,
+  };
+}
+
 /** State for a stream running in the background while the user views another thread */
 type BackgroundStream = {
   threadId: string;
@@ -483,10 +498,7 @@ export function useChat(): UseChatReturn {
         };
       }
 
-      // Add verbosity if provided
-      if (settings.verbosity) {
-        requestParams.verbosity = settings.verbosity;
-      }
+      addTextParameters(requestParams, settings);
 
       addSamplingParameters(requestParams, settings);
 
@@ -925,10 +937,7 @@ export function useChat(): UseChatReturn {
         };
       }
 
-      // Add verbosity if provided (same as sendMessage)
-      if (settings.verbosity) {
-        requestParams.verbosity = settings.verbosity;
-      }
+      addTextParameters(requestParams, settings);
 
       addSamplingParameters(requestParams, settings);
 
