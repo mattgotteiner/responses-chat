@@ -110,9 +110,8 @@ describe('SettingsSidebar', () => {
   });
 
   describe('Mobile Background Streaming Toggle', () => {
-    it('renders the mobile background streaming checkbox in the Storage section', () => {
+    it('renders the mobile background streaming checkbox', () => {
       render(<SettingsSidebar {...defaultProps} />);
-      expect(screen.getByText('Storage')).toBeInTheDocument();
       expect(screen.getByText('Run in background on mobile')).toBeInTheDocument();
       expect(
         screen.getByRole('checkbox', { name: /run in background on mobile/i })
@@ -149,6 +148,19 @@ describe('SettingsSidebar', () => {
       render(<SettingsSidebar {...defaultProps} />);
       expect(screen.getByText(/best effort/i)).toBeInTheDocument();
       expect(screen.getByText(/some browsers may still pause background work/i)).toBeInTheDocument();
+    });
+
+    it('renders the mobile background streaming checkbox near the bottom with the clear data controls', () => {
+      const { container } = render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /run in background on mobile/i });
+      const clearButton = screen.getByRole('button', { name: /clear saved data/i });
+
+      const checkboxSection = checkbox.closest('.settings-section');
+      const clearSection = clearButton.closest('.settings-section');
+      const allSections = [...container.querySelectorAll('.settings-section')];
+
+      expect(checkboxSection).toBe(clearSection);
+      expect(allSections.at(-1)).toBe(clearSection);
     });
   });
 
