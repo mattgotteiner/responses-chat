@@ -298,6 +298,28 @@ describe('ChatInput', () => {
     expect(screen.getByPlaceholderText('Type a message...')).toBeInTheDocument();
   });
 
+  it('adds the compact landscape modifier when requested', () => {
+    const sampleMessages: Message[] = [
+      {
+        id: 'msg-1',
+        role: 'assistant',
+        content: 'Hi there!',
+        timestamp: new Date('2026-01-15T10:00:01Z'),
+      },
+    ];
+
+    const { container } = render(
+      <ChatInput
+        onSendMessage={mockOnSendMessage}
+        onClearConversation={mockOnClearConversation}
+        messages={sampleMessages}
+        isCompactLandscape={true}
+      />
+    );
+
+    expect(container.firstChild).toHaveClass('chat-input--compact-landscape');
+  });
+
   it('does not send message on Enter key when on a touch device', () => {
     vi.mocked(useIsMobile).mockReturnValue(true);
     render(

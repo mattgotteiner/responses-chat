@@ -67,6 +67,21 @@ describe('MessageList', () => {
         screen.getByText('Start a conversation by typing a message below')
       ).toBeInTheDocument();
     });
+
+    it('adds the compact landscape modifier in empty state', () => {
+      const { container } = renderWithSettings(
+        <MessageList
+          messages={[]}
+          isConfigured={true}
+          isCompactLandscape={true}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+        />
+      );
+
+      expect(container.querySelector('.message-list')).toHaveClass(
+        'message-list--compact-landscape'
+      );
+    });
   });
 
   describe('message rendering', () => {
@@ -86,6 +101,23 @@ describe('MessageList', () => {
 
       expect(screen.getByText('Hello')).toBeInTheDocument();
       expect(screen.getByText('Hi there!')).toBeInTheDocument();
+    });
+
+    it('adds the compact landscape modifier when requested', () => {
+      const messages = [createMessage('1', 'user', 'Hello')];
+
+      const { container } = renderWithSettings(
+        <MessageList
+          messages={messages}
+          isConfigured={true}
+          isCompactLandscape={true}
+          onOpenJsonPanel={mockOnOpenJsonPanel}
+        />
+      );
+
+      expect(container.querySelector('.message-list')).toHaveClass(
+        'message-list--compact-landscape'
+      );
     });
   });
 
