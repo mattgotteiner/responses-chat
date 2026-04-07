@@ -8,6 +8,10 @@ import {
   REASONING_SUMMARY_OPTIONS,
   DEFAULT_SETTINGS,
   extractTokenUsage,
+  DEFAULT_OUTPUT_TEXT_ZOOM,
+  OUTPUT_TEXT_ZOOM_MAX,
+  OUTPUT_TEXT_ZOOM_MIN,
+  OUTPUT_TEXT_ZOOM_STEP,
 } from './index';
 
 describe('types constants', () => {
@@ -97,6 +101,7 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS).toHaveProperty('apiKey');
       expect(DEFAULT_SETTINGS).toHaveProperty('modelName');
       expect(DEFAULT_SETTINGS).toHaveProperty('deploymentName');
+      expect(DEFAULT_SETTINGS).toHaveProperty('outputTextZoom');
     });
 
     it('has empty credentials and model by default', () => {
@@ -105,6 +110,15 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS.modelName).toBe('');
       expect(DEFAULT_SETTINGS.temperature).toBeUndefined();
       expect(DEFAULT_SETTINGS.topP).toBeUndefined();
+      expect(DEFAULT_SETTINGS.outputTextZoom).toBe(DEFAULT_OUTPUT_TEXT_ZOOM);
+    });
+  });
+
+  describe('output text zoom constants', () => {
+    it('defines ascending min/default/max bounds', () => {
+      expect(OUTPUT_TEXT_ZOOM_MIN).toBeLessThan(DEFAULT_OUTPUT_TEXT_ZOOM);
+      expect(DEFAULT_OUTPUT_TEXT_ZOOM).toBeLessThan(OUTPUT_TEXT_ZOOM_MAX);
+      expect(OUTPUT_TEXT_ZOOM_STEP).toBeGreaterThan(0);
     });
   });
 

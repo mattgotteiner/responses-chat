@@ -2,14 +2,23 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Message } from './Message';
-import type { Message as MessageType, Attachment } from '../../types';
+import { DEFAULT_SETTINGS, type Message as MessageType, type Attachment } from '../../types';
 import { SettingsProvider } from '../../context/SettingsContext';
 import type { ReactElement } from 'react';
+import { SETTINGS_STORAGE_KEY } from '../../utils/localStorage';
 
 /**
  * Helper to render components with SettingsProvider
  */
-function renderWithSettings(ui: ReactElement) {
+function renderWithSettings(ui: ReactElement, storedSettings?: Partial<typeof DEFAULT_SETTINGS>) {
+  localStorage.clear();
+  if (storedSettings) {
+    localStorage.setItem(
+      SETTINGS_STORAGE_KEY,
+      JSON.stringify({ ...DEFAULT_SETTINGS, ...storedSettings })
+    );
+  }
+
   return render(
     <SettingsProvider>{ui}</SettingsProvider>
   );
@@ -28,6 +37,7 @@ describe('Message', () => {
   };
 
   beforeEach(() => {
+    localStorage.clear();
     mockOnOpenJsonPanel.mockClear();
     mockClipboardWriteText.mockClear().mockResolvedValue(undefined);
     originalClipboard = navigator.clipboard;
@@ -39,6 +49,7 @@ describe('Message', () => {
   });
 
   afterEach(() => {
+    localStorage.clear();
     if (originalClipboard) {
       Object.defineProperty(navigator, 'clipboard', {
         value: originalClipboard,
@@ -63,6 +74,32 @@ describe('Message', () => {
     renderWithSettings(<Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />);
     expect(screen.getByText('Assistant')).toBeInTheDocument();
     expect(screen.getByText('Hi there!')).toBeInTheDocument();
+  });
+
+  it('applies the configured output text zoom to assistant content', () => {
+    const assistantMessage: MessageType = {
+      ...baseMessage,
+      role: 'assistant',
+      content: 'Zoomed content',
+    };
+
+    const { container } = renderWithSettings(
+      <Message message={assistantMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />,
+      { outputTextZoom: 140 }
+    );
+
+    const content = container.querySelector('.message__content');
+    expect(content?.getAttribute('style')).toContain('--message-output-scale: 1.4');
+  });
+
+  it('does not apply custom output text zoom styling to user messages', () => {
+    const { container } = renderWithSettings(
+      <Message message={baseMessage} onOpenJsonPanel={mockOnOpenJsonPanel} />,
+      { outputTextZoom: 140 }
+    );
+
+    const content = container.querySelector('.message__content');
+    expect(content?.getAttribute('style') ?? '').not.toContain('--message-output-scale');
   });
 
   it('applies user class for user messages', () => {

@@ -20,7 +20,7 @@
   border-radius: 4px;
   overflow-x: auto;
   font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-  font-size: 0.875rem;
+  font-size: 0.875em;
   line-height: 1.4;
 }
 
@@ -59,10 +59,10 @@
   margin-top: 0;
 }
 
-.message-content--markdown h1 { font-size: 1.25rem; }
-.message-content--markdown h2 { font-size: 1.125rem; }
-.message-content--markdown h3 { font-size: 1rem; }
-.message-content--markdown h4 { font-size: 1rem; }
+.message-content--markdown h1 { font-size: 1.25em; }
+.message-content--markdown h2 { font-size: 1.125em; }
+.message-content--markdown h3 { font-size: 1em; }
+.message-content--markdown h4 { font-size: 1em; }
 
 .message-content--markdown ul,
 .message-content--markdown ol {
@@ -93,7 +93,7 @@
 .message-content--markdown pre code {
   background: none;
   padding: 0;
-  font-size: 0.875rem;
+  font-size: 0.875em;
 }
 
 .message-content--markdown blockquote {
@@ -176,10 +176,17 @@
   border-top: 1px solid var(--color-border);
 }
 
+.message-content__table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+
 .message-content--markdown table {
   border-collapse: collapse;
-  margin: 0.5em 0;
-  width: 100%;
+  margin: 0;
+  min-width: 100%;
+  width: max-content;
 }
 
 .message-content--markdown th,

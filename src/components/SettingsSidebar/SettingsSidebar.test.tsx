@@ -472,6 +472,60 @@ describe('SettingsSidebar', () => {
     });
   });
 
+  describe('Output Text Zoom', () => {
+    it('renders the output text zoom slider in Appearance', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByLabelText(/Output Text Zoom:/)).toHaveAttribute('type', 'range');
+    });
+
+    it('shows the configured output text zoom value', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, outputTextZoom: 135 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      expect(screen.getByLabelText('Output Text Zoom: 135%')).toHaveValue('67.5');
+    });
+
+    it('maps the centered slider position to 100%', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, outputTextZoom: 135 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+
+      fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
+        target: { value: '50' },
+      });
+
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ outputTextZoom: 100 });
+    });
+
+    it('shows the assistant output hint text', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByText(/scales assistant output content, including markdown tables and code blocks/i)
+      ).toBeInTheDocument();
+    });
+
+    it('shows slider labels that match the actual range positions', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+
+      expect(screen.getByText('20%')).toBeInTheDocument();
+      expect(screen.getByText('100%')).toBeInTheDocument();
+      expect(screen.getByText('200%')).toBeInTheDocument();
+    });
+
+    it('maps the left edge to 20% and the right edge to 200%', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+
+      fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
+        target: { value: '0' },
+      });
+      fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
+        target: { value: '100' },
+      });
+
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(1, { outputTextZoom: 20 });
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { outputTextZoom: 200 });
+    });
+  });
+
   describe('API Limits', () => {
     it('renders the API Limits section', () => {
       render(<SettingsSidebar {...defaultProps} />);
@@ -492,13 +546,13 @@ describe('SettingsSidebar', () => {
 
     it('does not show slider when checkbox is unchecked', () => {
       render(<SettingsSidebar {...defaultProps} />);
-      expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+      expect(screen.queryByLabelText(/Max Output Tokens:/)).not.toBeInTheDocument();
     });
 
     it('shows slider when checkbox is checked', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      expect(screen.getByRole('slider')).toBeInTheDocument();
+      expect(screen.getByLabelText(/Max Output Tokens:/)).toBeInTheDocument();
     });
 
     it('calls onUpdateSettings with maxOutputTokensEnabled: true when checkbox is checked', () => {
@@ -519,7 +573,7 @@ describe('SettingsSidebar', () => {
     it('slider shows current maxOutputTokens value', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true, maxOutputTokens: 32000 };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      const slider = screen.getByRole('slider');
+      const slider = screen.getByLabelText(/Max Output Tokens:/);
       expect(slider).toHaveValue('32000');
     });
 
@@ -532,7 +586,7 @@ describe('SettingsSidebar', () => {
     it('calls onUpdateSettings with maxOutputTokens when slider is changed', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, maxOutputTokensEnabled: true, maxOutputTokens: 16000 };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
-      const slider = screen.getByRole('slider');
+      const slider = screen.getByLabelText(/Max Output Tokens:/);
       fireEvent.change(slider, { target: { value: '64000' } });
       expect(mockOnUpdateSettings).toHaveBeenCalledWith({ maxOutputTokens: 64000 });
     });
