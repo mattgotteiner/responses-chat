@@ -482,17 +482,18 @@ describe('SettingsSidebar', () => {
       const settings: Settings = { ...DEFAULT_SETTINGS, outputTextZoom: 135 };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);
 
-      expect(screen.getByLabelText('Output Text Zoom: 135%')).toHaveValue('135');
+      expect(screen.getByLabelText('Output Text Zoom: 135%')).toHaveValue('67.5');
     });
 
-    it('calls onUpdateSettings when the output text zoom slider changes', () => {
-      render(<SettingsSidebar {...defaultProps} />);
+    it('maps the centered slider position to 100%', () => {
+      const settings: Settings = { ...DEFAULT_SETTINGS, outputTextZoom: 135 };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
 
       fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
-        target: { value: '145' },
+        target: { value: '50' },
       });
 
-      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ outputTextZoom: 145 });
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({ outputTextZoom: 100 });
     });
 
     it('shows the assistant output hint text', () => {
@@ -500,6 +501,28 @@ describe('SettingsSidebar', () => {
       expect(
         screen.getByText(/scales assistant output content, including markdown tables and code blocks/i)
       ).toBeInTheDocument();
+    });
+
+    it('shows slider labels that match the actual range positions', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+
+      expect(screen.getByText('20%')).toBeInTheDocument();
+      expect(screen.getByText('100%')).toBeInTheDocument();
+      expect(screen.getByText('200%')).toBeInTheDocument();
+    });
+
+    it('maps the left edge to 20% and the right edge to 200%', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+
+      fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
+        target: { value: '0' },
+      });
+      fireEvent.change(screen.getByLabelText(/Output Text Zoom:/), {
+        target: { value: '100' },
+      });
+
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(1, { outputTextZoom: 20 });
+      expect(mockOnUpdateSettings).toHaveBeenNthCalledWith(2, { outputTextZoom: 200 });
     });
   });
 

@@ -27,6 +27,58 @@ import './SettingsSidebar.css';
 type CheckboxChangeHandler = (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement>) => void;
 type OptionalNumberField = 'temperature' | 'topP';
 
+const OUTPUT_TEXT_ZOOM_SLIDER_MIN = 0;
+const OUTPUT_TEXT_ZOOM_SLIDER_MAX = 100;
+const OUTPUT_TEXT_ZOOM_SLIDER_CENTER = 50;
+
+function clampOutputTextZoom(value: number): number {
+  return Math.min(Math.max(value, OUTPUT_TEXT_ZOOM_MIN), OUTPUT_TEXT_ZOOM_MAX);
+}
+
+function snapOutputTextZoom(value: number): number {
+  return Math.round(value / OUTPUT_TEXT_ZOOM_STEP) * OUTPUT_TEXT_ZOOM_STEP;
+}
+
+function sliderPositionToOutputTextZoom(position: number): number {
+  if (position <= OUTPUT_TEXT_ZOOM_SLIDER_CENTER) {
+    const lowerHalfProgress = position / OUTPUT_TEXT_ZOOM_SLIDER_CENTER;
+    return snapOutputTextZoom(
+      OUTPUT_TEXT_ZOOM_MIN +
+        (DEFAULT_OUTPUT_TEXT_ZOOM - OUTPUT_TEXT_ZOOM_MIN) * lowerHalfProgress
+    );
+  }
+
+  const upperHalfProgress =
+    (position - OUTPUT_TEXT_ZOOM_SLIDER_CENTER) /
+    (OUTPUT_TEXT_ZOOM_SLIDER_MAX - OUTPUT_TEXT_ZOOM_SLIDER_CENTER);
+
+  return snapOutputTextZoom(
+    DEFAULT_OUTPUT_TEXT_ZOOM +
+      (OUTPUT_TEXT_ZOOM_MAX - DEFAULT_OUTPUT_TEXT_ZOOM) * upperHalfProgress
+  );
+}
+
+function outputTextZoomToSliderPosition(zoom: number): number {
+  const clampedZoom = clampOutputTextZoom(zoom);
+
+  if (clampedZoom <= DEFAULT_OUTPUT_TEXT_ZOOM) {
+    const lowerHalfProgress =
+      (clampedZoom - OUTPUT_TEXT_ZOOM_MIN) /
+      (DEFAULT_OUTPUT_TEXT_ZOOM - OUTPUT_TEXT_ZOOM_MIN);
+
+    return OUTPUT_TEXT_ZOOM_SLIDER_MIN + lowerHalfProgress * OUTPUT_TEXT_ZOOM_SLIDER_CENTER;
+  }
+
+  const upperHalfProgress =
+    (clampedZoom - DEFAULT_OUTPUT_TEXT_ZOOM) /
+    (OUTPUT_TEXT_ZOOM_MAX - DEFAULT_OUTPUT_TEXT_ZOOM);
+
+  return (
+    OUTPUT_TEXT_ZOOM_SLIDER_CENTER +
+    upperHalfProgress * (OUTPUT_TEXT_ZOOM_SLIDER_MAX - OUTPUT_TEXT_ZOOM_SLIDER_CENTER)
+  );
+}
+
 interface SettingsSidebarProps {
   /** Whether the sidebar is open */
   isOpen: boolean;
@@ -72,6 +124,9 @@ export function SettingsSidebar({
     settings.modelName,
     settings.reasoningEffort
   );
+  const outputTextZoomSliderValue = outputTextZoomToSliderPosition(
+    settings.outputTextZoom ?? DEFAULT_OUTPUT_TEXT_ZOOM
+  );
 
   const handleInputChange = useCallback(
     (field: keyof Settings) => (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -111,6 +166,16 @@ export function SettingsSidebar({
       const parsed = Number(value);
       if (!Number.isNaN(parsed)) {
         onUpdateSettings({ [field]: parsed } as Partial<Settings>);
+      }
+    },
+    [onUpdateSettings]
+  );
+
+  const handleOutputTextZoomChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const parsed = Number(e.target.value);
+      if (!Number.isNaN(parsed)) {
+        onUpdateSettings({ outputTextZoom: sliderPositionToOutputTextZoom(parsed) });
       }
     },
     [onUpdateSettings]
@@ -256,11 +321,11 @@ export function SettingsSidebar({
                 id="outputTextZoom"
                 type="range"
                 className="settings-field__slider"
-                value={settings.outputTextZoom ?? DEFAULT_OUTPUT_TEXT_ZOOM}
-                onChange={handleSliderChange('outputTextZoom')}
-                min={OUTPUT_TEXT_ZOOM_MIN.toString()}
-                max={OUTPUT_TEXT_ZOOM_MAX.toString()}
-                step={OUTPUT_TEXT_ZOOM_STEP.toString()}
+                value={outputTextZoomSliderValue}
+                onChange={handleOutputTextZoomChange}
+                min={OUTPUT_TEXT_ZOOM_SLIDER_MIN.toString()}
+                max={OUTPUT_TEXT_ZOOM_SLIDER_MAX.toString()}
+                step="1"
               />
               <div className="settings-field__slider-labels">
                 <span>{OUTPUT_TEXT_ZOOM_MIN}%</span>

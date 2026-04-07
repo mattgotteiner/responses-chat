@@ -67,7 +67,7 @@ export type Theme = 'light' | 'dark' | 'system';
 export const THEME_OPTIONS: Theme[] = ['light', 'dark', 'system'];
 
 /** Output text zoom bounds and defaults (percent) */
-export const OUTPUT_TEXT_ZOOM_MIN = 80;
+export const OUTPUT_TEXT_ZOOM_MIN = 20;
 export const OUTPUT_TEXT_ZOOM_MAX = 200;
 export const OUTPUT_TEXT_ZOOM_STEP = 5;
 export const DEFAULT_OUTPUT_TEXT_ZOOM = 100;
