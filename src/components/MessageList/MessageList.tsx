@@ -25,6 +25,8 @@ interface MessageListProps {
   onRetry?: (messageId: string) => void;
   /** Whether a message is currently streaming — passed to each Message to disable retry */
   isStreaming?: boolean;
+  /** Whether the chat shell is using the compact landscape layout */
+  isCompactLandscape?: boolean;
 }
 
 /** Threshold in pixels for considering user "at bottom" */
@@ -43,6 +45,7 @@ export function MessageList({
   onMcpDeny,
   onRetry,
   isStreaming,
+  isCompactLandscape = false,
 }: MessageListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -73,7 +76,11 @@ export function MessageList({
 
   if (messages.length === 0) {
     return (
-      <div className="message-list message-list--empty">
+      <div
+        className={`message-list message-list--empty${
+          isCompactLandscape ? ' message-list--compact-landscape' : ''
+        }`}
+      >
         <div className="message-list__empty-state">
           {isConfigured ? (
             <>
@@ -106,7 +113,11 @@ export function MessageList({
   }
 
   return (
-    <div className="message-list" ref={containerRef} onScroll={handleScroll}>
+    <div
+      className={`message-list${isCompactLandscape ? ' message-list--compact-landscape' : ''}`}
+      ref={containerRef}
+      onScroll={handleScroll}
+    >
       <div className="message-list__content">
         {messages.map((message) => (
           <Message

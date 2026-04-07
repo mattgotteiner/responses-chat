@@ -41,6 +41,8 @@ interface ChatInputProps {
   messages?: Message[];
   /** Whether code interpreter is enabled (affects allowed attachment types) */
   codeInterpreterEnabled?: boolean;
+  /** Whether to use the compact mobile landscape layout */
+  isCompactLandscape?: boolean;
 }
 
 /**
@@ -56,6 +58,7 @@ export function ChatInput({
   tokenUsage,
   messages = [],
   codeInterpreterEnabled = false,
+  isCompactLandscape = false,
 }: ChatInputProps) {
   const isMobile = useIsMobile();
   const resolvedPlaceholder =
@@ -273,7 +276,9 @@ export function ChatInput({
 
   return (
     <div
-      className={`chat-input${isDragOver ? ' chat-input--drag-over' : ''}`}
+      className={`chat-input${isDragOver ? ' chat-input--drag-over' : ''}${
+        isCompactLandscape ? ' chat-input--compact-landscape' : ''
+      }`}
       onDragEnter={handleDragEnter}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -333,26 +338,26 @@ export function ChatInput({
             </svg>
           </button>
         )}
-         <AttachmentButton
-           onAttach={handleAttach}
-           onAttachResult={handleAttachResult}
-           disabled={disabled}
-           codeInterpreterEnabled={codeInterpreterEnabled}
-         />
-         <AudioInputButton
-           isSupported={isAudioSupported}
-           isRecording={isRecording}
-           disabled={disabled}
-           onClick={handleToggleRecording}
-         />
-       </div>
-       {attachmentFeedback && (
-         <div className="chat-input__attachment-feedback" role="alert">
-           {attachmentFeedback}
-         </div>
-       )}
-       <div className="chat-input__actions">
-         <div className="chat-input__actions-left">
+        <AttachmentButton
+          onAttach={handleAttach}
+          onAttachResult={handleAttachResult}
+          disabled={disabled}
+          codeInterpreterEnabled={codeInterpreterEnabled}
+        />
+        <AudioInputButton
+          isSupported={isAudioSupported}
+          isRecording={isRecording}
+          disabled={disabled}
+          onClick={handleToggleRecording}
+        />
+      </div>
+      {attachmentFeedback && (
+        <div className="chat-input__attachment-feedback" role="alert">
+          {attachmentFeedback}
+        </div>
+      )}
+      <div className="chat-input__actions">
+        <div className="chat-input__actions-left">
           <button
             className="chat-input__clear"
             onClick={onClearConversation}
