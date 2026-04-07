@@ -100,7 +100,6 @@ describe('settingsStorage', () => {
 
   it('reads legacy plaintext settings snapshots for migration', async () => {
     const legacySettings = {
-      ...DEFAULT_SETTINGS,
       endpoint: 'https://example.openai.azure.com',
       apiKey: 'plain-text-key',
       theme: 'dark' as const,
@@ -113,6 +112,7 @@ describe('settingsStorage', () => {
     expect(snapshot.isLegacyPlaintext).toBe(true);
     expect(snapshot.hasEncryptedApiKey).toBe(false);
     expect(snapshot.settings.endpoint).toBe('https://example.openai.azure.com');
+    expect(snapshot.settings.mobileBackgroundStreamingEnabled).toBe(true);
     expect(await hydrateStoredApiKey()).toBe('plain-text-key');
   });
 

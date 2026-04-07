@@ -16,6 +16,7 @@ import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import { calculateConversationUsage } from '../../utils/tokenUsage';
 import { generateThreadTitle } from '../../utils/titleGeneration';
 import { createAzureClient } from '../../utils/api';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import type { Attachment, Message } from '../../types';
 import './ChatContainer.css';
 
@@ -46,6 +47,7 @@ function getRetrySnapshot(messages: Message[], failedAssistantMessageId: string)
  * Main chat container with header, message list, and input
  */
 export function ChatContainer() {
+  const isMobile = useIsMobile();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
@@ -225,6 +227,132 @@ export function ChatContainer() {
     [isConfigured, settings, updateThreadTitle]
   );
 
+  const detachThreadToBackground = useCallback(
+    (
+      threadIdOverride?: string,
+      currentMessagesOverride?: Message[],
+      uploadedFileIdsOverride?: string[]
+    ): string | null => {
+      if (!isStreaming || isEphemeral) {
+        return null;
+      }
+
+      const currentMessages = currentMessagesOverride ?? messages;
+      const currentUploadedFileIds = uploadedFileIdsOverride ?? uploadedFileIds;
+      const threadIdForCallback =
+        threadIdOverride ??
+        activeThreadId ??
+        createThread(currentMessages, previousResponseId, currentUploadedFileIds);
+
+      detachStream(
+        threadIdForCallback,
+        currentMessages,
+        currentUploadedFileIds,
+        (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
+          updateThread(
+            threadIdForCallback,
+            finalMessages,
+            finalPrevResponseId,
+            finalUploadedFileIds
+          );
+          triggerTitleGeneration(threadIdForCallback, finalMessages);
+          setBackgroundStreamingThreadIds((prev) => {
+            const next = new Set(prev);
+            next.delete(threadIdForCallback);
+            return next;
+          });
+        }
+      );
+      setBackgroundStreamingThreadIds((prev) => {
+        if (prev.has(threadIdForCallback)) {
+          return prev;
+        }
+
+        return new Set([...prev, threadIdForCallback]);
+      });
+
+      return threadIdForCallback;
+    },
+    [
+      isStreaming,
+      isEphemeral,
+      messages,
+      uploadedFileIds,
+      activeThreadId,
+      createThread,
+      previousResponseId,
+      detachStream,
+      updateThread,
+      triggerTitleGeneration,
+    ]
+  );
+
+  const restoreBackgroundStreamForActiveThread = useCallback(() => {
+    if (!activeThreadId || !backgroundStreamingThreadIds.has(activeThreadId)) {
+      return;
+    }
+
+    const buffer = reattachStream(activeThreadId);
+    setBackgroundStreamingThreadIds((prev) => {
+      const next = new Set(prev);
+      next.delete(activeThreadId);
+      return next;
+    });
+
+    if (buffer) {
+      prevMessageCountRef.current = buffer.length - 1;
+      return;
+    }
+
+    const activeThread = threads.find((thread) => thread.id === activeThreadId);
+    if (!activeThread) {
+      return;
+    }
+
+    loadThread(
+      activeThread.messages,
+      activeThread.previousResponseId,
+      activeThread.uploadedFileIds
+    );
+    prevMessageCountRef.current = activeThread.messages.length;
+    titleGeneratedRef.current =
+      activeThread.title === UNTITLED_THREAD_TITLE ? null : activeThreadId;
+  }, [activeThreadId, backgroundStreamingThreadIds, loadThread, reattachStream, threads]);
+
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') {
+        if (isMobile && settings.mobileBackgroundStreamingEnabled !== false) {
+          detachThreadToBackground();
+        }
+        return;
+      }
+
+      if (document.visibilityState === 'visible') {
+        restoreBackgroundStreamForActiveThread();
+      }
+    };
+
+    const handlePageHide = () => {
+      if (isMobile && settings.mobileBackgroundStreamingEnabled !== false) {
+        detachThreadToBackground();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('pagehide', handlePageHide);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('pagehide', handlePageHide);
+    };
+  }, [
+    detachThreadToBackground,
+    isMobile,
+    restoreBackgroundStreamForActiveThread,
+    settings.mobileBackgroundStreamingEnabled,
+  ]);
+
   const handleSwitchThread = useCallback(
     (id: string) => {
       if (isStreaming && isEphemeral) {
@@ -243,17 +371,7 @@ export function ChatContainer() {
             currentThreadId = createThread(messages, previousResponseId, uploadedFileIds);
           }
           if (currentThreadId !== id) {
-            const threadIdForCallback = currentThreadId;
-            detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
-              updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
-              triggerTitleGeneration(threadIdForCallback, finalMessages);
-              setBackgroundStreamingThreadIds((prev) => {
-                const next = new Set(prev);
-                next.delete(threadIdForCallback);
-                return next;
-              });
-            });
-            setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+            detachThreadToBackground(currentThreadId, messages, uploadedFileIds);
           }
         }
 
@@ -283,22 +401,7 @@ export function ChatContainer() {
 
       // Detach an in-flight foreground stream so it keeps running in the background
       if (isStreaming && !isEphemeral) {
-        let targetThreadId = activeThreadId;
-        if (!targetThreadId) {
-          targetThreadId = createThread(messages, previousResponseId, uploadedFileIds);
-        }
-        const threadIdForCallback = targetThreadId;
-        const currentMessages = messages;
-        detachStream(threadIdForCallback, currentMessages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
-          updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
-          triggerTitleGeneration(threadIdForCallback, finalMessages);
-          setBackgroundStreamingThreadIds((prev) => {
-            const next = new Set(prev);
-            next.delete(threadIdForCallback);
-            return next;
-          });
-        });
-        setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+        detachThreadToBackground();
       } else if (activeThreadId) {
         // Not streaming — generate title for current thread before switching away
         triggerTitleGeneration(activeThreadId, messages);
@@ -318,7 +421,7 @@ export function ChatContainer() {
         }
       }
     },
-    [switchThread, loadThread, detachStream, reattachStream, isStreaming, isEphemeral, activeThreadId, updateThread, createThread, messages, previousResponseId, uploadedFileIds, backgroundStreamingThreadIds, threads, triggerTitleGeneration, stopStreaming, clearConversation]
+    [switchThread, loadThread, detachThreadToBackground, reattachStream, isStreaming, isEphemeral, activeThreadId, createThread, messages, previousResponseId, uploadedFileIds, backgroundStreamingThreadIds, threads, triggerTitleGeneration, stopStreaming, clearConversation]
   );
 
   const handleDeleteThread = useCallback(
@@ -348,17 +451,7 @@ export function ChatContainer() {
     // If a stream is running, detach it to background so the response is saved when complete.
     // Track in backgroundStreamingThreadIds so the user can reattach if they navigate back.
     if (isStreaming && !isEphemeral) {
-      const threadIdForCallback = activeThreadId ?? createThread(messages, previousResponseId, uploadedFileIds);
-      detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
-        updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
-        triggerTitleGeneration(threadIdForCallback, finalMessages);
-        setBackgroundStreamingThreadIds((prev) => {
-          const next = new Set(prev);
-          next.delete(threadIdForCallback);
-          return next;
-        });
-      });
-      setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+      detachThreadToBackground();
     } else if (isStreaming && isEphemeral) {
       stopStreaming();
     } else if (activeThreadId) {
@@ -374,7 +467,7 @@ export function ChatContainer() {
       startNewChat();
     }
     titleGeneratedRef.current = null;
-  }, [isStreaming, isEphemeral, activeThreadId, detachStream, messages, uploadedFileIds, previousResponseId, createThread, updateThread, triggerTitleGeneration, clearConversation, stopStreaming, startNewChat, startEphemeral, settings.noLocalStorage]);
+  }, [isStreaming, isEphemeral, activeThreadId, detachThreadToBackground, triggerTitleGeneration, messages, clearConversation, stopStreaming, startNewChat, startEphemeral, settings.noLocalStorage]);
 
   const handleNewEphemeralChat = useCallback(() => {
     if (isStreaming && isEphemeral) {
@@ -382,23 +475,13 @@ export function ChatContainer() {
       stopStreaming();
     } else if (isStreaming && !isEphemeral) {
       // Non-ephemeral stream: detach to background so the current thread is saved
-      const threadIdForCallback = activeThreadId ?? createThread(messages, previousResponseId, uploadedFileIds);
-      detachStream(threadIdForCallback, messages, uploadedFileIds, (finalMessages, finalPrevResponseId, finalUploadedFileIds) => {
-        updateThread(threadIdForCallback, finalMessages, finalPrevResponseId, finalUploadedFileIds);
-        triggerTitleGeneration(threadIdForCallback, finalMessages);
-        setBackgroundStreamingThreadIds((prev) => {
-          const next = new Set(prev);
-          next.delete(threadIdForCallback);
-          return next;
-        });
-      });
-      setBackgroundStreamingThreadIds((prev) => new Set([...prev, threadIdForCallback]));
+      detachThreadToBackground();
     }
     clearConversation();
     prevMessageCountRef.current = 0;
     startEphemeral();
     titleGeneratedRef.current = null;
-  }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming, activeThreadId, createThread, messages, previousResponseId, uploadedFileIds, detachStream, updateThread, triggerTitleGeneration]);
+  }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming, detachThreadToBackground]);
 
   // Force ephemeral mode whenever "Don't save settings" is enabled
   useEffect(() => {
