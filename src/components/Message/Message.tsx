@@ -2,13 +2,23 @@
  * Single message component
  */
 
-import { useCallback, useState } from 'react';
-import type { Message as MessageType, MessageRenderMode, Attachment, ContainerFileCitation } from '../../types';
+import { useCallback, useRef, useState, type CSSProperties } from 'react';
+import {
+  DEFAULT_OUTPUT_TEXT_ZOOM,
+  OUTPUT_TEXT_ZOOM_MAX,
+  OUTPUT_TEXT_ZOOM_MIN,
+  OUTPUT_TEXT_ZOOM_STEP,
+  type Attachment,
+  type ContainerFileCitation,
+  type Message as MessageType,
+  type MessageRenderMode,
+} from '../../types';
 import type { JsonPanelData } from '../JsonSidePanel';
 import { ReasoningBox } from '../ReasoningBox';
 import { ToolCallBox } from '../ToolCallBox';
 import { MessageContent } from './MessageContent';
 import { useSettingsContext } from '../../context/SettingsContext';
+import { usePinchZoom } from '../../hooks/usePinchZoom';
 import { isImageAttachment } from '../../utils/attachment';
 import { triggerContainerFileDownload } from '../../utils/api';
 import './Message.css';
@@ -169,16 +179,22 @@ function GeneratedFiles({ files, onDownload, downloadingFiles, failedDownloads }
   );
 }
 
+interface MessageOutputStyle extends CSSProperties {
+  '--message-output-scale'?: string;
+}
+
 /**
  * Renders a single chat message with appropriate styling based on role
  */
 export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onRetry, isStreaming = false }: MessageProps) {
-  const { settings } = useSettingsContext();
+  const { settings, updateSettings } = useSettingsContext();
   const [overrideRenderMode, setOverrideRenderMode] = useState<MessageRenderMode | null>(null);
   const [downloadingFiles, setDownloadingFiles] = useState<Set<string>>(new Set());
   const [failedDownloads, setFailedDownloads] = useState<Set<string>>(new Set());
+  const assistantContentRef = useRef<HTMLDivElement | null>(null);
   
   const isUser = message.role === 'user';
+  const shouldEnableOutputZoom = !isUser && !message.isError;
   const hasReasoning = message.reasoning && message.reasoning.length > 0;
   const hasToolCalls = message.toolCalls && message.toolCalls.length > 0;
   const hasCitations = message.citations && message.citations.length > 0;
@@ -191,6 +207,7 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
   // Effective render mode: per-message override > global setting > default
   const globalRenderMode = settings.messageRenderMode ?? 'markdown';
   const effectiveRenderMode = overrideRenderMode ?? globalRenderMode;
+  const outputTextZoom = settings.outputTextZoom ?? DEFAULT_OUTPUT_TEXT_ZOOM;
   
   // Only show reset button if override differs from global
   const hasOverride = overrideRenderMode !== null && overrideRenderMode !== globalRenderMode;
@@ -211,6 +228,12 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
   const handleRenderModeChange = useCallback((mode: MessageRenderMode | null) => {
     setOverrideRenderMode(mode);
   }, []);
+
+  const handleOutputTextZoomChange = useCallback((nextZoom: number) => {
+    if (nextZoom !== outputTextZoom) {
+      updateSettings({ outputTextZoom: nextZoom });
+    }
+  }, [outputTextZoom, updateSettings]);
 
   const handleCopyContent = useCallback(async () => {
     if (message.content) {
@@ -248,6 +271,19 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
       });
     }
   }, [settings.endpoint, settings.apiKey]);
+
+  usePinchZoom(assistantContentRef, {
+    enabled: shouldEnableOutputZoom,
+    value: outputTextZoom,
+    min: OUTPUT_TEXT_ZOOM_MIN,
+    max: OUTPUT_TEXT_ZOOM_MAX,
+    step: OUTPUT_TEXT_ZOOM_STEP,
+    onChange: handleOutputTextZoomChange,
+  });
+
+  const assistantContentStyle: MessageOutputStyle | undefined = shouldEnableOutputZoom
+    ? { '--message-output-scale': `${outputTextZoom / DEFAULT_OUTPUT_TEXT_ZOOM}` }
+    : undefined;
 
   return (
     <div
@@ -381,7 +417,11 @@ export function Message({ message, onOpenJsonPanel, onMcpApprove, onMcpDeny, onR
             Thinking...
           </div>
         ) : (
-          <div className="message__content">
+          <div
+            className={`message__content ${shouldEnableOutputZoom ? 'message__content--zoomable' : ''}`}
+            ref={shouldEnableOutputZoom ? assistantContentRef : undefined}
+            style={assistantContentStyle}
+          >
             {isUser || message.isError ? (
               <>
                 {message.content}

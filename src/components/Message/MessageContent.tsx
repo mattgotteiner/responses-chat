@@ -122,6 +122,14 @@ function createExternalLink(
   };
 }
 
+function MarkdownTable(props: ComponentPropsWithoutRef<'table'>) {
+  return (
+    <div className="message-content__table-scroll">
+      <table {...props} />
+    </div>
+  );
+}
+
 /**
  * Renders message content based on the selected render mode
  */
@@ -139,7 +147,7 @@ export function MessageContent({ content, renderMode, containerFileCitations, on
           <ReactMarkdown 
             remarkPlugins={[remarkGfm]}
             urlTransform={customUrlTransform}
-            components={{ a: ExternalLink }}
+            components={{ a: ExternalLink, table: MarkdownTable }}
           >
             {content}
           </ReactMarkdown>

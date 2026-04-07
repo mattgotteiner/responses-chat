@@ -15,6 +15,7 @@ import userEvent from '@testing-library/user-event';
 import type { Message, Settings, Thread } from '../../types';
 import { ChatContainer } from './ChatContainer';
 import { useChat } from '../../hooks/useChat';
+import { useIsCompactLandscape } from '../../hooks/useIsCompactLandscape';
 import { useThreads } from '../../hooks/useThreads';
 import { useSettingsContext } from '../../context/SettingsContext';
 import { generateThreadTitle } from '../../utils/titleGeneration';
@@ -25,6 +26,9 @@ import { useIsMobile } from '../../hooks/useIsMobile';
 // ---------------------------------------------------------------------------
 
 vi.mock('../../hooks/useChat');
+vi.mock('../../hooks/useIsCompactLandscape', () => ({
+  useIsCompactLandscape: vi.fn().mockReturnValue(false),
+}));
 vi.mock('../../hooks/useThreads');
 vi.mock('../../context/SettingsContext');
 vi.mock('../../hooks/useIsMobile');
@@ -101,6 +105,7 @@ vi.mock('../ConfigurationBanner', () => ({ ConfigurationBanner: () => null }));
 // ---------------------------------------------------------------------------
 
 const mockUseChat = vi.mocked(useChat);
+const mockUseIsCompactLandscape = vi.mocked(useIsCompactLandscape);
 const mockUseThreads = vi.mocked(useThreads);
 const mockUseSettingsContext = vi.mocked(useSettingsContext);
 const mockGenerateThreadTitle = vi.mocked(generateThreadTitle);
@@ -176,6 +181,7 @@ beforeEach(() => {
   vi.clearAllMocks();
 
   mockUseChat.mockReturnValue(makeChatReturn());
+  mockUseIsCompactLandscape.mockReturnValue(false);
   mockUseThreads.mockReturnValue(makeThreadsReturn());
   mockUseIsMobile.mockReturnValue(false);
   mockUseSettingsContext.mockReturnValue({
@@ -191,6 +197,18 @@ beforeEach(() => {
     clearVectorStoreCache: vi.fn(),
   });
   mockGenerateThreadTitle.mockResolvedValue('Generated Title');
+});
+
+describe('compact landscape layout', () => {
+  it('adds the compact landscape class to the chat shell', () => {
+    mockUseIsCompactLandscape.mockReturnValue(true);
+
+    const { container } = render(<ChatContainer />);
+
+    expect(container.querySelector('.chat-container')).toHaveClass(
+      'chat-container--compact-landscape'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

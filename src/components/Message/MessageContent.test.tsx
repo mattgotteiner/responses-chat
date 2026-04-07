@@ -114,6 +114,7 @@ describe('MessageContent', () => {
         <MessageContent content={tableContent} renderMode="markdown" />
       );
       expect(container.querySelector('table')).toBeInTheDocument();
+      expect(container.querySelector('.message-content__table-scroll')).toBeInTheDocument();
       expect(container.querySelector('thead')).toBeInTheDocument();
       expect(container.querySelector('tbody')).toBeInTheDocument();
       expect(screen.getByText('Name')).toBeInTheDocument();

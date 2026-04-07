@@ -1,4 +1,5 @@
 .chat-input {
+  flex-shrink: 0;
   padding: 16px;
   padding-bottom: calc(16px + var(--safe-area-bottom));
   padding-left: calc(16px + var(--safe-area-left));
@@ -166,6 +167,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  min-width: 0;
 }
 
 .chat-input__clear {
@@ -219,6 +221,49 @@
 .chat-input__github-link:hover {
   color: var(--color-text);
 }
+
+.chat-input--compact-landscape {
+  padding: 8px 12px;
+  padding-bottom: calc(8px + var(--safe-area-bottom));
+  padding-left: calc(12px + var(--safe-area-left));
+  padding-right: calc(12px + var(--safe-area-right));
+}
+
+.chat-input--compact-landscape .chat-input__container {
+  gap: 8px;
+}
+
+.chat-input--compact-landscape .chat-input__textarea {
+  min-height: 40px;
+  max-height: 28vh;
+  padding: 8px 12px;
+}
+
+.chat-input--compact-landscape .chat-input__send,
+.chat-input--compact-landscape .chat-input__stop {
+  width: 40px;
+  height: 40px;
+}
+
+.chat-input--compact-landscape .chat-input__actions {
+  margin-top: 4px;
+  padding: 0;
+}
+
+.chat-input--compact-landscape .chat-input__actions-left {
+  gap: 8px;
+}
+
+.chat-input--compact-landscape .chat-input__attachment-feedback {
+  margin-top: 4px;
+}
+
+.chat-input--compact-landscape .chat-input__copy-json,
+.chat-input--compact-landscape .chat-input__github-link,
+.chat-input--compact-landscape .token-usage {
+  display: none;
+}
+
 /* Mobile responsive */
 @media (max-width: 600px) {
   .chat-input {

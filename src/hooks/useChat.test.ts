@@ -335,6 +335,93 @@ describe('useChat - sendMessage request payload', () => {
     });
   });
 
+  describe('verbosity', () => {
+    it('sends verbosity under text and preserves the same shape in requestJson', async () => {
+      const settings: Settings = { ...testSettings, verbosity: 'high' };
+      const mockClient = makeMockClient(() => completedStream());
+      mockCreateAzureClient.mockReturnValue(mockClient);
+      const { result } = renderHook(() => useChat());
+
+      await act(async () => {
+        await result.current.sendMessage('Hello', settings);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isStreaming).toBe(false);
+      });
+
+      expect(mockClient.responses.create).toHaveBeenCalledOnce();
+      const responseCreateCalls = mockClient.responses.create.mock.calls as unknown[][];
+      const requestArgs = responseCreateCalls[0]?.[0];
+      expect(requestArgs).toEqual(
+        expect.objectContaining({
+          text: { verbosity: 'high' },
+        })
+      );
+      expect(requestArgs).not.toHaveProperty('verbosity');
+
+      const userMessage = result.current.messages.find((message) => message.role === 'user');
+      expect(userMessage?.requestJson).toEqual(
+        expect.objectContaining({
+          text: { verbosity: 'high' },
+          stream: true,
+        })
+      );
+      expect(userMessage?.requestJson).not.toHaveProperty('verbosity');
+    });
+
+    it('sends MCP approval verbosity under text instead of a top-level field', async () => {
+      const settings: Settings = { ...testSettings, verbosity: 'low' };
+      const mockClient = makeMockClient(() => completedStream());
+      mockCreateAzureClient.mockReturnValue(mockClient);
+      const { result } = renderHook(() => useChat());
+
+      act(() => {
+        result.current.loadThread(
+          [
+            {
+              id: 'assistant-1',
+              role: 'assistant',
+              content: 'Approval required',
+              toolCalls: [
+                {
+                  id: 'tool-1',
+                  name: 'mcp',
+                  type: 'mcp_approval',
+                  arguments: '{}',
+                  approvalRequestId: 'approval-1',
+                  status: 'pending_approval',
+                },
+              ],
+              timestamp: new Date(),
+            },
+          ],
+          'resp-prev',
+          [],
+        );
+      });
+
+      await act(async () => {
+        await result.current.handleMcpApproval('approval-1', true, settings);
+      });
+
+      await waitFor(() => {
+        expect(result.current.isStreaming).toBe(false);
+      });
+
+      expect(mockClient.responses.create).toHaveBeenCalledOnce();
+      const responseCreateCalls = mockClient.responses.create.mock.calls as unknown[][];
+      const requestArgs = responseCreateCalls[0]?.[0];
+      expect(requestArgs).toEqual(
+        expect.objectContaining({
+          previous_response_id: 'resp-prev',
+          text: { verbosity: 'low' },
+        })
+      );
+      expect(requestArgs).not.toHaveProperty('verbosity');
+    });
+  });
+
   describe('sampling parameters', () => {
     it('includes temperature and top_p when gpt-5.2 uses reasoning effort none', async () => {
       const settings: Settings = {

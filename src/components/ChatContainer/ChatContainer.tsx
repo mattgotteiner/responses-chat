@@ -5,6 +5,7 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useSettingsContext } from '../../context/SettingsContext';
 import { useChat } from '../../hooks/useChat';
+import { useIsCompactLandscape } from '../../hooks/useIsCompactLandscape';
 import { useThreads } from '../../hooks/useThreads';
 import { SettingsButton } from '../SettingsButton';
 import { SettingsSidebar } from '../SettingsSidebar';
@@ -48,6 +49,7 @@ function getRetrySnapshot(messages: Message[], failedAssistantMessageId: string)
  */
 export function ChatContainer() {
   const isMobile = useIsMobile();
+  const isCompactLandscape = useIsCompactLandscape();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [jsonPanelData, setJsonPanelData] = useState<JsonPanelData | null>(null);
@@ -551,7 +553,9 @@ export function ChatContainer() {
   const headerTitle = isEphemeral ? 'Ephemeral Chat' : activeThread ? activeThread.title : 'Responses Chat';
 
   return (
-    <div className="chat-container">
+    <div
+      className={`chat-container${isCompactLandscape ? ' chat-container--compact-landscape' : ''}`}
+    >
       <header className="chat-container__header">
         <div className="chat-container__title-area">
           <button
@@ -604,6 +608,7 @@ export function ChatContainer() {
         onMcpDeny={handleMcpDeny}
         onRetry={handleRetry}
         isStreaming={isStreaming}
+        isCompactLandscape={isCompactLandscape}
       />
 
       {isHydrated && !isConfigured && (
@@ -620,6 +625,7 @@ export function ChatContainer() {
         tokenUsage={conversationUsage}
         messages={messages}
         codeInterpreterEnabled={settings.codeInterpreterEnabled}
+        isCompactLandscape={isCompactLandscape}
       />
 
       <HistorySidebar

@@ -15,6 +15,7 @@ function createMatchMediaMock(matches: boolean) {
       listeners.delete(handler);
     }),
     trigger(newMatches: boolean) {
+      mql.matches = newMatches;
       listeners.forEach((l) => l({ matches: newMatches } as MediaQueryListEvent));
     },
   };
