@@ -109,6 +109,62 @@ describe('SettingsSidebar', () => {
     });
   });
 
+  describe('Mobile Background Streaming Toggle', () => {
+    it('renders the mobile background streaming checkbox', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText('Run in background on mobile')).toBeInTheDocument();
+      expect(
+        screen.getByRole('checkbox', { name: /run in background on mobile/i })
+      ).toBeInTheDocument();
+    });
+
+    it('checkbox is checked by default', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(
+        screen.getByRole('checkbox', { name: /run in background on mobile/i })
+      ).toBeChecked();
+    });
+
+    it('checkbox reflects an explicitly disabled setting', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        mobileBackgroundStreamingEnabled: false,
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(
+        screen.getByRole('checkbox', { name: /run in background on mobile/i })
+      ).not.toBeChecked();
+    });
+
+    it('calls onUpdateSettings with mobileBackgroundStreamingEnabled: false when unchecked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      fireEvent.click(screen.getByRole('checkbox', { name: /run in background on mobile/i }));
+      expect(mockOnUpdateSettings).toHaveBeenCalledWith({
+        mobileBackgroundStreamingEnabled: false,
+      });
+    });
+
+    it('shows hint text about best-effort mobile background behavior', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByText(/best effort/i)).toBeInTheDocument();
+      expect(screen.getByText(/some browsers may still pause background work/i)).toBeInTheDocument();
+    });
+
+    it('renders the mobile background streaming checkbox near the bottom with the clear data controls', () => {
+      const { container } = render(<SettingsSidebar {...defaultProps} />);
+      const checkbox = screen.getByRole('checkbox', { name: /run in background on mobile/i });
+      const clearButton = screen.getByRole('button', { name: /clear saved data/i });
+
+      const checkboxSection = checkbox.closest('.settings-section');
+      const clearSection = clearButton.closest('.settings-section');
+      const allSections = [...container.querySelectorAll('.settings-section')];
+      const lastSection = allSections[allSections.length - 1];
+
+      expect(checkboxSection).toBe(clearSection);
+      expect(lastSection).toBe(clearSection);
+    });
+  });
+
   describe('Search Context Size dropdown', () => {
     it('does not show context size dropdown when web search is disabled', () => {
       render(<SettingsSidebar {...defaultProps} />);

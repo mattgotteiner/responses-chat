@@ -101,6 +101,7 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS).toHaveProperty('apiKey');
       expect(DEFAULT_SETTINGS).toHaveProperty('modelName');
       expect(DEFAULT_SETTINGS).toHaveProperty('deploymentName');
+      expect(DEFAULT_SETTINGS).toHaveProperty('mobileBackgroundStreamingEnabled');
       expect(DEFAULT_SETTINGS).toHaveProperty('outputTextZoom');
     });
 
@@ -110,6 +111,7 @@ describe('types constants', () => {
       expect(DEFAULT_SETTINGS.modelName).toBe('');
       expect(DEFAULT_SETTINGS.temperature).toBeUndefined();
       expect(DEFAULT_SETTINGS.topP).toBeUndefined();
+      expect(DEFAULT_SETTINGS.mobileBackgroundStreamingEnabled).toBe(true);
       expect(DEFAULT_SETTINGS.outputTextZoom).toBe(DEFAULT_OUTPUT_TEXT_ZOOM);
     });
   });

@@ -804,6 +804,23 @@ export function SettingsSidebar({
           {/* Clear Data */}
           <section className="settings-section settings-section--clear">
             <div className="settings-field">
+              <label className="settings-field__checkbox-wrapper">
+                <input
+                  id="mobileBackgroundStreamingEnabled"
+                  type="checkbox"
+                  className="settings-field__checkbox"
+                  checked={settings.mobileBackgroundStreamingEnabled ?? true}
+                  onChange={handleCheckboxChange('mobileBackgroundStreamingEnabled')}
+                />
+                <span className="settings-field__checkbox-label">Run in background on mobile</span>
+              </label>
+              <span className="settings-field__hint">
+                Best effort: when the browser is hidden on mobile, keep streaming in the thread so
+                you can resume when you return. Some browsers may still pause background work.
+              </span>
+            </div>
+
+            <div className="settings-field">
               <button
                 type="button"
                 className="settings-storage__clear-btn"

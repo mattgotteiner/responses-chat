@@ -19,6 +19,7 @@ import { useIsCompactLandscape } from '../../hooks/useIsCompactLandscape';
 import { useThreads } from '../../hooks/useThreads';
 import { useSettingsContext } from '../../context/SettingsContext';
 import { generateThreadTitle } from '../../utils/titleGeneration';
+import { useIsMobile } from '../../hooks/useIsMobile';
 
 // ---------------------------------------------------------------------------
 // vi.mock — hoisted to top of file automatically by Vitest
@@ -30,6 +31,7 @@ vi.mock('../../hooks/useIsCompactLandscape', () => ({
 }));
 vi.mock('../../hooks/useThreads');
 vi.mock('../../context/SettingsContext');
+vi.mock('../../hooks/useIsMobile');
 vi.mock('../../utils/titleGeneration');
 vi.mock('../../utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../utils/api')>();
@@ -107,6 +109,7 @@ const mockUseIsCompactLandscape = vi.mocked(useIsCompactLandscape);
 const mockUseThreads = vi.mocked(useThreads);
 const mockUseSettingsContext = vi.mocked(useSettingsContext);
 const mockGenerateThreadTitle = vi.mocked(generateThreadTitle);
+const mockUseIsMobile = vi.mocked(useIsMobile);
 
 // ---------------------------------------------------------------------------
 // Default factory values
@@ -180,6 +183,7 @@ beforeEach(() => {
   mockUseChat.mockReturnValue(makeChatReturn());
   mockUseIsCompactLandscape.mockReturnValue(false);
   mockUseThreads.mockReturnValue(makeThreadsReturn());
+  mockUseIsMobile.mockReturnValue(false);
   mockUseSettingsContext.mockReturnValue({
     settings: defaultSettings as Settings,
     updateSettings: vi.fn(),
@@ -1316,5 +1320,173 @@ describe('onClearStoredData: clears active conversation (regression)', () => {
     expect(clearConversation).toHaveBeenCalledTimes(1);
     expect(clearStoredData).toHaveBeenCalledTimes(1);
     expect(clearAllThreads).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('mobile background streaming', () => {
+  it('detaches the active stream when the page is hidden on mobile and restores it when visible again', async () => {
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn().mockReturnValue(messages);
+
+    mockUseIsMobile.mockReturnValue(true);
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages, isStreaming: true, detachStream, reattachStream })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-mobile' })
+    );
+    mockUseSettingsContext.mockReturnValue({
+      settings: {
+        ...(defaultSettings as Settings),
+        mobileBackgroundStreamingEnabled: true,
+      },
+      updateSettings: vi.fn(),
+      resetSettings: vi.fn(),
+      clearStoredData: vi.fn(),
+      isConfigured: true,
+      vectorStoreCache: {} as import('../../types').VectorStoreCache,
+      setVectorStores: vi.fn(),
+      setStoreFiles: vi.fn(),
+      setStoreFilesLoading: vi.fn(),
+      clearVectorStoreCache: vi.fn(),
+    });
+
+    render(<ChatContainer />);
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(detachStream).toHaveBeenCalledWith(
+      'thread-mobile',
+      messages,
+      [],
+      expect.any(Function)
+    );
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() => expect(reattachStream).toHaveBeenCalledWith('thread-mobile'));
+  });
+
+  it('reloads the saved active thread when a hidden mobile stream already finished before returning', async () => {
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+    const savedThread: Thread = {
+      id: 'thread-mobile',
+      title: 'Saved mobile thread',
+      messages: [makeUserMessage('Saved'), makeAssistantMessage('Done')],
+      previousResponseId: 'resp-mobile',
+      uploadedFileIds: ['file-1'],
+      createdAt: 1,
+      updatedAt: 2,
+    };
+    const detachStream = vi.fn();
+    const reattachStream = vi.fn().mockReturnValue(null);
+    const loadThread = vi.fn();
+
+    mockUseIsMobile.mockReturnValue(true);
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages, isStreaming: true, detachStream, reattachStream, loadThread })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-mobile', threads: [savedThread] })
+    );
+    mockUseSettingsContext.mockReturnValue({
+      settings: {
+        ...(defaultSettings as Settings),
+        mobileBackgroundStreamingEnabled: true,
+      },
+      updateSettings: vi.fn(),
+      resetSettings: vi.fn(),
+      clearStoredData: vi.fn(),
+      isConfigured: true,
+      vectorStoreCache: {} as import('../../types').VectorStoreCache,
+      setVectorStores: vi.fn(),
+      setStoreFiles: vi.fn(),
+      setStoreFilesLoading: vi.fn(),
+      clearVectorStoreCache: vi.fn(),
+    });
+
+    render(<ChatContainer />);
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'visible',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    await waitFor(() =>
+      expect(loadThread).toHaveBeenCalledWith(
+        savedThread.messages,
+        savedThread.previousResponseId,
+        savedThread.uploadedFileIds
+      )
+    );
+  });
+
+  it('does not detach on mobile hide when the setting is disabled', () => {
+    const messages = [makeUserMessage(), makeAssistantMessage('...', true)];
+    const detachStream = vi.fn();
+
+    mockUseIsMobile.mockReturnValue(true);
+    mockUseChat.mockReturnValue(
+      makeChatReturn({ messages, isStreaming: true, detachStream })
+    );
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({ activeThreadId: 'thread-mobile' })
+    );
+    mockUseSettingsContext.mockReturnValue({
+      settings: {
+        ...(defaultSettings as Settings),
+        mobileBackgroundStreamingEnabled: false,
+      },
+      updateSettings: vi.fn(),
+      resetSettings: vi.fn(),
+      clearStoredData: vi.fn(),
+      isConfigured: true,
+      vectorStoreCache: {} as import('../../types').VectorStoreCache,
+      setVectorStores: vi.fn(),
+      setStoreFiles: vi.fn(),
+      setStoreFilesLoading: vi.fn(),
+      clearVectorStoreCache: vi.fn(),
+    });
+
+    render(<ChatContainer />);
+
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      value: 'hidden',
+    });
+
+    act(() => {
+      document.dispatchEvent(new Event('visibilitychange'));
+    });
+
+    expect(detachStream).not.toHaveBeenCalled();
   });
 });

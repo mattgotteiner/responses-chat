@@ -231,6 +231,8 @@ export interface Settings {
   maxOutputTokens?: number;
   /** Disable localStorage persistence - settings will not be saved between sessions */
   noLocalStorage?: boolean;
+  /** Best-effort continuation of active streams when the browser is hidden on mobile */
+  mobileBackgroundStreamingEnabled?: boolean;
   /** Enable file search tool for searching uploaded documents */
   fileSearchEnabled?: boolean;
   /** Selected vector store ID for file search */
@@ -262,6 +264,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxOutputTokensEnabled: false,
   maxOutputTokens: 16000,
   noLocalStorage: false,
+  mobileBackgroundStreamingEnabled: true,
   fileSearchEnabled: false,
   fileSearchVectorStoreId: undefined,
   parallelToolCallsEnabled: false,
