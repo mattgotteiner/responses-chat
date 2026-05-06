@@ -447,7 +447,7 @@ describe('useChat - sendMessage request payload', () => {
     it('includes temperature and top_p for models that support none', async () => {
       const settings: Settings = {
         ...testSettings,
-        modelName: 'gpt-5.4-mini',
+        modelName: 'gpt-5.5',
         reasoningEffort: 'none',
         temperatureEnabled: true,
         topPEnabled: true,

@@ -190,6 +190,10 @@ describe('getLowestEffort', () => {
     expect(getLowestEffort('gpt-5.1')).toBe('none');
   });
 
+  it('returns none for gpt-5.5', () => {
+    expect(getLowestEffort('gpt-5.5')).toBe('none');
+  });
+
   it('returns low for unknown models (default efforts)', () => {
     expect(getLowestEffort('some-custom-model')).toBe('low');
   });

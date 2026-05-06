@@ -25,6 +25,7 @@ describe('types constants', () => {
       expect(AVAILABLE_MODELS).toContain('gpt-5.4-nano');
       expect(AVAILABLE_MODELS).toContain('gpt-5.4-mini');
       expect(AVAILABLE_MODELS).toContain('gpt-5.4');
+      expect(AVAILABLE_MODELS).toContain('gpt-5.5');
       expect(AVAILABLE_MODELS).not.toContain('gpt-oss-120b');
     });
   });
@@ -36,6 +37,7 @@ describe('types constants', () => {
       expect(MODEL_REASONING_EFFORTS['gpt-5.4-mini']).toEqual(['none', 'low', 'medium', 'high']);
       expect(MODEL_REASONING_EFFORTS['gpt-5']).toContain('minimal');
       expect(MODEL_REASONING_EFFORTS['gpt-5.1']).toContain('none');
+      expect(MODEL_REASONING_EFFORTS['gpt-5.5']).toEqual(['low', 'medium', 'high', 'minimal', 'none']);
     });
 
     it('all AVAILABLE_MODELS support low, medium, high effort via getReasoningEfforts', () => {
@@ -62,6 +64,10 @@ describe('types constants', () => {
 
     it('returns true for gpt-5.4 when reasoning effort is none', () => {
       expect(supportsSamplingControls('gpt-5.4', 'none')).toBe(true);
+    });
+
+    it('returns true for gpt-5.5 when reasoning effort is none', () => {
+      expect(supportsSamplingControls('gpt-5.5', 'none')).toBe(true);
     });
 
     it('returns true for gpt-5.1 when reasoning effort is none', () => {

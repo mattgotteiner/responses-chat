@@ -312,6 +312,7 @@ describe('SettingsSidebar', () => {
       expect(modelSelect.tagName).toBe('SELECT');
       expect(screen.getByRole('option', { name: 'gpt-5.4-nano' })).toBeInTheDocument();
       expect(screen.getByRole('option', { name: 'gpt-5.4-mini' })).toBeInTheDocument();
+      expect(screen.getByRole('option', { name: 'gpt-5.5' })).toBeInTheDocument();
     });
 
     it('renders deployment name input', () => {
@@ -357,6 +358,17 @@ describe('SettingsSidebar', () => {
       const settings: Settings = {
         ...DEFAULT_SETTINGS,
         modelName: 'gpt-5.4-mini',
+        reasoningEffort: 'none',
+      };
+      render(<SettingsSidebar {...defaultProps} settings={settings} />);
+      expect(screen.getByRole('checkbox', { name: /set temperature/i })).toBeInTheDocument();
+      expect(screen.getByRole('checkbox', { name: /set top p/i })).toBeInTheDocument();
+    });
+
+    it('renders sampling controls for gpt-5.5 when reasoning effort is none', () => {
+      const settings: Settings = {
+        ...DEFAULT_SETTINGS,
+        modelName: 'gpt-5.5',
         reasoningEffort: 'none',
       };
       render(<SettingsSidebar {...defaultProps} settings={settings} />);

@@ -24,6 +24,7 @@ export const MODEL_REASONING_EFFORTS: Record<string, ReasoningEffort[]> = {
   'gpt-5.4-nano': ['none', 'low', 'medium', 'high'],
   'gpt-5.4-mini': ['none', 'low', 'medium', 'high'],
   'gpt-5.4': ['low', 'medium', 'high', 'minimal', 'none'],
+  'gpt-5.5': ['low', 'medium', 'high', 'minimal', 'none'],
 };
 
 /** Get reasoning effort options for a model, falling back to defaults for unknown models */
@@ -44,6 +45,7 @@ export const AVAILABLE_MODELS: ModelName[] = [
   'gpt-5.4-nano',
   'gpt-5.4-mini',
   'gpt-5.4',
+  'gpt-5.5',
 ];
 
 /** Returns true when a model supports non-reasoning mode and the selected effort is none */
