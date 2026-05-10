@@ -317,6 +317,30 @@ describe('McpServerSettings', () => {
     ]);
   });
 
+  it('auto-fills Google OAuth endpoints for Gmail MCP servers', () => {
+    render(
+      <McpServerSettings servers={[]} onUpdateServers={mockOnUpdateServers} />
+    );
+
+    fireEvent.click(screen.getByText(/Add MCP Server/i));
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/mcp'), {
+      target: { value: 'https://gmailmcp.googleapis.com/mcp/v1' },
+    });
+    fireEvent.click(screen.getByLabelText('Enable OAuth'));
+
+    expect(screen.getByLabelText('OAuth authorization URL')).toHaveValue(
+      'https://accounts.google.com/o/oauth2/v2/auth'
+    );
+    expect(screen.getByLabelText('OAuth token URL')).toHaveValue(
+      'https://oauth2.googleapis.com/token'
+    );
+    expect(screen.getByText('Authorization URL')).toBeInTheDocument();
+    expect(screen.getByText('Opens the provider sign-in and consent page.')).toBeInTheDocument();
+    expect(screen.getByText('Token URL')).toBeInTheDocument();
+    expect(screen.getByText('Exchanges the returned authorization code for an access token.')).toBeInTheDocument();
+    expect(screen.getByText(/Google OAuth endpoints are filled automatically/i)).toBeInTheDocument();
+  });
+
   it('shows OAuth connection status for authenticated servers', () => {
     const servers: McpServerConfig[] = [
       {

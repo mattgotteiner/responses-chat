@@ -10,6 +10,7 @@ import {
   createEmptyMcpOAuthConfig,
   createMcpOAuthAuthorizationUrl,
   exchangeMcpOAuthCode,
+  inferMcpOAuthEndpoints,
   isMcpOAuthAuthenticated,
   isMcpOAuthConfigured,
   readMcpOAuthCallbackFromUrl,
@@ -138,6 +139,8 @@ interface ServerFormProps {
 }
 
 interface OAuthEditorProps {
+  formIdSuffix: string;
+  serverUrl: string;
   oauth: McpOAuthConfig | undefined;
   onUpdateOAuth: (oauth: McpOAuthConfig) => void;
   onStartLogin?: () => void;
@@ -151,6 +154,8 @@ interface OAuthEditorProps {
  * Editor for OAuth authorization settings.
  */
 function OAuthEditor({
+  formIdSuffix,
+  serverUrl,
   oauth,
   onUpdateOAuth,
   onStartLogin,
@@ -162,12 +167,36 @@ function OAuthEditor({
   const normalizedOAuth = normalizeOAuthConfig(oauth);
   const isConfigured = isMcpOAuthConfigured(normalizedOAuth);
   const isAuthenticated = isMcpOAuthAuthenticated(normalizedOAuth);
+  const endpointDefaults = inferMcpOAuthEndpoints(serverUrl, normalizedOAuth.scopes);
+  const shouldAutoFillEndpoints = Boolean(
+    endpointDefaults &&
+    normalizedOAuth.enabled &&
+    (!normalizedOAuth.authorizationUrl.trim() || !normalizedOAuth.tokenUrl.trim())
+  );
+
+  const fillOAuthEndpointDefaults = useCallback(
+    (oauthConfig: McpOAuthConfig): McpOAuthConfig => {
+      const defaults = inferMcpOAuthEndpoints(serverUrl, oauthConfig.scopes);
+      if (!defaults) {
+        return oauthConfig;
+      }
+
+      return {
+        ...oauthConfig,
+        authorizationUrl: oauthConfig.authorizationUrl.trim()
+          ? oauthConfig.authorizationUrl
+          : defaults.authorizationUrl,
+        tokenUrl: oauthConfig.tokenUrl.trim() ? oauthConfig.tokenUrl : defaults.tokenUrl,
+      };
+    },
+    [serverUrl]
+  );
 
   const handleToggleEnabled = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
-      onUpdateOAuth({ ...normalizedOAuth, enabled: e.target.checked });
+      onUpdateOAuth(fillOAuthEndpointDefaults({ ...normalizedOAuth, enabled: e.target.checked }));
     },
-    [normalizedOAuth, onUpdateOAuth]
+    [fillOAuthEndpointDefaults, normalizedOAuth, onUpdateOAuth]
   );
 
   const handleOAuthFieldChange = useCallback(
@@ -181,12 +210,26 @@ function OAuthEditor({
   const handleScopesChange = useCallback(
     (e: ChangeEvent<HTMLTextAreaElement>) => {
       onUpdateOAuth({
-        ...normalizedOAuth,
-        scopes: e.target.value.split(/\s+/).map((scope) => scope.trim()).filter(Boolean),
+        ...fillOAuthEndpointDefaults({
+          ...normalizedOAuth,
+          scopes: e.target.value.split(/\s+/).map((scope) => scope.trim()).filter(Boolean),
+        }),
       });
     },
-    [normalizedOAuth, onUpdateOAuth]
+    [fillOAuthEndpointDefaults, normalizedOAuth, onUpdateOAuth]
   );
+
+  const handleAutoFillEndpoints = useCallback(() => {
+    onUpdateOAuth(fillOAuthEndpointDefaults(normalizedOAuth));
+  }, [fillOAuthEndpointDefaults, normalizedOAuth, onUpdateOAuth]);
+
+  useEffect(() => {
+    if (!shouldAutoFillEndpoints) {
+      return;
+    }
+
+    onUpdateOAuth(fillOAuthEndpointDefaults(normalizedOAuth));
+  }, [fillOAuthEndpointDefaults, normalizedOAuth, onUpdateOAuth, shouldAutoFillEndpoints]);
 
   return (
     <div className="mcp-oauth">
@@ -217,22 +260,45 @@ function OAuthEditor({
             placeholder="OAuth client secret"
             aria-label="OAuth client secret"
           />
-          <input
-            type="url"
-            className="mcp-server-form__input"
-            value={normalizedOAuth.authorizationUrl}
-            onChange={handleOAuthFieldChange('authorizationUrl')}
-            placeholder="https://provider.example.com/oauth/authorize"
-            aria-label="OAuth authorization URL"
-          />
-          <input
-            type="url"
-            className="mcp-server-form__input"
-            value={normalizedOAuth.tokenUrl}
-            onChange={handleOAuthFieldChange('tokenUrl')}
-            placeholder="https://provider.example.com/oauth/token"
-            aria-label="OAuth token URL"
-          />
+          <div className="mcp-oauth__hint">
+            {endpointDefaults
+              ? `${endpointDefaults.providerName} OAuth endpoints are filled automatically when empty.`
+              : 'Authorization and token URLs are provider-specific; Google/Gmail MCP endpoints are auto-detected.'}
+          </div>
+          <div className="mcp-oauth__endpoint-field">
+            <label className="mcp-oauth__endpoint-label" htmlFor={`oauth-authorization-url-${formIdSuffix}`}>
+              Authorization URL
+            </label>
+            <div className="mcp-oauth__hint">
+              Opens the provider sign-in and consent page.
+            </div>
+            <input
+              type="url"
+              id={`oauth-authorization-url-${formIdSuffix}`}
+              aria-label="OAuth authorization URL"
+              className="mcp-server-form__input"
+              value={normalizedOAuth.authorizationUrl}
+              onChange={handleOAuthFieldChange('authorizationUrl')}
+              placeholder="https://provider.example.com/oauth/authorize"
+            />
+          </div>
+          <div className="mcp-oauth__endpoint-field">
+            <label className="mcp-oauth__endpoint-label" htmlFor={`oauth-token-url-${formIdSuffix}`}>
+              Token URL
+            </label>
+            <div className="mcp-oauth__hint">
+              Exchanges the returned authorization code for an access token.
+            </div>
+            <input
+              type="url"
+              id={`oauth-token-url-${formIdSuffix}`}
+              aria-label="OAuth token URL"
+              className="mcp-server-form__input"
+              value={normalizedOAuth.tokenUrl}
+              onChange={handleOAuthFieldChange('tokenUrl')}
+              placeholder="https://provider.example.com/oauth/token"
+            />
+          </div>
           <textarea
             className="mcp-oauth__scopes"
             value={normalizedOAuth.scopes.join('\n')}
@@ -242,6 +308,16 @@ function OAuthEditor({
             rows={3}
           />
           <div className="mcp-oauth__actions">
+            {endpointDefaults && (
+              <button
+                type="button"
+                className="mcp-oauth__button"
+                onClick={handleAutoFillEndpoints}
+                disabled={isBusy}
+              >
+                Auto-fill {endpointDefaults.providerName} Endpoints
+              </button>
+            )}
             <button
               type="button"
               className="mcp-oauth__button"
@@ -389,6 +465,8 @@ function ServerForm({
       <div className="mcp-server-form__field">
         <label className="mcp-server-form__label">OAuth</label>
         <OAuthEditor
+          formIdSuffix={formIdSuffix}
+          serverUrl={server.serverUrl}
           oauth={server.oauth}
           onUpdateOAuth={handleOAuthChange}
           onStartLogin={onStartOAuthLogin}

@@ -308,6 +308,24 @@
   flex-wrap: wrap;
 }
 
+.mcp-oauth__hint {
+  color: #777;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.mcp-oauth__endpoint-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mcp-oauth__endpoint-label {
+  color: #555;
+  font-size: 12px;
+  font-weight: 500;
+}
+
 .mcp-oauth__button {
   padding: 6px 10px;
   border: 1px solid #ddd;
@@ -557,6 +575,14 @@
   .mcp-oauth__button--danger:hover:not(:disabled) {
     border-color: #ff6666;
     color: #ff6666;
+  }
+
+  .mcp-oauth__hint {
+    color: #888;
+  }
+
+  .mcp-oauth__endpoint-label {
+    color: #aaa;
   }
 
   .mcp-oauth__status {

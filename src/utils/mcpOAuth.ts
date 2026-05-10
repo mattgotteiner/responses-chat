@@ -24,6 +24,12 @@ export interface McpOAuthTokenResult {
   expiresAt?: number;
 }
 
+export interface McpOAuthEndpointDefaults {
+  providerName: string;
+  authorizationUrl: string;
+  tokenUrl: string;
+}
+
 interface OAuthTokenResponse {
   access_token: string;
   refresh_token?: string;
@@ -112,6 +118,38 @@ export function createEmptyMcpOAuthConfig(): McpOAuthConfig {
     tokenUrl: '',
     scopes: [],
   };
+}
+
+export function inferMcpOAuthEndpoints(
+  serverUrl: string,
+  scopes: string[]
+): McpOAuthEndpointDefaults | undefined {
+  const hasGoogleScope = scopes.some((scope) =>
+    scope.trim().startsWith('https://www.googleapis.com/auth/')
+  );
+
+  try {
+    const hostname = new URL(serverUrl).hostname.toLowerCase();
+    if (hostname === 'googleapis.com' || hostname.endsWith('.googleapis.com') || hasGoogleScope) {
+      return {
+        providerName: 'Google',
+        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+      };
+    }
+  } catch {
+    if (!hasGoogleScope) {
+      return undefined;
+    }
+
+    return {
+      providerName: 'Google',
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+    };
+  }
+
+  return undefined;
 }
 
 export function isMcpOAuthConfigured(oauth: McpOAuthConfig | undefined): boolean {

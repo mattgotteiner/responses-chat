@@ -168,7 +168,7 @@ Open the settings sidebar (gear icon) to configure:
 
 ### MCP OAuth
 
-For MCP servers that require OAuth, enable OAuth in the MCP server settings and provide the client ID, client secret, authorization URL, token URL, and scopes. The app opens the authorization URL, exchanges the returned authorization code for an access token, and sends that token in the Responses API MCP `authorization` field on every request.
+For MCP servers that require OAuth, enable OAuth in the MCP server settings and provide the client ID, client secret, authorization URL, token URL, and scopes. The app opens the authorization URL, exchanges the returned authorization code for an access token, and sends that token in the Responses API MCP `authorization` field on every request. Google/Gmail MCP authorization and token URLs are filled automatically when detected from the server URL or scopes.
 
 ## Record Mode
 

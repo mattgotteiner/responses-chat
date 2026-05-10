@@ -4,6 +4,7 @@ import {
   createMcpOAuthAuthorizationUrl,
   exchangeMcpOAuthCode,
   getMcpOAuthAuthorization,
+  inferMcpOAuthEndpoints,
   isMcpOAuthAuthenticated,
   readMcpOAuthCallbackFromUrl,
   refreshMcpOAuthToken,
@@ -131,5 +132,20 @@ describe('mcpOAuth', () => {
       accessToken: 'expired-token',
       expiresAt: Date.now() - 1,
     })).toBeUndefined();
+  });
+
+  it('infers Google OAuth endpoints from Gmail MCP URLs and Google scopes', () => {
+    expect(inferMcpOAuthEndpoints('https://gmailmcp.googleapis.com/mcp/v1', [])).toEqual({
+      providerName: 'Google',
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+    });
+    expect(inferMcpOAuthEndpoints('not-yet-a-url', [
+      'https://www.googleapis.com/auth/gmail.readonly',
+    ])).toEqual({
+      providerName: 'Google',
+      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+      tokenUrl: 'https://oauth2.googleapis.com/token',
+    });
   });
 });
