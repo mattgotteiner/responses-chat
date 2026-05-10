@@ -1343,6 +1343,57 @@ describe('streamProcessor', () => {
         expect(result.toolCalls[0].result).toBe('Error: Connection failed');
       });
 
+      it('formats object-shaped mcp_call errors as JSON', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'mcp_object_err',
+            type: 'mcp_call',
+            status: 'completed',
+            name: 'failing_tool',
+            server_label: 'test',
+            error: {
+              message: 'Missing authentication credentials',
+              code: 401,
+              details: {
+                service: 'gmail',
+              },
+            },
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].result).toBe(`Error: ${JSON.stringify({
+          message: 'Missing authentication credentials',
+          code: 401,
+          details: {
+            service: 'gmail',
+          },
+        }, null, 2)}`);
+        expect(result.toolCalls[0].result).not.toContain('[object Object]');
+      });
+
+      it('formats object-shaped mcp_call output as JSON', () => {
+        const event: StreamEvent = {
+          type: 'response.output_item.done',
+          item: {
+            id: 'mcp_object_output',
+            type: 'mcp_call',
+            status: 'completed',
+            name: 'tool',
+            server_label: 'test',
+            output: {
+              ok: false,
+              message: 'No data returned',
+            },
+          },
+        };
+        const result = processStreamEvent(accumulator, event);
+        expect(result.toolCalls[0].result).toBe(JSON.stringify({
+          ok: false,
+          message: 'No data returned',
+        }, null, 2));
+      });
+
       it('creates mcp_call without server_label', () => {
         const event: StreamEvent = {
           type: 'response.output_item.added',

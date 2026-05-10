@@ -68,6 +68,27 @@ export function createInitialAccumulator(): StreamAccumulator {
   };
 }
 
+function formatToolResult(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value === 'string') {
+    return value;
+  }
+
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value);
+  }
+}
+
+function formatToolError(error: unknown): string | undefined {
+  const formattedError = formatToolResult(error);
+  return formattedError === undefined ? undefined : `Error: ${formattedError}`;
+}
+
 /**
  * Process a single streaming event and return the updated accumulator
  * 
@@ -322,8 +343,8 @@ export function processStreamEvent(
           name?: string;
           server_label?: string;
           arguments?: string;
-          output?: string;
-          error?: string;
+          output?: unknown;
+          error?: unknown;
         };
         const itemId = mcpItem.id || idGenerators.generateToolCallId();
         const existingIndex = accumulator.toolCalls.findIndex((t) => t.id === itemId);
@@ -335,8 +356,8 @@ export function processStreamEvent(
         // Build the display name: server_label/toolName if both present
         const displayName = serverLabel ? `${serverLabel}/${toolName}` : toolName;
         const args = mcpItem.arguments || '';
-        const output = mcpItem.output;
-        const error = mcpItem.error;
+        const output = formatToolResult(mcpItem.output);
+        const error = formatToolError(mcpItem.error);
 
         if (existingIndex >= 0) {
           // Update existing tool call - also update name/type if they were placeholders
@@ -348,7 +369,7 @@ export function processStreamEvent(
             ...(status && { status }),
             ...(args && { arguments: args }),
             ...(output && { result: output }),
-            ...(error && { result: `Error: ${error}` }),
+            ...(error && { result: error }),
           };
         } else {
           // Add new MCP call
@@ -358,7 +379,7 @@ export function processStreamEvent(
             type: 'mcp',
             arguments: args,
             status: status || 'in_progress',
-            result: output || error ? (error ? `Error: ${error}` : output) : undefined,
+            result: error ?? output,
           });
         }
 
