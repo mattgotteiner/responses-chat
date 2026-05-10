@@ -148,4 +148,19 @@ describe('mcpOAuth', () => {
       tokenUrl: 'https://oauth2.googleapis.com/token',
     });
   });
+
+  it('infers Microsoft OAuth endpoints from Microsoft URLs and scopes', () => {
+    expect(inferMcpOAuthEndpoints('https://graph.microsoft.com/mcp/v1', [])).toEqual({
+      providerName: 'Microsoft',
+      authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+      tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    });
+    expect(inferMcpOAuthEndpoints('not-yet-a-url', [
+      'https://graph.microsoft.com/Mail.Read',
+    ])).toEqual({
+      providerName: 'Microsoft',
+      authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+      tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+    });
+  });
 });

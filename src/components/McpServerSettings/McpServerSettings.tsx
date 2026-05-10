@@ -262,8 +262,8 @@ function OAuthEditor({
           />
           <div className="mcp-oauth__hint">
             {endpointDefaults
-              ? `${endpointDefaults.providerName} OAuth endpoints are filled automatically when empty.`
-              : 'Authorization and token URLs are provider-specific; Google/Gmail MCP endpoints are auto-detected.'}
+              ? 'OAuth endpoints are filled automatically when empty.'
+              : 'Authorization and token URLs are provider-specific; supported providers are auto-detected from the server URL or scopes.'}
           </div>
           <div className="mcp-oauth__endpoint-field">
             <label className="mcp-oauth__endpoint-label" htmlFor={`oauth-authorization-url-${formIdSuffix}`}>
@@ -315,7 +315,7 @@ function OAuthEditor({
                 onClick={handleAutoFillEndpoints}
                 disabled={isBusy}
               >
-                Auto-fill {endpointDefaults.providerName} Endpoints
+                Auto-fill OAuth Endpoints
               </button>
             )}
             <button

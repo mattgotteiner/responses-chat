@@ -127,26 +127,51 @@ export function inferMcpOAuthEndpoints(
   const hasGoogleScope = scopes.some((scope) =>
     scope.trim().startsWith('https://www.googleapis.com/auth/')
   );
+  const hasMicrosoftScope = scopes.some((scope) => {
+    const trimmedScope = scope.trim();
+    return (
+      trimmedScope.startsWith('https://graph.microsoft.com/') ||
+      trimmedScope.startsWith('https://outlook.office.com/') ||
+      trimmedScope.startsWith('https://management.azure.com/') ||
+      trimmedScope.startsWith('https://') && trimmedScope.includes('.sharepoint.com/')
+    );
+  });
+  const microsoftEndpoints: McpOAuthEndpointDefaults = {
+    providerName: 'Microsoft',
+    authorizationUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/authorize',
+    tokenUrl: 'https://login.microsoftonline.com/common/oauth2/v2.0/token',
+  };
+  const googleEndpoints: McpOAuthEndpointDefaults = {
+    providerName: 'Google',
+    authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+  };
 
   try {
     const hostname = new URL(serverUrl).hostname.toLowerCase();
-    if (hostname === 'googleapis.com' || hostname.endsWith('.googleapis.com') || hasGoogleScope) {
-      return {
-        providerName: 'Google',
-        authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-        tokenUrl: 'https://oauth2.googleapis.com/token',
-      };
-    }
-  } catch {
-    if (!hasGoogleScope) {
-      return undefined;
+    if (
+      hostname === 'graph.microsoft.com' ||
+      hostname.endsWith('.graph.microsoft.com') ||
+      hostname === 'login.microsoftonline.com' ||
+      hostname.endsWith('.login.microsoftonline.com') ||
+      hostname.endsWith('.sharepoint.com') ||
+      hostname.includes('microsoft') ||
+      hasMicrosoftScope
+    ) {
+      return microsoftEndpoints;
     }
 
-    return {
-      providerName: 'Google',
-      authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-      tokenUrl: 'https://oauth2.googleapis.com/token',
-    };
+    if (hostname === 'googleapis.com' || hostname.endsWith('.googleapis.com') || hasGoogleScope) {
+      return googleEndpoints;
+    }
+  } catch {
+    if (hasMicrosoftScope) {
+      return microsoftEndpoints;
+    }
+
+    if (hasGoogleScope) {
+      return googleEndpoints;
+    }
   }
 
   return undefined;

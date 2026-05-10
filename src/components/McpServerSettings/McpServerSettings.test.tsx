@@ -317,7 +317,7 @@ describe('McpServerSettings', () => {
     ]);
   });
 
-  it('auto-fills Google OAuth endpoints for Gmail MCP servers', () => {
+  it('auto-fills known OAuth endpoints for detected providers', () => {
     render(
       <McpServerSettings servers={[]} onUpdateServers={mockOnUpdateServers} />
     );
@@ -338,7 +338,8 @@ describe('McpServerSettings', () => {
     expect(screen.getByText('Opens the provider sign-in and consent page.')).toBeInTheDocument();
     expect(screen.getByText('Token URL')).toBeInTheDocument();
     expect(screen.getByText('Exchanges the returned authorization code for an access token.')).toBeInTheDocument();
-    expect(screen.getByText(/Google OAuth endpoints are filled automatically/i)).toBeInTheDocument();
+    expect(screen.getByText('OAuth endpoints are filled automatically when empty.')).toBeInTheDocument();
+    expect(screen.getByText('Auto-fill OAuth Endpoints')).toBeInTheDocument();
   });
 
   it('shows OAuth connection status for authenticated servers', () => {
