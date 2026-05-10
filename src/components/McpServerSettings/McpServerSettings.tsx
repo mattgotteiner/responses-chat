@@ -164,6 +164,7 @@ function OAuthEditor({
   status,
   isBusy = false,
 }: OAuthEditorProps) {
+  const [copyTokenStatus, setCopyTokenStatus] = useState<string | null>(null);
   const normalizedOAuth = normalizeOAuthConfig(oauth);
   const isConfigured = isMcpOAuthConfigured(normalizedOAuth);
   const isAuthenticated = isMcpOAuthAuthenticated(normalizedOAuth);
@@ -227,6 +228,28 @@ function OAuthEditor({
   const handleAutoFillEndpoints = useCallback(() => {
     onUpdateOAuth(fillOAuthEndpointDefaults(normalizedOAuth));
   }, [fillOAuthEndpointDefaults, normalizedOAuth, onUpdateOAuth]);
+
+  const handleCopyAccessToken = useCallback(async () => {
+    const accessToken = normalizedOAuth.accessToken?.trim();
+    if (!accessToken) {
+      setCopyTokenStatus('No OAuth token to copy');
+      return;
+    }
+
+    if (!navigator.clipboard) {
+      setCopyTokenStatus('Clipboard is unavailable');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(accessToken);
+      setCopyTokenStatus('OAuth token copied');
+    } catch (error) {
+      setCopyTokenStatus(
+        error instanceof Error ? `Failed to copy token: ${error.message}` : 'Failed to copy token'
+      );
+    }
+  }, [normalizedOAuth.accessToken]);
 
   useEffect(() => {
     if (!shouldAutoFillEndpoints) {
@@ -347,10 +370,21 @@ function OAuthEditor({
             >
               Clear Token
             </button>
+            <button
+              type="button"
+              className="mcp-oauth__button"
+              onClick={() => void handleCopyAccessToken()}
+              disabled={!normalizedOAuth.accessToken || isBusy}
+            >
+              Copy Token
+            </button>
           </div>
           <div className={`mcp-oauth__status ${isAuthenticated ? 'mcp-oauth__status--success' : ''}`}>
             {status ?? (isAuthenticated ? 'OAuth token connected' : 'OAuth token not connected')}
           </div>
+          {copyTokenStatus && (
+            <div className="mcp-oauth__status">{copyTokenStatus}</div>
+          )}
         </div>
       )}
     </div>

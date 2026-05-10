@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { McpServerSettings } from './McpServerSettings';
 import type { McpServerConfig } from '../../types';
 
@@ -377,5 +377,49 @@ describe('McpServerSettings', () => {
 
     expect(screen.getByText('OAuth token connected')).toBeInTheDocument();
     expect(screen.getByText('Reauthorize OAuth')).toBeInTheDocument();
+  });
+
+  it('copies OAuth access token for authenticated servers', async () => {
+    const writeText = vi.fn<(text: string) => Promise<void>>().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
+    });
+    const servers: McpServerConfig[] = [
+      {
+        id: '1',
+        name: 'OAuth Server',
+        serverLabel: 'oauth',
+        serverUrl: 'https://oauth.example.com/mcp',
+        requireApproval: 'never',
+        headers: [],
+        enabled: true,
+        oauth: {
+          enabled: true,
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          authorizationUrl: 'https://accounts.example.com/oauth/authorize',
+          tokenUrl: 'https://accounts.example.com/oauth/token',
+          scopes: ['scope.read'],
+          accessToken: 'access-token-for-debugging',
+          expiresAt: Date.now() + 3_600_000,
+        },
+      },
+    ];
+
+    render(
+      <McpServerSettings
+        servers={servers}
+        onUpdateServers={mockOnUpdateServers}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand/i }));
+    fireEvent.click(screen.getByText('Copy Token'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('access-token-for-debugging');
+    });
+    expect(screen.getByText('OAuth token copied')).toBeInTheDocument();
   });
 });
