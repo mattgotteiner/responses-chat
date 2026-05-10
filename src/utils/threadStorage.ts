@@ -5,33 +5,13 @@
 
 import { db, type StoredThread } from './db';
 import type { Thread, Message } from '../types';
+import { deserializeMessages, serializeMessages } from './threadSerialization';
 import {
   getStoredValue,
   setStoredValue,
   removeStoredValue,
   ACTIVE_THREAD_STORAGE_KEY,
 } from './localStorage';
-
-/**
- * Serialize messages for storage: Date → ISO string.
- * Any message still marked as streaming is sanitized to stopped so a
- * persisted thread never reloads in a broken mid-stream state.
- */
-function serializeMessages(messages: Message[]): unknown[] {
-  return messages.map((msg) => ({
-    ...msg,
-    timestamp: msg.timestamp instanceof Date ? msg.timestamp.toISOString() : msg.timestamp,
-    ...(msg.isStreaming && { isStreaming: false, isStopped: true }),
-  }));
-}
-
-/** Deserialize messages from storage: ISO string → Date */
-function deserializeMessages(raw: unknown[]): Message[] {
-  return (raw as Array<Record<string, unknown>>).map((msg) => ({
-    ...msg,
-    timestamp: new Date(msg.timestamp as string),
-  })) as Message[];
-}
 
 /**
  * Load all threads from IndexedDB, sorted by updatedAt descending.

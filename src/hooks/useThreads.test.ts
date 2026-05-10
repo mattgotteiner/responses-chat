@@ -325,4 +325,58 @@ describe('useThreads', () => {
     expect(thread?.bookmarked).toBe(false);
     expect(updateThreadBookmarkedMock).toHaveBeenLastCalledWith(threadId!, false);
   });
+
+  it('imports new threads and persists changed records', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    const importedThread: Thread = {
+      id: 'thread_imported',
+      title: 'Imported',
+      createdAt: 1000,
+      updatedAt: 2000,
+      messages: [createMessage('user', 'Imported message')],
+      previousResponseId: null,
+      uploadedFileIds: [],
+    };
+
+    let importResult: ReturnType<typeof result.current.importThreads>;
+    act(() => {
+      importResult = result.current.importThreads([importedThread]);
+    });
+
+    expect(importResult!.imported).toBe(1);
+    expect(result.current.threads).toHaveLength(1);
+    expect(result.current.threads[0].title).toBe('Imported');
+    expect(putThread).toHaveBeenCalledWith(importedThread);
+  });
+
+  it('skips imported threads that are older than local copies', async () => {
+    const { result } = renderHook(() => useThreads());
+    await waitForLoad(result);
+
+    let threadId: string;
+    act(() => {
+      threadId = result.current.createThread([createMessage('user', 'Local')], null, []);
+    });
+    act(() => {
+      result.current.updateThreadTitle(threadId!, 'Local title');
+    });
+
+    const olderImport: Thread = {
+      ...result.current.threads[0],
+      title: 'Older import',
+      updatedAt: result.current.threads[0].updatedAt - 1,
+    };
+
+    let importResult: ReturnType<typeof result.current.importThreads>;
+    act(() => {
+      importResult = result.current.importThreads([olderImport]);
+    });
+
+    expect(importResult!.skipped).toBe(1);
+    expect(importResult!.changedThreadIds).toEqual([]);
+    expect(result.current.threads[0].title).toBe('Local title');
+    expect(putThread).toHaveBeenCalledTimes(1);
+  });
 });

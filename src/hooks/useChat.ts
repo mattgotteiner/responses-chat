@@ -120,6 +120,8 @@ type BackgroundStream = {
   onComplete: (messages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => void;
 };
 
+type ResponsesInputItem = Record<string, unknown>;
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -149,6 +151,80 @@ function toSerializableValue(value: unknown): string | number | boolean | null |
     return value;
   }
   return undefined;
+}
+
+function getErrorCode(err: unknown): string | undefined {
+  const errorRecord = isRecord(err) ? err : null;
+  const nestedError = errorRecord ? getNestedRecord(errorRecord, 'error') : null;
+
+  return (
+    toNonEmptyString(nestedError?.code) ??
+    toNonEmptyString(errorRecord?.code)
+  );
+}
+
+function isPreviousResponseNotFoundError(err: unknown): boolean {
+  return (
+    getErrorCode(err) === 'previous_response_not_found' ||
+    (err instanceof Error && err.message.includes('previous_response_not_found'))
+  );
+}
+
+function userTextInput(content: string): ResponsesInputItem {
+  return {
+    role: 'user',
+    content: [{ type: 'input_text', text: content }],
+  };
+}
+
+function assistantTextInput(content: string): ResponsesInputItem {
+  return {
+    role: 'assistant',
+    content: [{ type: 'output_text', text: content }],
+  };
+}
+
+function normalizeCurrentInput(input: unknown): ResponsesInputItem[] {
+  if (typeof input === 'string') {
+    return [userTextInput(input)];
+  }
+
+  if (Array.isArray(input)) {
+    return input.filter(isRecord);
+  }
+
+  return [];
+}
+
+function buildFallbackHistoryInput(
+  historyMessages: Message[],
+  currentInput: unknown
+): ResponsesInputItem[] {
+  const historyInput = historyMessages.flatMap((message): ResponsesInputItem[] => {
+    const content = message.content.trim();
+    if (!content || message.isError) {
+      return [];
+    }
+
+    return message.role === 'user'
+      ? [userTextInput(content)]
+      : [assistantTextInput(content)];
+  });
+
+  return [...historyInput, ...normalizeCurrentInput(currentInput)];
+}
+
+function buildPreviousResponseFallbackParams(
+  requestParams: Record<string, unknown>,
+  historyMessages: Message[]
+): Record<string, unknown> {
+  const fallbackParams = { ...requestParams };
+  delete fallbackParams.previous_response_id;
+
+  return {
+    ...fallbackParams,
+    input: buildFallbackHistoryInput(historyMessages, requestParams.input),
+  };
 }
 
 function buildErrorResponseJson(
@@ -247,6 +323,7 @@ export function useChat(): UseChatReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const messagesRef = useRef<Message[]>([]);
   const previousResponseIdRef = useRef<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   // Map of assistantMessage.id → background stream state
@@ -261,6 +338,10 @@ export function useChat(): UseChatReturn {
   // Stopped-context queue: user+assistant turn pairs that were stopped before getting a
   // response ID. Injected into the next sendMessage input so the model can see them.
   const stoppedContextRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
   // Abort all background streams on unmount to prevent dangling fetch requests
   useEffect(() => {
@@ -281,6 +362,7 @@ export function useChat(): UseChatReturn {
 
       // Capture user text now for potential stopped-context injection later
       const pendingUserContent = content.trim();
+      const fallbackHistoryMessages = messagesRef.current;
 
       const client = createAzureClient(settings);
       const deployment = settings.deploymentName || settings.modelName;
@@ -335,7 +417,11 @@ export function useChat(): UseChatReturn {
         timestamp: new Date(),
       };
 
-      setMessages((prev) => [...prev, userMessage, assistantMessage]);
+      setMessages((prev) => {
+        const next = [...prev, userMessage, assistantMessage];
+        messagesRef.current = next;
+        return next;
+      });
       // Create the AbortController NOW — before any async work — so detachStream can
       // find it even if the user switches chats while files are still uploading.
       // Capture as a local const so we can check signal.aborted after the finally
@@ -552,13 +638,45 @@ export function useChat(): UseChatReturn {
         recordingSession?.recordRequest(requestParams);
 
         // Use the responses API with streaming
-        const stream = await client.responses.create(
-          {
-            ...requestParams,
-            stream: true,
-          } as Parameters<typeof client.responses.create>[0],
-          { signal: abortController.signal }
-        );
+        let activeRequestParams = requestParams;
+        let stream: Awaited<ReturnType<typeof client.responses.create>>;
+        try {
+          stream = await client.responses.create(
+            {
+              ...activeRequestParams,
+              stream: true,
+            } as Parameters<typeof client.responses.create>[0],
+            { signal: abortController.signal }
+          );
+        } catch (createError) {
+          if (
+            !activeRequestParams.previous_response_id ||
+            !isPreviousResponseNotFoundError(createError)
+          ) {
+            throw createError;
+          }
+
+          activeRequestParams = buildPreviousResponseFallbackParams(
+            activeRequestParams,
+            fallbackHistoryMessages
+          );
+          previousResponseIdRef.current = null;
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === userMessageId
+                ? { ...msg, requestJson: { ...activeRequestParams, stream: true } }
+                : msg
+            )
+          );
+          recordingSession?.recordRequest(activeRequestParams);
+          stream = await client.responses.create(
+            {
+              ...activeRequestParams,
+              stream: true,
+            } as Parameters<typeof client.responses.create>[0],
+            { signal: abortController.signal }
+          );
+        }
 
         // Helper to update message state from accumulator
         const updateMessageFromAccumulator = (acc: StreamAccumulator) => {
@@ -779,6 +897,7 @@ export function useChat(): UseChatReturn {
   }, []);
 
   const clearConversation = useCallback(() => {
+    messagesRef.current = [];
     setMessages([]);
     previousResponseIdRef.current = null;
     allUploadedFileIdsRef.current = [];
@@ -788,6 +907,7 @@ export function useChat(): UseChatReturn {
 
   const loadThread = useCallback(
     (threadMessages: Message[], prevResponseId: string | null, uploadedFileIds: string[]) => {
+      messagesRef.current = threadMessages;
       setMessages(threadMessages);
       previousResponseIdRef.current = prevResponseId;
       allUploadedFileIdsRef.current = uploadedFileIds;
@@ -844,6 +964,7 @@ export function useChat(): UseChatReturn {
     abortControllerRef.current = foundStream.abortController;
     previousResponseIdRef.current = foundStream.previousResponseId;
     allUploadedFileIdsRef.current = foundStream.uploadedFileIds;
+    messagesRef.current = buffer;
     setMessages(buffer);
     setIsStreaming(true);
     return buffer;
@@ -1163,7 +1284,9 @@ export function useChat(): UseChatReturn {
       previousResponseIdRef.current = priorResponseId;
 
       // Remove the failed assistant message and its preceding user message
-      setMessages((prev) => prev.slice(0, failedIdx - 1));
+      const trimmedMessages = messages.slice(0, failedIdx - 1);
+      messagesRef.current = trimmedMessages;
+      setMessages(trimmedMessages);
 
       await sendMessage(userMessage.content, settings, userMessage.attachments);
     },

@@ -203,4 +203,10 @@ describe('HistorySidebar', () => {
     expect(screen.getAllByRole('button', { name: /Rename "My Thread"/ })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /Delete "My Thread"/ })).toHaveLength(2);
   });
+
+  it('does not render JSON import/export controls in history', () => {
+    render(<HistorySidebar {...defaultProps} threads={[createThread('t1', 'My Thread', Date.now())]} />);
+    expect(screen.queryByRole('button', { name: 'Export JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import JSON' })).not.toBeInTheDocument();
+  });
 });

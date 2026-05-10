@@ -2,7 +2,7 @@
  * Settings sidebar panel
  */
 
-import { useCallback, useState, type ChangeEvent } from 'react';
+import { useCallback, useRef, useState, type ChangeEvent } from 'react';
 import type { Settings, ModelName, McpServerConfig, VectorStoreCache, VectorStore, VectorStoreFile } from '../../types';
 import {
   AVAILABLE_MODELS,
@@ -21,6 +21,7 @@ import {
 } from '../../types';
 import { McpServerSettings } from '../McpServerSettings';
 import { FileSearchSettings } from '../FileSearchSettings';
+import type { ThreadImportResult } from '../../utils/threadExport';
 import './SettingsSidebar.css';
 
 /** Handler type for checkbox change events */
@@ -90,6 +91,12 @@ interface SettingsSidebarProps {
   onUpdateSettings: (updates: Partial<Settings>) => void;
   /** Handler to clear all stored data */
   onClearStoredData: () => void;
+  /** Number of saved threads available for export */
+  savedThreadCount?: number;
+  /** Handler to export saved threads to a JSON file */
+  onExportThreads?: () => void;
+  /** Handler to import saved threads from a JSON file */
+  onImportThreadsFile?: (file: File) => Promise<ThreadImportResult> | ThreadImportResult;
   /** Vector store cache */
   vectorStoreCache: VectorStoreCache;
   /** Update cached vector stores list */
@@ -109,6 +116,9 @@ export function SettingsSidebar({
   settings,
   onUpdateSettings,
   onClearStoredData,
+  savedThreadCount = 0,
+  onExportThreads,
+  onImportThreadsFile,
   vectorStoreCache,
   setVectorStores,
   setStoreFiles,
@@ -118,6 +128,9 @@ export function SettingsSidebar({
   const [showCustomModelInput, setShowCustomModelInput] = useState(isCustomModel);
   const isCustomTitleModel = settings.titleModelName != null && settings.titleModelName !== '' && !AVAILABLE_MODELS.includes(settings.titleModelName);
   const [showCustomTitleModelInput, setShowCustomTitleModelInput] = useState(isCustomTitleModel);
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   const availableReasoningEfforts = getReasoningEfforts(settings.modelName);
   const samplingControlsSupported = supportsSamplingControls(
@@ -186,6 +199,37 @@ export function SettingsSidebar({
       onUpdateSettings({ mcpServers: servers });
     },
     [onUpdateSettings]
+  );
+
+  const handleImportClick = useCallback(() => {
+    importInputRef.current?.click();
+  }, []);
+
+  const handleImportChange = useCallback(
+    async (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file || !onImportThreadsFile) {
+        return;
+      }
+
+      setImportStatus('Importing threads...');
+      setImportError(null);
+      try {
+        const result = await onImportThreadsFile(file);
+        const changed = result.imported + result.replaced;
+        setImportStatus(
+          `Imported ${result.imported}, replaced ${result.replaced}, skipped ${result.skipped}.`
+        );
+        if (changed === 0 && result.skipped === 0) {
+          setImportStatus('No threads found in import file.');
+        }
+      } catch (error) {
+        setImportStatus(null);
+        setImportError(error instanceof Error ? error.message : 'Failed to import threads.');
+      }
+    },
+    [onImportThreadsFile]
   );
 
   const handleModelChange = useCallback(
@@ -285,6 +329,48 @@ export function SettingsSidebar({
               <span className="settings-field__hint">
                 When enabled, settings are not saved and must be re-entered each session.
               </span>
+            </div>
+
+            <div className="settings-field">
+              <span className="settings-field__label">Saved Threads</span>
+              <div className="settings-storage__json-actions">
+                <button
+                  className="settings-storage__json-btn"
+                  onClick={onExportThreads}
+                  disabled={!onExportThreads || savedThreadCount === 0}
+                  title={savedThreadCount === 0 ? 'No saved threads to export' : 'Export saved threads to JSON'}
+                >
+                  Export JSON
+                </button>
+                <button
+                  className="settings-storage__json-btn"
+                  onClick={handleImportClick}
+                  disabled={!onImportThreadsFile}
+                  title="Import saved threads from JSON"
+                >
+                  Import JSON
+                </button>
+                <input
+                  ref={importInputRef}
+                  className="settings-storage__file-input"
+                  type="file"
+                  accept="application/json,.json"
+                  onChange={handleImportChange}
+                />
+              </div>
+              <span className="settings-field__hint">
+                Export or import saved chat history only. Settings and API keys are not included.
+              </span>
+              {(importStatus || importError) && (
+                <span
+                  className={`settings-storage__import-message${
+                    importError ? ' settings-storage__import-message--error' : ''
+                  }`}
+                  role={importError ? 'alert' : 'status'}
+                >
+                  {importError ?? importStatus}
+                </span>
+              )}
             </div>
           </section>
 

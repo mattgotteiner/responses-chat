@@ -107,6 +107,49 @@
   color: #fff;
 }
 
+.settings-storage__json-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.settings-storage__json-btn {
+  flex: 1;
+  padding: 8px 14px;
+  background-color: transparent;
+  border: 1px solid var(--color-border-muted);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.settings-storage__json-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.settings-storage__json-btn:not(:disabled):hover {
+  background-color: var(--color-surface-elevated);
+  color: var(--color-text);
+}
+
+.settings-storage__file-input {
+  display: none;
+}
+
+.settings-storage__import-message {
+  display: block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.settings-storage__import-message--error {
+  color: var(--color-danger);
+}
+
 .settings-section__title {
   margin: 0 0 16px 0;
   font-size: 13px;

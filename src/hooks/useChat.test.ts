@@ -634,6 +634,89 @@ describe('useChat - sendMessage request payload', () => {
       expect.anything()
     );
   });
+
+  it('falls back to local message history when previous_response_id is not found', async () => {
+    const previousResponseError = Object.assign(
+      new Error("Previous response with id 'resp-missing' not found."),
+      {
+        code: 'previous_response_not_found',
+        status: 400,
+      }
+    );
+    const mockClient = {
+      responses: {
+        create: vi.fn()
+          .mockRejectedValueOnce(previousResponseError)
+          .mockResolvedValueOnce(completedStream('resp-fallback')),
+      },
+    };
+    mockCreateAzureClient.mockReturnValue(mockClient);
+    const { result } = renderHook(() => useChat());
+
+    act(() => {
+      result.current.loadThread(
+        [
+          {
+            id: 'user-1',
+            role: 'user',
+            content: 'Original question',
+            timestamp: new Date(),
+          },
+          {
+            id: 'assistant-1',
+            role: 'assistant',
+            content: 'Original answer',
+            timestamp: new Date(),
+          },
+        ],
+        'resp-missing',
+        []
+      );
+    });
+
+    await act(async () => {
+      await result.current.sendMessage('Follow up', testSettings);
+    });
+
+    await waitFor(() => {
+      expect(result.current.isStreaming).toBe(false);
+    });
+
+    expect(mockClient.responses.create).toHaveBeenCalledTimes(2);
+    const firstCall = mockClient.responses.create.mock.calls[0][0] as Record<string, unknown>;
+    const secondCall = mockClient.responses.create.mock.calls[1][0] as Record<string, unknown>;
+
+    expect(firstCall).toEqual(expect.objectContaining({
+      previous_response_id: 'resp-missing',
+      input: 'Follow up',
+    }));
+    expect(secondCall).not.toHaveProperty('previous_response_id');
+    expect(secondCall.input).toEqual([
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Original question' }],
+      },
+      {
+        role: 'assistant',
+        content: [{ type: 'output_text', text: 'Original answer' }],
+      },
+      {
+        role: 'user',
+        content: [{ type: 'input_text', text: 'Follow up' }],
+      },
+    ]);
+
+    const followUpMessage = result.current.messages.find(
+      (message) => message.role === 'user' && message.content === 'Follow up'
+    );
+    expect(followUpMessage?.requestJson).toEqual(expect.objectContaining({
+      input: secondCall.input,
+      stream: true,
+    }));
+    expect(followUpMessage?.requestJson).not.toHaveProperty('previous_response_id');
+    expect(result.current.previousResponseId).toBe('resp-fallback');
+    expect(result.current.error).toBeNull();
+  });
 });
 
 /**
