@@ -2,9 +2,20 @@
  * MCP Server Settings component for managing remote MCP servers
  */
 
-import { useState, useCallback, type ChangeEvent } from 'react';
-import type { McpServerConfig, McpHeader, McpApprovalMode } from '../../types';
+import { useState, useCallback, useEffect, type ChangeEvent } from 'react';
+import type { McpServerConfig, McpHeader, McpApprovalMode, McpOAuthConfig } from '../../types';
 import { MAX_MCP_SERVERS, MCP_APPROVAL_OPTIONS } from '../../types';
+import {
+  consumePendingMcpOAuthState,
+  createEmptyMcpOAuthConfig,
+  createMcpOAuthAuthorizationUrl,
+  exchangeMcpOAuthCode,
+  isMcpOAuthAuthenticated,
+  isMcpOAuthConfigured,
+  readMcpOAuthCallbackFromUrl,
+  refreshMcpOAuthToken,
+  removeMcpOAuthCallbackFromHistory,
+} from '../../utils/mcpOAuth';
 import './McpServerSettings.css';
 
 interface McpServerSettingsProps {
@@ -27,8 +38,13 @@ function createEmptyServer(): Omit<McpServerConfig, 'id'> {
     serverUrl: '',
     requireApproval: 'never',
     headers: [],
+    oauth: createEmptyMcpOAuthConfig(),
     enabled: true,
   };
+}
+
+function normalizeOAuthConfig(oauth: McpOAuthConfig | undefined): McpOAuthConfig {
+  return { ...createEmptyMcpOAuthConfig(), ...oauth };
 }
 
 interface HeaderEditorProps {
@@ -114,14 +130,167 @@ interface ServerFormProps {
   onUpdate: (updates: Partial<Omit<McpServerConfig, 'id'>>) => void;
   /** Unique suffix for form element IDs (for accessibility) */
   formIdSuffix: string;
+  onStartOAuthLogin?: () => void;
+  onRefreshOAuthToken?: () => void;
+  onClearOAuthToken?: () => void;
+  oauthStatus?: string;
+  isOAuthBusy?: boolean;
+}
+
+interface OAuthEditorProps {
+  oauth: McpOAuthConfig | undefined;
+  onUpdateOAuth: (oauth: McpOAuthConfig) => void;
+  onStartLogin?: () => void;
+  onRefreshToken?: () => void;
+  onClearToken?: () => void;
+  status?: string;
+  isBusy?: boolean;
+}
+
+/**
+ * Editor for OAuth authorization settings.
+ */
+function OAuthEditor({
+  oauth,
+  onUpdateOAuth,
+  onStartLogin,
+  onRefreshToken,
+  onClearToken,
+  status,
+  isBusy = false,
+}: OAuthEditorProps) {
+  const normalizedOAuth = normalizeOAuthConfig(oauth);
+  const isConfigured = isMcpOAuthConfigured(normalizedOAuth);
+  const isAuthenticated = isMcpOAuthAuthenticated(normalizedOAuth);
+
+  const handleToggleEnabled = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      onUpdateOAuth({ ...normalizedOAuth, enabled: e.target.checked });
+    },
+    [normalizedOAuth, onUpdateOAuth]
+  );
+
+  const handleOAuthFieldChange = useCallback(
+    (field: 'clientId' | 'clientSecret' | 'authorizationUrl' | 'tokenUrl') =>
+      (e: ChangeEvent<HTMLInputElement>) => {
+        onUpdateOAuth({ ...normalizedOAuth, [field]: e.target.value });
+      },
+    [normalizedOAuth, onUpdateOAuth]
+  );
+
+  const handleScopesChange = useCallback(
+    (e: ChangeEvent<HTMLTextAreaElement>) => {
+      onUpdateOAuth({
+        ...normalizedOAuth,
+        scopes: e.target.value.split(/\s+/).map((scope) => scope.trim()).filter(Boolean),
+      });
+    },
+    [normalizedOAuth, onUpdateOAuth]
+  );
+
+  return (
+    <div className="mcp-oauth">
+      <label className="mcp-oauth__toggle">
+        <input
+          type="checkbox"
+          checked={normalizedOAuth.enabled}
+          onChange={handleToggleEnabled}
+        />
+        <span>Enable OAuth</span>
+      </label>
+
+      {normalizedOAuth.enabled && (
+        <div className="mcp-oauth__fields">
+          <input
+            type="text"
+            className="mcp-server-form__input"
+            value={normalizedOAuth.clientId}
+            onChange={handleOAuthFieldChange('clientId')}
+            placeholder="OAuth client ID"
+            aria-label="OAuth client ID"
+          />
+          <input
+            type="password"
+            className="mcp-server-form__input"
+            value={normalizedOAuth.clientSecret}
+            onChange={handleOAuthFieldChange('clientSecret')}
+            placeholder="OAuth client secret"
+            aria-label="OAuth client secret"
+          />
+          <input
+            type="url"
+            className="mcp-server-form__input"
+            value={normalizedOAuth.authorizationUrl}
+            onChange={handleOAuthFieldChange('authorizationUrl')}
+            placeholder="https://provider.example.com/oauth/authorize"
+            aria-label="OAuth authorization URL"
+          />
+          <input
+            type="url"
+            className="mcp-server-form__input"
+            value={normalizedOAuth.tokenUrl}
+            onChange={handleOAuthFieldChange('tokenUrl')}
+            placeholder="https://provider.example.com/oauth/token"
+            aria-label="OAuth token URL"
+          />
+          <textarea
+            className="mcp-oauth__scopes"
+            value={normalizedOAuth.scopes.join('\n')}
+            onChange={handleScopesChange}
+            placeholder="OAuth scopes, one per line"
+            aria-label="OAuth scopes"
+            rows={3}
+          />
+          <div className="mcp-oauth__actions">
+            <button
+              type="button"
+              className="mcp-oauth__button"
+              onClick={onStartLogin}
+              disabled={!isConfigured || isBusy || !onStartLogin}
+            >
+              {isAuthenticated ? 'Reauthorize OAuth' : 'Login with OAuth'}
+            </button>
+            <button
+              type="button"
+              className="mcp-oauth__button"
+              onClick={onRefreshToken}
+              disabled={!normalizedOAuth.refreshToken || isBusy || !onRefreshToken}
+            >
+              Refresh Token
+            </button>
+            <button
+              type="button"
+              className="mcp-oauth__button mcp-oauth__button--danger"
+              onClick={onClearToken}
+              disabled={!normalizedOAuth.accessToken || isBusy || !onClearToken}
+            >
+              Clear Token
+            </button>
+          </div>
+          <div className={`mcp-oauth__status ${isAuthenticated ? 'mcp-oauth__status--success' : ''}`}>
+            {status ?? (isAuthenticated ? 'OAuth token connected' : 'OAuth token not connected')}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 /**
  * Form fields for editing an MCP server configuration
  */
-function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
+function ServerForm({
+  server,
+  onUpdate,
+  formIdSuffix,
+  onStartOAuthLogin,
+  onRefreshOAuthToken,
+  onClearOAuthToken,
+  oauthStatus,
+  isOAuthBusy,
+}: ServerFormProps) {
   const handleInputChange = useCallback(
-    (field: keyof Omit<McpServerConfig, 'id' | 'headers' | 'enabled'>) =>
+    (field: keyof Omit<McpServerConfig, 'id' | 'headers' | 'enabled' | 'oauth'>) =>
       (e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
         onUpdate({ [field]: e.target.value });
       },
@@ -138,6 +307,13 @@ function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
   const handleHeadersChange = useCallback(
     (headers: McpHeader[]) => {
       onUpdate({ headers });
+    },
+    [onUpdate]
+  );
+
+  const handleOAuthChange = useCallback(
+    (oauth: McpOAuthConfig) => {
+      onUpdate({ oauth });
     },
     [onUpdate]
   );
@@ -209,6 +385,19 @@ function ServerForm({ server, onUpdate, formIdSuffix }: ServerFormProps) {
           onUpdateHeaders={handleHeadersChange}
         />
       </div>
+
+      <div className="mcp-server-form__field">
+        <label className="mcp-server-form__label">OAuth</label>
+        <OAuthEditor
+          oauth={server.oauth}
+          onUpdateOAuth={handleOAuthChange}
+          onStartLogin={onStartOAuthLogin}
+          onRefreshToken={onRefreshOAuthToken}
+          onClearToken={onClearOAuthToken}
+          status={oauthStatus}
+          isBusy={isOAuthBusy}
+        />
+      </div>
     </div>
   );
 }
@@ -219,6 +408,11 @@ interface ServerCardProps {
   onToggleExpand: () => void;
   onUpdate: (updates: Partial<McpServerConfig>) => void;
   onDelete: () => void;
+  onStartOAuthLogin: () => void;
+  onRefreshOAuthToken: () => void;
+  onClearOAuthToken: () => void;
+  oauthStatus?: string;
+  isOAuthBusy?: boolean;
 }
 
 /**
@@ -230,6 +424,11 @@ function ServerCard({
   onToggleExpand,
   onUpdate,
   onDelete,
+  onStartOAuthLogin,
+  onRefreshOAuthToken,
+  onClearOAuthToken,
+  oauthStatus,
+  isOAuthBusy,
 }: ServerCardProps) {
   const handleToggleEnabled = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -289,7 +488,16 @@ function ServerCard({
         </button>
       </div>
       {isExpanded && (
-        <ServerForm server={server} onUpdate={handleFormUpdate} formIdSuffix={server.id} />
+        <ServerForm
+          server={server}
+          onUpdate={handleFormUpdate}
+          formIdSuffix={server.id}
+          onStartOAuthLogin={onStartOAuthLogin}
+          onRefreshOAuthToken={onRefreshOAuthToken}
+          onClearOAuthToken={onClearOAuthToken}
+          oauthStatus={oauthStatus}
+          isOAuthBusy={isOAuthBusy}
+        />
       )}
     </div>
   );
@@ -304,6 +512,8 @@ export function McpServerSettings({
 }: McpServerSettingsProps) {
   const [expandedServerId, setExpandedServerId] = useState<string | null>(null);
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [oauthStatuses, setOauthStatuses] = useState<Record<string, string>>({});
+  const [busyOAuthServerId, setBusyOAuthServerId] = useState<string | null>(null);
   const [newServer, setNewServer] = useState<Omit<McpServerConfig, 'id'>>(
     createEmptyServer()
   );
@@ -321,6 +531,78 @@ export function McpServerSettings({
       );
     },
     [servers, onUpdateServers]
+  );
+
+  const setOAuthStatus = useCallback((serverId: string, status: string) => {
+    setOauthStatuses((prev) => ({ ...prev, [serverId]: status }));
+  }, []);
+
+  const handleStartOAuthLogin = useCallback(
+    async (server: McpServerConfig) => {
+      const oauth = normalizeOAuthConfig(server.oauth);
+      setBusyOAuthServerId(server.id);
+      try {
+        const authorizationUrl = await createMcpOAuthAuthorizationUrl(
+          server.id,
+          oauth,
+          window.location.href.split('?')[0].split('#')[0]
+        );
+        window.location.assign(authorizationUrl);
+      } catch (error) {
+        setOAuthStatus(
+          server.id,
+          error instanceof Error ? error.message : 'Failed to start OAuth login.'
+        );
+        setBusyOAuthServerId(null);
+      }
+    },
+    [setOAuthStatus]
+  );
+
+  const handleRefreshOAuthToken = useCallback(
+    async (server: McpServerConfig) => {
+      const oauth = normalizeOAuthConfig(server.oauth);
+      setBusyOAuthServerId(server.id);
+      setOAuthStatus(server.id, 'Refreshing OAuth token...');
+      try {
+        const token = await refreshMcpOAuthToken(oauth);
+        handleUpdateServer(server.id, {
+          oauth: {
+            ...oauth,
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            tokenType: token.tokenType,
+            expiresAt: token.expiresAt,
+          },
+        });
+        setOAuthStatus(server.id, 'OAuth token refreshed');
+      } catch (error) {
+        setOAuthStatus(
+          server.id,
+          error instanceof Error ? error.message : 'Failed to refresh OAuth token.'
+        );
+      } finally {
+        setBusyOAuthServerId(null);
+      }
+    },
+    [handleUpdateServer, setOAuthStatus]
+  );
+
+  const handleClearOAuthToken = useCallback(
+    (server: McpServerConfig) => {
+      const oauth = normalizeOAuthConfig(server.oauth);
+      handleUpdateServer(server.id, {
+        oauth: {
+          ...oauth,
+          accessToken: undefined,
+          refreshToken: undefined,
+          tokenType: undefined,
+          expiresAt: undefined,
+        },
+      });
+      setOAuthStatus(server.id, 'OAuth token cleared');
+    },
+    [handleUpdateServer, setOAuthStatus]
   );
 
   const handleDeleteServer = useCallback(
@@ -361,6 +643,70 @@ export function McpServerSettings({
     []
   );
 
+  useEffect(() => {
+    const callback = readMcpOAuthCallbackFromUrl(window.location.href);
+    if (!callback) {
+      return;
+    }
+
+    const pendingState = consumePendingMcpOAuthState(callback.state);
+    if (!pendingState) {
+      window.history.replaceState(null, '', removeMcpOAuthCallbackFromHistory(window.location.href));
+      return;
+    }
+
+    if (callback.error) {
+      setOAuthStatus(
+        pendingState.serverId,
+        callback.errorDescription ?? callback.error
+      );
+      window.history.replaceState(null, '', removeMcpOAuthCallbackFromHistory(window.location.href));
+      return;
+    }
+
+    if (!callback.code) {
+      setOAuthStatus(pendingState.serverId, 'OAuth callback did not include an authorization code.');
+      window.history.replaceState(null, '', removeMcpOAuthCallbackFromHistory(window.location.href));
+      return;
+    }
+    const authorizationCode = callback.code;
+
+    const server = servers.find((candidate) => candidate.id === pendingState.serverId);
+    if (!server) {
+      window.history.replaceState(null, '', removeMcpOAuthCallbackFromHistory(window.location.href));
+      return;
+    }
+
+    const oauth = normalizeOAuthConfig(server.oauth);
+    setBusyOAuthServerId(server.id);
+    setOAuthStatus(server.id, 'Completing OAuth login...');
+
+    void (async () => {
+      try {
+        const token = await exchangeMcpOAuthCode(oauth, authorizationCode, pendingState);
+        handleUpdateServer(server.id, {
+          oauth: {
+            ...oauth,
+            accessToken: token.accessToken,
+            refreshToken: token.refreshToken,
+            tokenType: token.tokenType,
+            expiresAt: token.expiresAt,
+          },
+        });
+        setExpandedServerId(server.id);
+        setOAuthStatus(server.id, 'OAuth login complete');
+      } catch (error) {
+        setOAuthStatus(
+          server.id,
+          error instanceof Error ? error.message : 'Failed to complete OAuth login.'
+        );
+      } finally {
+        setBusyOAuthServerId(null);
+        window.history.replaceState(null, '', removeMcpOAuthCallbackFromHistory(window.location.href));
+      }
+    })();
+  }, [servers, handleUpdateServer, setOAuthStatus]);
+
   const isNewServerValid =
     newServer.name.trim() !== '' &&
     newServer.serverLabel.trim() !== '' &&
@@ -382,6 +728,11 @@ export function McpServerSettings({
           onToggleExpand={() => handleToggleExpand(server.id)}
           onUpdate={(updates) => handleUpdateServer(server.id, updates)}
           onDelete={() => handleDeleteServer(server.id)}
+          onStartOAuthLogin={() => handleStartOAuthLogin(server)}
+          onRefreshOAuthToken={() => handleRefreshOAuthToken(server)}
+          onClearOAuthToken={() => handleClearOAuthToken(server)}
+          oauthStatus={oauthStatuses[server.id]}
+          isOAuthBusy={busyOAuthServerId === server.id}
         />
       ))}
 

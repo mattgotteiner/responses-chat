@@ -603,6 +603,101 @@ describe('useChat - sendMessage request payload', () => {
     );
   });
 
+  it('sends OAuth authorization for authenticated MCP servers', async () => {
+    const settings: Settings = {
+      ...testSettings,
+      mcpServers: [
+        {
+          id: 'mcp-1',
+          name: 'Gmail MCP',
+          serverLabel: 'gmail',
+          serverUrl: 'https://gmailmcp.googleapis.com/mcp/v1',
+          requireApproval: 'never',
+          headers: [],
+          enabled: true,
+          oauth: {
+            enabled: true,
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+            authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+            tokenUrl: 'https://oauth2.googleapis.com/token',
+            scopes: [
+              'https://www.googleapis.com/auth/gmail.readonly',
+              'https://www.googleapis.com/auth/gmail.compose',
+            ],
+            accessToken: 'oauth-access-token',
+            expiresAt: Date.now() + 3_600_000,
+          },
+        },
+      ],
+    };
+    const createSpy = await sendWithSettings(settings);
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'mcp',
+            server_label: 'gmail',
+            server_url: 'https://gmailmcp.googleapis.com/mcp/v1',
+            authorization: 'oauth-access-token',
+          }),
+        ]),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it('does not send expired OAuth authorization for MCP servers', async () => {
+    const settings: Settings = {
+      ...testSettings,
+      mcpServers: [
+        {
+          id: 'mcp-1',
+          name: 'Gmail MCP',
+          serverLabel: 'gmail',
+          serverUrl: 'https://gmailmcp.googleapis.com/mcp/v1',
+          requireApproval: 'never',
+          headers: [],
+          enabled: true,
+          oauth: {
+            enabled: true,
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+            authorizationUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+            tokenUrl: 'https://oauth2.googleapis.com/token',
+            scopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+            accessToken: 'expired-access-token',
+            expiresAt: Date.now() - 1,
+          },
+        },
+      ],
+    };
+    const createSpy = await sendWithSettings(settings);
+
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            type: 'mcp',
+            server_label: 'gmail',
+          }),
+        ]),
+      }),
+      expect.anything(),
+    );
+    expect(createSpy).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: expect.arrayContaining([
+          expect.objectContaining({
+            authorization: 'expired-access-token',
+          }),
+        ]),
+      }),
+      expect.anything(),
+    );
+  });
+
   it('reuses uploaded file IDs from loaded thread when code interpreter is enabled', async () => {
     const mockClient = makeMockClient(() => completedStream());
     mockCreateAzureClient.mockReturnValue(mockClient);

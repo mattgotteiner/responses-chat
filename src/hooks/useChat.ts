@@ -9,6 +9,7 @@ import { supportsSamplingControls } from '../types';
 import { createAzureClient, generateMessageId, uploadFileForCodeInterpreter } from '../utils/api';
 import { createRecordingSession } from '../utils/recording';
 import { isImageAttachment } from '../utils/attachment';
+import { getMcpOAuthAuthorization } from '../utils/mcpOAuth';
 import {
   createInitialAccumulator,
   processStreamEvent,
@@ -72,6 +73,10 @@ function buildToolsConfiguration(settings: Settings, codeInterpreterFileIds?: st
           if (Object.keys(headers).length > 0) {
             mcpTool.headers = headers;
           }
+        }
+        const authorization = getMcpOAuthAuthorization(server.oauth);
+        if (authorization) {
+          mcpTool.authorization = authorization;
         }
         tools.push(mcpTool);
       }

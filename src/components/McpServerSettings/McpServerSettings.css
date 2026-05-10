@@ -263,6 +263,85 @@
   font-size: 12px;
 }
 
+/* OAuth Editor */
+.mcp-oauth {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-oauth__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #333;
+}
+
+.mcp-oauth__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.mcp-oauth__scopes {
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  color: #333;
+  background-color: #fff;
+  resize: vertical;
+}
+
+.mcp-oauth__scopes:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+}
+
+.mcp-oauth__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mcp-oauth__button {
+  padding: 6px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #333;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.mcp-oauth__button:hover:not(:disabled) {
+  border-color: #0066cc;
+  color: #0066cc;
+}
+
+.mcp-oauth__button:disabled {
+  color: #999;
+  cursor: not-allowed;
+}
+
+.mcp-oauth__button--danger:hover:not(:disabled) {
+  border-color: #cc3333;
+  color: #cc3333;
+}
+
+.mcp-oauth__status {
+  color: #777;
+  font-size: 12px;
+}
+
+.mcp-oauth__status--success {
+  color: #0f7a35;
+}
+
 /* New Server Form Card */
 .mcp-server-new {
   background-color: #f0f7ff;
@@ -443,6 +522,49 @@
 
   .mcp-headers__empty {
     color: #666;
+  }
+
+  .mcp-oauth__toggle {
+    color: #ddd;
+  }
+
+  .mcp-oauth__scopes {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .mcp-oauth__scopes:focus {
+    border-color: #4d9fff;
+    box-shadow: 0 0 0 2px rgba(77, 159, 255, 0.2);
+  }
+
+  .mcp-oauth__button {
+    background-color: #2a2a2a;
+    border-color: #444;
+    color: #ddd;
+  }
+
+  .mcp-oauth__button:hover:not(:disabled) {
+    border-color: #4d9fff;
+    color: #4d9fff;
+  }
+
+  .mcp-oauth__button:disabled {
+    color: #666;
+  }
+
+  .mcp-oauth__button--danger:hover:not(:disabled) {
+    border-color: #ff6666;
+    color: #ff6666;
+  }
+
+  .mcp-oauth__status {
+    color: #888;
+  }
+
+  .mcp-oauth__status--success {
+    color: #6bd98f;
   }
 
   .mcp-server-new {

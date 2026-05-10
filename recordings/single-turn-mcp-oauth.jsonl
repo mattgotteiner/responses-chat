@@ -1,0 +1,2 @@
+{"type":"request","timestamp":0,"data":{"model":"gpt-5","input":"read my latest gmail draft","tools":[{"type":"mcp","server_label":"gmail","server_url":"https://gmailmcp.googleapis.com/mcp/v1","require_approval":"never","authorization":"ya29.mock-oauth-access-token"}]}}
+{"type":"response.completed","timestamp":100,"data":{"type":"response.completed","response":{"id":"resp_mcp_oauth","status":"completed","output":[]}}}

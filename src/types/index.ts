@@ -99,6 +99,30 @@ export interface McpHeader {
   value: string;
 }
 
+/** OAuth configuration for a remote MCP server */
+export interface McpOAuthConfig {
+  /** Whether OAuth authentication is enabled for this server */
+  enabled: boolean;
+  /** OAuth client ID */
+  clientId: string;
+  /** OAuth client secret */
+  clientSecret: string;
+  /** Authorization endpoint URL */
+  authorizationUrl: string;
+  /** Token endpoint URL */
+  tokenUrl: string;
+  /** Requested OAuth scopes */
+  scopes: string[];
+  /** Last access token returned by the OAuth server */
+  accessToken?: string;
+  /** Refresh token returned by the OAuth server, when available */
+  refreshToken?: string;
+  /** Token type returned by the OAuth server */
+  tokenType?: string;
+  /** Access token expiry time as Unix ms */
+  expiresAt?: number;
+}
+
 /** Configuration for a remote MCP server */
 export interface McpServerConfig {
   /** Unique identifier */
@@ -113,6 +137,8 @@ export interface McpServerConfig {
   requireApproval: McpApprovalMode;
   /** Custom headers for authentication */
   headers: McpHeader[];
+  /** OAuth authentication configuration */
+  oauth?: McpOAuthConfig;
   /** Whether this server is enabled */
   enabled: boolean;
 }

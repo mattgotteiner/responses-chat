@@ -726,6 +726,44 @@ describe('Recording Replay E2E', () => {
     });
   });
 
+  describe('single-turn-mcp-oauth.jsonl', () => {
+    const FIXTURE_NAME = 'single-turn-mcp-oauth.jsonl';
+
+    it('loads the OAuth MCP recording fixture successfully', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+
+      expect(recording).toBeDefined();
+      expect(recording.request).toBeDefined();
+      expect(recording.events).toHaveLength(1);
+    });
+
+    it('records an MCP tool with OAuth authorization', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const tools = recording.request.data.tools as Array<{
+        type: string;
+        server_label?: string;
+        server_url?: string;
+        authorization?: string;
+      }>;
+      const mcpTool = tools.find((t) => t.type === 'mcp');
+
+      expect(mcpTool).toEqual(expect.objectContaining({
+        server_label: 'gmail',
+        server_url: 'https://gmailmcp.googleapis.com/mcp/v1',
+        authorization: 'ya29.mock-oauth-access-token',
+      }));
+    });
+
+    it('replays the OAuth MCP fixture to completion', () => {
+      const recording = loadRecordingFixture(FIXTURE_NAME);
+      const stats = getRecordingStats(recording);
+      const result = replayRecording(recording);
+
+      expect(stats.eventTypes['response.completed']).toBe(1);
+      expect(result.responseId).toBe('resp_mcp_oauth');
+    });
+  });
+
   describe('multi-turn-mcp-approval.jsonl', () => {
     const FIXTURE_NAME = 'multi-turn-mcp-approval.jsonl';
 

@@ -266,4 +266,90 @@ describe('McpServerSettings', () => {
       }),
     ]);
   });
+
+  it('allows configuring OAuth for a new server', () => {
+    render(
+      <McpServerSettings servers={[]} onUpdateServers={mockOnUpdateServers} />
+    );
+
+    fireEvent.click(screen.getByText(/Add MCP Server/i));
+    fireEvent.click(screen.getByLabelText('Enable OAuth'));
+
+    fireEvent.change(screen.getByLabelText('OAuth client ID'), {
+      target: { value: 'client-id' },
+    });
+    fireEvent.change(screen.getByLabelText('OAuth client secret'), {
+      target: { value: 'client-secret' },
+    });
+    fireEvent.change(screen.getByLabelText('OAuth authorization URL'), {
+      target: { value: 'https://accounts.example.com/oauth/authorize' },
+    });
+    fireEvent.change(screen.getByLabelText('OAuth token URL'), {
+      target: { value: 'https://accounts.example.com/oauth/token' },
+    });
+    fireEvent.change(screen.getByLabelText('OAuth scopes'), {
+      target: { value: 'scope.read\nscope.write' },
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('My MCP Server'), {
+      target: { value: 'OAuth Server' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('github'), {
+      target: { value: 'oauth-server' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('https://example.com/mcp'), {
+      target: { value: 'https://oauth.example.com/mcp' },
+    });
+
+    fireEvent.click(screen.getByText('Add Server'));
+
+    expect(mockOnUpdateServers).toHaveBeenCalledWith([
+      expect.objectContaining({
+        oauth: expect.objectContaining({
+          enabled: true,
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          authorizationUrl: 'https://accounts.example.com/oauth/authorize',
+          tokenUrl: 'https://accounts.example.com/oauth/token',
+          scopes: ['scope.read', 'scope.write'],
+        }),
+      }),
+    ]);
+  });
+
+  it('shows OAuth connection status for authenticated servers', () => {
+    const servers: McpServerConfig[] = [
+      {
+        id: '1',
+        name: 'OAuth Server',
+        serverLabel: 'oauth',
+        serverUrl: 'https://oauth.example.com/mcp',
+        requireApproval: 'never',
+        headers: [],
+        enabled: true,
+        oauth: {
+          enabled: true,
+          clientId: 'client-id',
+          clientSecret: 'client-secret',
+          authorizationUrl: 'https://accounts.example.com/oauth/authorize',
+          tokenUrl: 'https://accounts.example.com/oauth/token',
+          scopes: ['scope.read'],
+          accessToken: 'token',
+          expiresAt: Date.now() + 3_600_000,
+        },
+      },
+    ];
+
+    render(
+      <McpServerSettings
+        servers={servers}
+        onUpdateServers={mockOnUpdateServers}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Expand/i }));
+
+    expect(screen.getByText('OAuth token connected')).toBeInTheDocument();
+    expect(screen.getByText('Reauthorize OAuth')).toBeInTheDocument();
+  });
 });
