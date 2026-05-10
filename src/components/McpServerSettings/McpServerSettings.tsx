@@ -167,6 +167,11 @@ function OAuthEditor({
   const normalizedOAuth = normalizeOAuthConfig(oauth);
   const isConfigured = isMcpOAuthConfigured(normalizedOAuth);
   const isAuthenticated = isMcpOAuthAuthenticated(normalizedOAuth);
+  const loginButtonText = !onStartLogin
+    ? 'Add MCP Server before OAuth login'
+    : isAuthenticated
+      ? 'Reauthorize OAuth'
+      : 'Login with OAuth';
   const endpointDefaults = inferMcpOAuthEndpoints(serverUrl, normalizedOAuth.scopes);
   const shouldAutoFillEndpoints = Boolean(
     endpointDefaults &&
@@ -324,7 +329,7 @@ function OAuthEditor({
               onClick={onStartLogin}
               disabled={!isConfigured || isBusy || !onStartLogin}
             >
-              {isAuthenticated ? 'Reauthorize OAuth' : 'Login with OAuth'}
+              {loginButtonText}
             </button>
             <button
               type="button"

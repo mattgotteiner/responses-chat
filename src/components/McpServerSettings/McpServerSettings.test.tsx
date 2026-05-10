@@ -290,6 +290,7 @@ describe('McpServerSettings', () => {
     fireEvent.change(screen.getByLabelText('OAuth scopes'), {
       target: { value: 'scope.read\nscope.write' },
     });
+    expect(screen.getByText('Add MCP Server before OAuth login')).toBeDisabled();
 
     fireEvent.change(screen.getByPlaceholderText('My MCP Server'), {
       target: { value: 'OAuth Server' },
