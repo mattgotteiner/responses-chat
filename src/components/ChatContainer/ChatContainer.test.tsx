@@ -157,6 +157,13 @@ function makeThreadsReturn(overrides: Partial<ReturnType<typeof useThreads>> = {
     startNewChat: vi.fn(),
     startEphemeral: vi.fn(),
     clearAllThreads: vi.fn(),
+    importThreads: vi.fn().mockReturnValue({
+      imported: 0,
+      skipped: 0,
+      replaced: 0,
+      changedThreadIds: [],
+      threads: [],
+    }),
     ...overrides,
   };
 }

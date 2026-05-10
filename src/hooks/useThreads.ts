@@ -15,6 +15,7 @@ import {
   getActiveThreadId,
   saveActiveThreadId,
 } from '../utils/threadStorage';
+import { mergeImportedThreads, type ThreadImportResult } from '../utils/threadExport';
 
 /** Generate a unique thread ID */
 function generateThreadId(): string {
@@ -49,6 +50,8 @@ export interface UseThreadsReturn {
   startEphemeral: () => void;
   /** Delete all threads from IndexedDB and reset state */
   clearAllThreads: () => void;
+  /** Import threads into history, replacing older local copies by ID */
+  importThreads: (importedThreads: Thread[]) => ThreadImportResult;
 }
 
 /**
@@ -192,6 +195,19 @@ export function useThreads(): UseThreadsReturn {
     void clearAllThreadsFromDb();
   }, []);
 
+  const importThreads = useCallback((importedThreads: Thread[]): ThreadImportResult => {
+    const result = mergeImportedThreads(threadsRef.current, importedThreads);
+    threadsRef.current = result.threads;
+    setThreads(result.threads);
+    const changedThreadIds = new Set(result.changedThreadIds);
+    for (const thread of result.threads) {
+      if (changedThreadIds.has(thread.id)) {
+        void putThread(thread);
+      }
+    }
+    return result;
+  }, []);
+
   // Sort threads by updatedAt descending — memoized to avoid re-sorting on every render
   const sortedThreads = useMemo(
     () => [...threads].sort((a, b) => b.updatedAt - a.updatedAt),
@@ -212,5 +228,6 @@ export function useThreads(): UseThreadsReturn {
     startNewChat,
     startEphemeral,
     clearAllThreads,
+    importThreads,
   };
 }

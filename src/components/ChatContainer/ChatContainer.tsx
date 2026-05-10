@@ -17,6 +17,11 @@ import { JsonSidePanel, type JsonPanelData } from '../JsonSidePanel';
 import { calculateConversationUsage } from '../../utils/tokenUsage';
 import { generateThreadTitle } from '../../utils/titleGeneration';
 import { createAzureClient } from '../../utils/api';
+import {
+  parseThreadsExport,
+  stringifyThreadsExport,
+  type ThreadImportResult,
+} from '../../utils/threadExport';
 import { useIsMobile } from '../../hooks/useIsMobile';
 import type { Attachment, Message } from '../../types';
 import './ChatContainer.css';
@@ -79,6 +84,7 @@ export function ChatContainer() {
     startNewChat,
     startEphemeral,
     clearAllThreads,
+    importThreads,
   } = useThreads();
 
   // Track whether we've generated a title for the active thread
@@ -485,6 +491,39 @@ export function ChatContainer() {
     titleGeneratedRef.current = null;
   }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming, detachThreadToBackground]);
 
+  const handleExportThreads = useCallback(() => {
+    const blob = new Blob([stringifyThreadsExport(threads)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    link.href = url;
+    link.download = `responses-chat-threads-${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, [threads]);
+
+  const handleImportThreadsFile = useCallback(
+    async (file: File): Promise<ThreadImportResult> => {
+      const imported = parseThreadsExport(await file.text());
+      const result = importThreads(imported);
+      if (activeThreadId && result.changedThreadIds.includes(activeThreadId) && !isStreaming) {
+        const updatedActiveThread = result.threads.find((thread) => thread.id === activeThreadId);
+        if (updatedActiveThread) {
+          loadThread(
+            updatedActiveThread.messages,
+            updatedActiveThread.previousResponseId,
+            updatedActiveThread.uploadedFileIds
+          );
+          prevMessageCountRef.current = updatedActiveThread.messages.length;
+        }
+      }
+      return result;
+    },
+    [activeThreadId, importThreads, isStreaming, loadThread]
+  );
+
   // Force ephemeral mode whenever "Don't save settings" is enabled
   useEffect(() => {
     if (settings.noLocalStorage && !isEphemeral) {
@@ -643,6 +682,8 @@ export function ChatContainer() {
         hasMessages={messages.length > 0}
         backgroundStreamingThreadIds={backgroundStreamingThreadIds}
         generatingTitleThreadIds={generatingTitleThreadIds}
+        onExportThreads={handleExportThreads}
+        onImportThreadsFile={handleImportThreadsFile}
       />
 
       <SettingsSidebar

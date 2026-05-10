@@ -4,6 +4,7 @@
 
 import { useCallback, useMemo, useState, useRef } from 'react';
 import type { Thread } from '../../types';
+import type { ThreadImportResult } from '../../utils/threadExport';
 import './HistorySidebar.css';
 
 /** Format a timestamp as a relative time string */
@@ -69,6 +70,10 @@ interface HistorySidebarProps {
   backgroundStreamingThreadIds?: Set<string>;
   /** Thread IDs that are currently having a title generated */
   generatingTitleThreadIds?: Set<string>;
+  /** Handler to export saved threads to a JSON file */
+  onExportThreads?: () => void;
+  /** Handler to import saved threads from a JSON file */
+  onImportThreadsFile?: (file: File) => Promise<ThreadImportResult> | ThreadImportResult;
 }
 
 /**
@@ -89,10 +94,15 @@ export function HistorySidebar({
   hasMessages,
   backgroundStreamingThreadIds,
   generatingTitleThreadIds,
+  onExportThreads,
+  onImportThreadsFile,
 }: HistorySidebarProps) {
   const [editingThreadId, setEditingThreadId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
+  const [importStatus, setImportStatus] = useState<string | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const handleOverlayClick = useCallback(
     (e: React.MouseEvent) => {
       if (e.target === e.currentTarget) {
@@ -152,6 +162,37 @@ export function HistorySidebar({
     [handleEditSave]
   );
 
+  const handleImportClick = useCallback(() => {
+    importInputRef.current?.click();
+  }, []);
+
+  const handleImportChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file || !onImportThreadsFile) {
+        return;
+      }
+
+      setImportStatus('Importing threads...');
+      setImportError(null);
+      try {
+        const result = await onImportThreadsFile(file);
+        const changed = result.imported + result.replaced;
+        setImportStatus(
+          `Imported ${result.imported}, replaced ${result.replaced}, skipped ${result.skipped}.`
+        );
+        if (changed === 0 && result.skipped === 0) {
+          setImportStatus('No threads found in import file.');
+        }
+      } catch (error) {
+        setImportStatus(null);
+        setImportError(error instanceof Error ? error.message : 'Failed to import threads.');
+      }
+    },
+    [onImportThreadsFile]
+  );
+
   // Pre-compute group headers by comparing each thread's date group to the previous one
   const threadsWithGroups = useMemo(
     () => threads.map((thread, i) => {
@@ -201,6 +242,43 @@ export function HistorySidebar({
             🕐 Ephemeral
           </button>
         </div>
+
+        <div className="history-sidebar__sync-actions">
+          <button
+            className="history-sidebar__sync-button"
+            onClick={onExportThreads}
+            disabled={!onExportThreads || threads.length === 0}
+            title={threads.length === 0 ? 'No saved threads to export' : 'Export saved threads to JSON'}
+          >
+            Export JSON
+          </button>
+          <button
+            className="history-sidebar__sync-button"
+            onClick={handleImportClick}
+            disabled={!onImportThreadsFile}
+            title="Import saved threads from JSON"
+          >
+            Import JSON
+          </button>
+          <input
+            ref={importInputRef}
+            className="history-sidebar__file-input"
+            type="file"
+            accept="application/json,.json"
+            onChange={handleImportChange}
+          />
+        </div>
+
+        {(importStatus || importError) && (
+          <div
+            className={`history-sidebar__import-message${
+              importError ? ' history-sidebar__import-message--error' : ''
+            }`}
+            role={importError ? 'alert' : 'status'}
+          >
+            {importError ?? importStatus}
+          </div>
+        )}
 
         <div className="history-sidebar__list">
           {isEphemeral && (
