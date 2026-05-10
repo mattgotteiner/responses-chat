@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { HistorySidebar } from './HistorySidebar';
 import type { Thread } from '../../types';
 
@@ -204,65 +204,9 @@ describe('HistorySidebar', () => {
     expect(screen.getAllByRole('button', { name: /Delete "My Thread"/ })).toHaveLength(2);
   });
 
-  it('calls onExportThreads when export JSON is clicked', () => {
-    const onExportThreads = vi.fn();
-    const threads = [createThread('t1', 'My Thread', Date.now())];
-    render(
-      <HistorySidebar
-        {...defaultProps}
-        threads={threads}
-        onExportThreads={onExportThreads}
-      />
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
-    expect(onExportThreads).toHaveBeenCalledOnce();
-  });
-
-  it('disables export JSON when there are no saved threads', () => {
-    render(<HistorySidebar {...defaultProps} onExportThreads={vi.fn()} />);
-    expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDisabled();
-  });
-
-  it('imports a selected JSON file and shows the import summary', async () => {
-    const onImportThreadsFile = vi.fn().mockResolvedValue({
-      imported: 1,
-      replaced: 2,
-      skipped: 3,
-      changedThreadIds: ['t1'],
-      threads: [],
-    });
-    const { container } = render(
-      <HistorySidebar
-        {...defaultProps}
-        onImportThreadsFile={onImportThreadsFile}
-      />
-    );
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-    const file = new File(['{}'], 'threads.json', { type: 'application/json' });
-
-    fireEvent.change(input, { target: { files: [file] } });
-
-    await waitFor(() => expect(onImportThreadsFile).toHaveBeenCalledWith(file));
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'Imported 1, replaced 2, skipped 3.'
-    );
-  });
-
-  it('shows import errors returned by onImportThreadsFile', async () => {
-    const onImportThreadsFile = vi.fn().mockRejectedValue(new Error('Bad import file'));
-    const { container } = render(
-      <HistorySidebar
-        {...defaultProps}
-        onImportThreadsFile={onImportThreadsFile}
-      />
-    );
-    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
-
-    fireEvent.change(input, {
-      target: { files: [new File(['{}'], 'threads.json', { type: 'application/json' })] },
-    });
-
-    expect(await screen.findByRole('alert')).toHaveTextContent('Bad import file');
+  it('does not render JSON import/export controls in history', () => {
+    render(<HistorySidebar {...defaultProps} threads={[createThread('t1', 'My Thread', Date.now())]} />);
+    expect(screen.queryByRole('button', { name: 'Export JSON' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Import JSON' })).not.toBeInTheDocument();
   });
 });

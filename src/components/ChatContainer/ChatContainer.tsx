@@ -682,8 +682,6 @@ export function ChatContainer() {
         hasMessages={messages.length > 0}
         backgroundStreamingThreadIds={backgroundStreamingThreadIds}
         generatingTitleThreadIds={generatingTitleThreadIds}
-        onExportThreads={handleExportThreads}
-        onImportThreadsFile={handleImportThreadsFile}
       />
 
       <SettingsSidebar
@@ -692,6 +690,9 @@ export function ChatContainer() {
         settings={settings}
         onUpdateSettings={updateSettings}
         onClearStoredData={() => { stopStreaming(); clearConversation(); clearStoredData(); clearAllThreads(); }}
+        savedThreadCount={threads.length}
+        onExportThreads={handleExportThreads}
+        onImportThreadsFile={handleImportThreadsFile}
         vectorStoreCache={vectorStoreCache}
         setVectorStores={setVectorStores}
         setStoreFiles={setStoreFiles}

@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { SettingsSidebar } from './SettingsSidebar';
 import { DEFAULT_SETTINGS } from '../../types';
 import type { Settings, VectorStoreCache } from '../../types';
@@ -15,6 +15,8 @@ describe('SettingsSidebar', () => {
   const mockSetVectorStores = vi.fn();
   const mockSetStoreFiles = vi.fn();
   const mockSetStoreFilesLoading = vi.fn();
+  const mockOnExportThreads = vi.fn();
+  const mockOnImportThreadsFile = vi.fn();
 
   const defaultVectorStoreCache: VectorStoreCache = {
     stores: [],
@@ -30,6 +32,9 @@ describe('SettingsSidebar', () => {
     settings: { ...DEFAULT_SETTINGS },
     onUpdateSettings: mockOnUpdateSettings,
     onClearStoredData: mockOnClearStoredData,
+    savedThreadCount: 1,
+    onExportThreads: mockOnExportThreads,
+    onImportThreadsFile: mockOnImportThreadsFile,
     vectorStoreCache: defaultVectorStoreCache,
     setVectorStores: mockSetVectorStores,
     setStoreFiles: mockSetStoreFiles,
@@ -715,6 +720,56 @@ describe('SettingsSidebar', () => {
       expect(
         screen.getByText(/settings are not saved and must be re-entered each session/i)
       ).toBeInTheDocument();
+    });
+
+    it('renders JSON import/export controls for saved threads', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      expect(screen.getByRole('button', { name: 'Export JSON' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Import JSON' })).toBeInTheDocument();
+      expect(screen.getByText(/settings and api keys are not included/i)).toBeInTheDocument();
+    });
+
+    it('calls onExportThreads when Export JSON is clicked', () => {
+      render(<SettingsSidebar {...defaultProps} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+      expect(mockOnExportThreads).toHaveBeenCalledOnce();
+    });
+
+    it('disables Export JSON when there are no saved threads', () => {
+      render(<SettingsSidebar {...defaultProps} savedThreadCount={0} />);
+      expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDisabled();
+    });
+
+    it('imports a selected JSON file and shows the import summary', async () => {
+      mockOnImportThreadsFile.mockResolvedValue({
+        imported: 1,
+        replaced: 2,
+        skipped: 3,
+        changedThreadIds: ['t1'],
+        threads: [],
+      });
+      const { container } = render(<SettingsSidebar {...defaultProps} />);
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+      const file = new File(['{}'], 'threads.json', { type: 'application/json' });
+
+      fireEvent.change(input, { target: { files: [file] } });
+
+      await waitFor(() => expect(mockOnImportThreadsFile).toHaveBeenCalledWith(file));
+      expect(await screen.findByRole('status')).toHaveTextContent(
+        'Imported 1, replaced 2, skipped 3.'
+      );
+    });
+
+    it('shows import errors returned by onImportThreadsFile', async () => {
+      mockOnImportThreadsFile.mockRejectedValue(new Error('Bad import file'));
+      const { container } = render(<SettingsSidebar {...defaultProps} />);
+      const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+
+      fireEvent.change(input, {
+        target: { files: [new File(['{}'], 'threads.json', { type: 'application/json' })] },
+      });
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Bad import file');
     });
   });
 
