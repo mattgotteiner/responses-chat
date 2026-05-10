@@ -170,6 +170,14 @@ Open the settings sidebar (gear icon) to configure:
 
 For MCP servers that require OAuth, enable OAuth in the MCP server settings and provide the client ID, client secret, authorization URL, token URL, and scopes. The app opens the authorization URL, exchanges the returned authorization code for an access token, and sends that token in the Responses API MCP `authorization` field on every request. Known provider authorization and token URLs are filled automatically when detected from the server URL or scopes.
 
+When registering an OAuth client with your MCP provider, add the app URLs you plan to use:
+
+| Environment | Authorized origin | Redirect URI |
+|-------------|-------------------|--------------|
+| Localhost | `http://localhost:5173` | `http://localhost:5173/` |
+| Local 127.0.0.1 | `http://127.0.0.1:5173` | `http://127.0.0.1:5173/` |
+| GitHub Pages | `https://mattgotteiner.github.io` | `https://mattgotteiner.github.io/responses-chat/` |
+
 ## Record Mode
 
 Record mode captures wire-level API requests and responses for creating e2e test fixtures. When enabled, each conversation generates a JSONL file that can be used to replay API interactions without making actual API calls.
