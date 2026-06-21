@@ -32,6 +32,7 @@ describe('SettingsSidebar', () => {
     settings: { ...DEFAULT_SETTINGS },
     onUpdateSettings: mockOnUpdateSettings,
     onClearStoredData: mockOnClearStoredData,
+    isMobile: false,
     savedThreadCount: 1,
     onExportThreads: mockOnExportThreads,
     onImportThreadsFile: mockOnImportThreadsFile,
@@ -735,9 +736,25 @@ describe('SettingsSidebar', () => {
       expect(mockOnExportThreads).toHaveBeenCalledOnce();
     });
 
+    it('shows export errors returned by onExportThreads', async () => {
+      mockOnExportThreads.mockRejectedValue(new Error('Too large for mobile export'));
+      render(<SettingsSidebar {...defaultProps} />);
+
+      fireEvent.click(screen.getByRole('button', { name: 'Export JSON' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent('Too large for mobile export');
+    });
+
     it('disables Export JSON when there are no saved threads', () => {
       render(<SettingsSidebar {...defaultProps} savedThreadCount={0} />);
       expect(screen.getByRole('button', { name: 'Export JSON' })).toBeDisabled();
+    });
+
+    it('shows the mobile export threshold hint on mobile', () => {
+      render(<SettingsSidebar {...defaultProps} isMobile={true} />);
+      expect(
+        screen.getByText(/mobile full-history exports over 100 mb are blocked/i)
+      ).toBeInTheDocument();
     });
 
     it('imports a selected JSON file and shows the import summary', async () => {

@@ -2,6 +2,7 @@ import type { Message, Thread } from '../types';
 import { serializeMessages } from './threadSerialization';
 
 const EXPORT_FORMAT = 'responses-chat-threads';
+const SINGLE_THREAD_EXPORT_FORMAT = 'responses-chat-thread';
 const EXPORT_VERSION = 1;
 
 export interface ThreadsExportPayload {
@@ -9,6 +10,13 @@ export interface ThreadsExportPayload {
   version: typeof EXPORT_VERSION;
   exportedAt: string;
   threads: ExportedThread[];
+}
+
+export interface SingleThreadExportPayload {
+  format: typeof SINGLE_THREAD_EXPORT_FORMAT;
+  version: typeof EXPORT_VERSION;
+  exportedAt: string;
+  thread: ExportedThread;
 }
 
 interface ExportedThread extends Omit<Thread, 'messages'> {
@@ -124,8 +132,34 @@ export function createThreadsExportPayload(threads: Thread[]): ThreadsExportPayl
   };
 }
 
+export function createThreadExportPayload(thread: Thread): SingleThreadExportPayload {
+  return {
+    format: SINGLE_THREAD_EXPORT_FORMAT,
+    version: EXPORT_VERSION,
+    exportedAt: new Date().toISOString(),
+    thread: {
+      id: thread.id,
+      title: thread.title,
+      createdAt: thread.createdAt,
+      updatedAt: thread.updatedAt,
+      previousResponseId: thread.previousResponseId,
+      uploadedFileIds: thread.uploadedFileIds,
+      bookmarked: thread.bookmarked,
+      messages: serializeMessages(thread.messages),
+    },
+  };
+}
+
 export function stringifyThreadsExport(threads: Thread[]): string {
   return `${JSON.stringify(createThreadsExportPayload(threads), null, 2)}\n`;
+}
+
+export function stringifyThreadExport(thread: Thread): string {
+  return `${JSON.stringify(createThreadExportPayload(thread), null, 2)}\n`;
+}
+
+export function getUtf8ByteSize(text: string): number {
+  return new TextEncoder().encode(text).length;
 }
 
 export function parseThreadsExport(json: string): Thread[] {
@@ -140,23 +174,31 @@ export function parseThreadsExport(json: string): Thread[] {
     throw new Error('Thread export is invalid: top-level value must be an object.');
   }
 
-  if (parsed['format'] !== EXPORT_FORMAT || parsed['version'] !== EXPORT_VERSION) {
+  if (parsed['version'] !== EXPORT_VERSION) {
     throw new Error('Thread export is invalid: unsupported format or version.');
   }
 
-  if (!Array.isArray(parsed['threads'])) {
-    throw new Error('Thread export is invalid: threads must be an array.');
+  if (parsed['format'] === EXPORT_FORMAT) {
+    if (!Array.isArray(parsed['threads'])) {
+      throw new Error('Thread export is invalid: threads must be an array.');
+    }
+
+    const seenIds = new Set<string>();
+    return parsed['threads'].map((entry) => {
+      const thread = parseThread(entry);
+      if (seenIds.has(thread.id)) {
+        throw new Error(`Thread export is invalid: duplicate thread id "${thread.id}".`);
+      }
+      seenIds.add(thread.id);
+      return thread;
+    });
   }
 
-  const seenIds = new Set<string>();
-  return parsed['threads'].map((entry) => {
-    const thread = parseThread(entry);
-    if (seenIds.has(thread.id)) {
-      throw new Error(`Thread export is invalid: duplicate thread id "${thread.id}".`);
-    }
-    seenIds.add(thread.id);
-    return thread;
-  });
+  if (parsed['format'] === SINGLE_THREAD_EXPORT_FORMAT) {
+    return [parseThread(parsed['thread'])];
+  }
+
+  throw new Error('Thread export is invalid: unsupported format or version.');
 }
 
 export function mergeImportedThreads(

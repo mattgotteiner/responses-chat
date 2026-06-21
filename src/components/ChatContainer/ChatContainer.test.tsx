@@ -20,6 +20,7 @@ import { useThreads } from '../../hooks/useThreads';
 import { useSettingsContext } from '../../context/SettingsContext';
 import { generateThreadTitle } from '../../utils/titleGeneration';
 import { useIsMobile } from '../../hooks/useIsMobile';
+import * as threadExportUtils from '../../utils/threadExport';
 
 // ---------------------------------------------------------------------------
 // vi.mock — hoisted to top of file automatically by Vitest
@@ -36,6 +37,13 @@ vi.mock('../../utils/titleGeneration');
 vi.mock('../../utils/api', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../utils/api')>();
   return { ...actual, createAzureClient: vi.fn().mockReturnValue({}) };
+});
+vi.mock('../../utils/threadExport', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../utils/threadExport')>();
+  return {
+    ...actual,
+    getUtf8ByteSize: vi.fn(actual.getUtf8ByteSize),
+  };
 });
 
 // Stub out heavy child components
@@ -73,11 +81,13 @@ vi.mock('../HistorySidebar', () => ({
     onNewEphemeralChat,
     onDeleteThread,
     onSwitchThread,
+    onExportThread,
   }: {
     onNewChat: () => void;
     onNewEphemeralChat: () => void;
     onDeleteThread: (id: string) => void;
     onSwitchThread?: (id: string) => void;
+    onExportThread?: (id: string) => void;
   }) => (
     <>
       <button data-testid="history-new-chat-btn" onClick={onNewChat}>History New Chat</button>
@@ -86,13 +96,24 @@ vi.mock('../HistorySidebar', () => ({
       {onSwitchThread && (
         <button data-testid="switch-thread-btn" onClick={() => onSwitchThread('thread-untitled')}>Switch</button>
       )}
+      {onExportThread && (
+        <button data-testid="export-thread-btn" onClick={() => onExportThread('thread-export')}>Export</button>
+      )}
     </>
   ),
 }));
 let capturedOnClearStoredData: (() => void) | undefined;
+let capturedOnExportThreads: (() => void | Promise<void>) | undefined;
 vi.mock('../SettingsSidebar', () => ({
-  SettingsSidebar: ({ onClearStoredData }: { onClearStoredData: () => void }) => {
+  SettingsSidebar: ({
+    onClearStoredData,
+    onExportThreads,
+  }: {
+    onClearStoredData: () => void;
+    onExportThreads?: () => void | Promise<void>;
+  }) => {
     capturedOnClearStoredData = onClearStoredData;
+    capturedOnExportThreads = onExportThreads;
     return null;
   },
 }));
@@ -110,6 +131,7 @@ const mockUseThreads = vi.mocked(useThreads);
 const mockUseSettingsContext = vi.mocked(useSettingsContext);
 const mockGenerateThreadTitle = vi.mocked(generateThreadTitle);
 const mockUseIsMobile = vi.mocked(useIsMobile);
+const mockGetUtf8ByteSize = vi.mocked(threadExportUtils.getUtf8ByteSize);
 
 // ---------------------------------------------------------------------------
 // Default factory values
@@ -186,6 +208,9 @@ function makeAssistantMessage(content = 'Hi', streaming = false): Message {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  capturedOnClearStoredData = undefined;
+  capturedOnExportThreads = undefined;
+  mockGetUtf8ByteSize.mockImplementation((text) => new TextEncoder().encode(text).length);
 
   mockUseChat.mockReturnValue(makeChatReturn());
   mockUseIsCompactLandscape.mockReturnValue(false);
@@ -1327,6 +1352,67 @@ describe('onClearStoredData: clears active conversation (regression)', () => {
     expect(clearConversation).toHaveBeenCalledTimes(1);
     expect(clearStoredData).toHaveBeenCalledTimes(1);
     expect(clearAllThreads).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('thread export', () => {
+  it('blocks large full-history exports on mobile', () => {
+    mockUseIsMobile.mockReturnValue(true);
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        threads: [
+          {
+            id: 'thread-1',
+            title: 'Huge thread',
+            createdAt: 1,
+            updatedAt: 2,
+            previousResponseId: null,
+            uploadedFileIds: [],
+            messages: [makeUserMessage('hello')],
+          },
+        ],
+      })
+    );
+    mockGetUtf8ByteSize.mockReturnValue(101 * 1024 * 1024);
+
+    render(<ChatContainer />);
+
+    expect(() => capturedOnExportThreads?.()).toThrow(
+      'Full history export is 101.0 MB. Mobile exports are limited to 100 MB. Export individual threads from History instead.'
+    );
+  });
+
+  it('exports a single thread from history', async () => {
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    mockUseThreads.mockReturnValue(
+      makeThreadsReturn({
+        threads: [
+          {
+            id: 'thread-export',
+            title: 'Thread / Name',
+            createdAt: 1,
+            updatedAt: Date.parse('2026-06-21T12:00:00.000Z'),
+            previousResponseId: null,
+            uploadedFileIds: [],
+            messages: [makeUserMessage('hello')],
+          },
+        ],
+      })
+    );
+
+    render(<ChatContainer />);
+    await userEvent.click(screen.getByTestId('export-thread-btn'));
+
+    expect(createObjectURL).toHaveBeenCalledOnce();
+    expect(clickSpy).toHaveBeenCalledOnce();
+    expect(revokeObjectURL).toHaveBeenCalledWith('blob:test');
+
+    createObjectURL.mockRestore();
+    revokeObjectURL.mockRestore();
+    clickSpy.mockRestore();
   });
 });
 
