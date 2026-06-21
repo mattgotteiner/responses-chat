@@ -65,6 +65,8 @@ interface HistorySidebarProps {
   onRenameThread: (id: string, title: string) => void;
   /** Handler to toggle bookmark on a thread */
   onBookmarkThread: (id: string, bookmarked: boolean) => void;
+  /** Handler to export a single thread as JSON */
+  onExportThread?: (id: string) => void;
   /** Thread IDs that have a stream running in the background */
   backgroundStreamingThreadIds?: Set<string>;
   /** Thread IDs that are currently having a title generated */
@@ -84,6 +86,7 @@ export function HistorySidebar({
   onDeleteThread,
   onRenameThread,
   onBookmarkThread,
+  onExportThread,
   onNewChat,
   onNewEphemeralChat,
   hasMessages,
@@ -116,6 +119,14 @@ export function HistorySidebar({
       onBookmarkThread(thread.id, !thread.bookmarked);
     },
     [onBookmarkThread]
+  );
+
+  const handleExportClick = useCallback(
+    (e: React.MouseEvent, threadId: string) => {
+      e.stopPropagation();
+      onExportThread?.(threadId);
+    },
+    [onExportThread]
   );
 
   const handleEditClick = useCallback(
@@ -273,6 +284,16 @@ export function HistorySidebar({
                       </div>
                     </button>
                   )}
+                  {onExportThread && editingThreadId !== thread.id && (
+                    <button
+                      className="history-sidebar__item-export"
+                      onClick={(e) => handleExportClick(e, thread.id)}
+                      aria-label={`Export "${thread.title}" as JSON`}
+                      title="Export thread as JSON"
+                    >
+                      ⤓
+                    </button>
+                  )}
                   {editingThreadId !== thread.id && (
                     <button
                       className="history-sidebar__item-edit"
@@ -348,6 +369,16 @@ export function HistorySidebar({
                             {formatTime(thread.updatedAt)} · {formatRelativeTime(thread.updatedAt)}
                           </span>
                         </div>
+                      </button>
+                    )}
+                    {onExportThread && editingThreadId !== thread.id && (
+                      <button
+                        className="history-sidebar__item-export"
+                        onClick={(e) => handleExportClick(e, thread.id)}
+                        aria-label={`Export "${thread.title}" as JSON`}
+                        title="Export thread as JSON"
+                      >
+                        ⤓
                       </button>
                     )}
                     {editingThreadId !== thread.id && (

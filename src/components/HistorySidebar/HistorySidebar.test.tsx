@@ -30,6 +30,7 @@ describe('HistorySidebar', () => {
     onDeleteThread: vi.fn(),
     onRenameThread: vi.fn(),
     onBookmarkThread: vi.fn(),
+    onExportThread: vi.fn(),
     onNewChat: vi.fn(),
     onNewEphemeralChat: vi.fn(),
     hasMessages: false,
@@ -102,6 +103,16 @@ describe('HistorySidebar', () => {
     const deleteBtn = screen.getByLabelText('Delete "My Thread"');
     fireEvent.click(deleteBtn);
     expect(onDeleteThread).toHaveBeenCalledWith('t1');
+  });
+
+  it('calls onExportThread when clicking export button', () => {
+    const onExportThread = vi.fn();
+    const threads = [createThread('t1', 'My Thread', Date.now())];
+    render(
+      <HistorySidebar {...defaultProps} threads={threads} onExportThread={onExportThread} />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Export "My Thread" as JSON' }));
+    expect(onExportThread).toHaveBeenCalledWith('t1');
   });
 
   it('shows streaming dot for threads in backgroundStreamingThreadIds', () => {
@@ -200,13 +211,15 @@ describe('HistorySidebar', () => {
     const threads = [{ ...createThread('t1', 'My Thread', Date.now()), bookmarked: true }];
     render(<HistorySidebar {...defaultProps} threads={threads} />);
     // Both the bookmarks section and the regular list render these buttons
+    expect(screen.getAllByRole('button', { name: /Export "My Thread" as JSON/ })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /Rename "My Thread"/ })).toHaveLength(2);
     expect(screen.getAllByRole('button', { name: /Delete "My Thread"/ })).toHaveLength(2);
   });
 
-  it('does not render JSON import/export controls in history', () => {
+  it('does not render bulk JSON import/export controls in history', () => {
     render(<HistorySidebar {...defaultProps} threads={[createThread('t1', 'My Thread', Date.now())]} />);
     expect(screen.queryByRole('button', { name: 'Export JSON' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Import JSON' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Export "My Thread" as JSON' })).toBeInTheDocument();
   });
 });

@@ -166,6 +166,7 @@
   }
 
   .history-sidebar__item:hover .history-sidebar__item-delete,
+  .history-sidebar__item:hover .history-sidebar__item-export,
   .history-sidebar__item:hover .history-sidebar__item-edit,
   .history-sidebar__item:hover .history-sidebar__item-bookmark:not(.history-sidebar__item-bookmark--active) {
     opacity: 1;
@@ -284,6 +285,37 @@
 
 @media (hover: hover) {
   .history-sidebar__item-edit:hover {
+    background-color: var(--color-surface-elevated);
+    color: var(--color-text);
+  }
+}
+
+.history-sidebar__item-export {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s, background-color 0.15s, color 0.15s;
+}
+
+@media (hover: none) {
+  .history-sidebar__item-export {
+    opacity: 1;
+  }
+}
+
+@media (hover: hover) {
+  .history-sidebar__item-export:hover {
     background-color: var(--color-surface-elevated);
     color: var(--color-text);
   }

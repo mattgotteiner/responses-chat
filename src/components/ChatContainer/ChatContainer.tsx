@@ -18,15 +18,53 @@ import { calculateConversationUsage } from '../../utils/tokenUsage';
 import { generateThreadTitle } from '../../utils/titleGeneration';
 import { createAzureClient } from '../../utils/api';
 import {
+  getUtf8ByteSize,
   parseThreadsExport,
+  stringifyThreadExport,
   stringifyThreadsExport,
   type ThreadImportResult,
 } from '../../utils/threadExport';
 import { useIsMobile } from '../../hooks/useIsMobile';
-import type { Attachment, Message } from '../../types';
+import type { Attachment, Message, Thread } from '../../types';
 import './ChatContainer.css';
 
 const UNTITLED_THREAD_TITLE = 'Untitled chat';
+const MOBILE_EXPORT_MAX_BYTES = 100 * 1024 * 1024;
+
+function formatBytes(bytes: number): string {
+  if (bytes >= 1024 * 1024) {
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+  if (bytes >= 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+  return `${bytes} B`;
+}
+
+function sanitizeFilenameSegment(value: string): string {
+  const sanitized = value
+    .replace(/[<>:"/\\|?*]/g, ' ')
+    .split('')
+    .filter((char) => char >= ' ')
+    .join('')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/ /g, '-')
+    .slice(0, 80);
+  return sanitized || 'thread';
+}
+
+function triggerJsonDownload(json: string, filename: string): void {
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
 
 interface RetrySnapshot {
   trimmedMessages: Message[];
@@ -491,18 +529,44 @@ export function ChatContainer() {
     titleGeneratedRef.current = null;
   }, [clearConversation, startEphemeral, isStreaming, isEphemeral, stopStreaming, detachThreadToBackground]);
 
+  const exportThreadJson = useCallback(
+    (thread: Thread, scopeLabel: string) => {
+      const json = stringifyThreadExport(thread);
+      const bytes = getUtf8ByteSize(json);
+      if (isMobile && bytes > MOBILE_EXPORT_MAX_BYTES) {
+        throw new Error(
+          `${scopeLabel} is ${formatBytes(bytes)}. Mobile exports are limited to 100 MB.`
+        );
+      }
+      const timestamp = new Date(thread.updatedAt).toISOString().replace(/[:.]/g, '-');
+      const safeTitle = sanitizeFilenameSegment(thread.title);
+      triggerJsonDownload(json, `responses-chat-thread-${safeTitle}-${timestamp}.json`);
+    },
+    [isMobile]
+  );
+
   const handleExportThreads = useCallback(() => {
-    const blob = new Blob([stringifyThreadsExport(threads)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
+    const json = stringifyThreadsExport(threads);
+    const bytes = getUtf8ByteSize(json);
+    if (isMobile && bytes > MOBILE_EXPORT_MAX_BYTES) {
+      throw new Error(
+        `Full history export is ${formatBytes(bytes)}. Mobile exports are limited to 100 MB. Export individual threads from History instead.`
+      );
+    }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    link.href = url;
-    link.download = `responses-chat-threads-${timestamp}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-  }, [threads]);
+    triggerJsonDownload(json, `responses-chat-threads-${timestamp}.json`);
+  }, [isMobile, threads]);
+
+  const handleExportThread = useCallback(
+    (id: string) => {
+      const thread = threads.find((candidate) => candidate.id === id);
+      if (!thread) {
+        throw new Error('Thread not found.');
+      }
+      exportThreadJson(thread, `Thread "${thread.title}" export`);
+    },
+    [exportThreadJson, threads]
+  );
 
   const handleImportThreadsFile = useCallback(
     async (file: File): Promise<ThreadImportResult> => {
@@ -677,6 +741,7 @@ export function ChatContainer() {
         onDeleteThread={handleDeleteThread}
         onRenameThread={updateThreadTitle}
         onBookmarkThread={bookmarkThread}
+        onExportThread={handleExportThread}
         onNewChat={handleNewChat}
         onNewEphemeralChat={handleNewEphemeralChat}
         hasMessages={messages.length > 0}
@@ -690,6 +755,7 @@ export function ChatContainer() {
         settings={settings}
         onUpdateSettings={updateSettings}
         onClearStoredData={() => { stopStreaming(); clearConversation(); clearStoredData(); clearAllThreads(); }}
+        isMobile={isMobile}
         savedThreadCount={threads.length}
         onExportThreads={handleExportThreads}
         onImportThreadsFile={handleImportThreadsFile}

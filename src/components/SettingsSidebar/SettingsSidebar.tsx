@@ -91,10 +91,12 @@ interface SettingsSidebarProps {
   onUpdateSettings: (updates: Partial<Settings>) => void;
   /** Handler to clear all stored data */
   onClearStoredData: () => void;
+  /** Whether the current viewport is considered mobile */
+  isMobile?: boolean;
   /** Number of saved threads available for export */
   savedThreadCount?: number;
   /** Handler to export saved threads to a JSON file */
-  onExportThreads?: () => void;
+  onExportThreads?: () => Promise<void> | void;
   /** Handler to import saved threads from a JSON file */
   onImportThreadsFile?: (file: File) => Promise<ThreadImportResult> | ThreadImportResult;
   /** Vector store cache */
@@ -116,6 +118,7 @@ export function SettingsSidebar({
   settings,
   onUpdateSettings,
   onClearStoredData,
+  isMobile = false,
   savedThreadCount = 0,
   onExportThreads,
   onImportThreadsFile,
@@ -204,6 +207,21 @@ export function SettingsSidebar({
   const handleImportClick = useCallback(() => {
     importInputRef.current?.click();
   }, []);
+
+  const handleExportClick = useCallback(async () => {
+    if (!onExportThreads) {
+      return;
+    }
+
+    setImportStatus(null);
+    setImportError(null);
+    try {
+      await onExportThreads();
+    } catch (error) {
+      setImportStatus(null);
+      setImportError(error instanceof Error ? error.message : 'Failed to export threads.');
+    }
+  }, [onExportThreads]);
 
   const handleImportChange = useCallback(
     async (e: ChangeEvent<HTMLInputElement>) => {
@@ -336,7 +354,9 @@ export function SettingsSidebar({
               <div className="settings-storage__json-actions">
                 <button
                   className="settings-storage__json-btn"
-                  onClick={onExportThreads}
+                  onClick={() => {
+                    void handleExportClick();
+                  }}
                   disabled={!onExportThreads || savedThreadCount === 0}
                   title={savedThreadCount === 0 ? 'No saved threads to export' : 'Export saved threads to JSON'}
                 >
@@ -361,6 +381,11 @@ export function SettingsSidebar({
               <span className="settings-field__hint">
                 Export or import saved chat history only. Settings and API keys are not included.
               </span>
+              {isMobile && (
+                <span className="settings-field__hint">
+                  Mobile full-history exports over 100 MB are blocked. Export individual threads from History instead.
+                </span>
+              )}
               {(importStatus || importError) && (
                 <span
                   className={`settings-storage__import-message${

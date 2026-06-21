@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Thread } from '../types';
 import {
+  createThreadExportPayload,
   createThreadsExportPayload,
+  getUtf8ByteSize,
   mergeImportedThreads,
   parseThreadsExport,
+  stringifyThreadExport,
   stringifyThreadsExport,
 } from './threadExport';
 
@@ -41,6 +44,18 @@ describe('thread export utilities', () => {
     expect(payload).not.toHaveProperty('settings');
   });
 
+  it('creates a versioned single-thread export payload', () => {
+    const payload = createThreadExportPayload(makeThread('thread_1', 2000));
+
+    expect(payload.format).toBe('responses-chat-thread');
+    expect(payload.version).toBe(1);
+    expect(payload.thread.id).toBe('thread_1');
+    expect(payload.thread.messages[0]).toMatchObject({
+      id: 'thread_1_message',
+      timestamp: '2026-05-10T12:00:00.000Z',
+    });
+  });
+
   it('round-trips exported threads with Date message timestamps', () => {
     const thread = makeThread('thread_1', 2000);
     const parsed = parseThreadsExport(stringifyThreadsExport([thread]));
@@ -65,6 +80,19 @@ describe('thread export utilities', () => {
     const assistant = parsed[0].messages.find((message) => message.id === 'assistant_1');
 
     expect(assistant).toMatchObject({ isStreaming: false, isStopped: true });
+  });
+
+  it('imports a single-thread export file', () => {
+    const thread = makeThread('thread_1', 2000);
+
+    const parsed = parseThreadsExport(stringifyThreadExport(thread));
+
+    expect(parsed).toHaveLength(1);
+    expect(parsed[0]).toMatchObject({
+      id: 'thread_1',
+      title: 'Test thread',
+    });
+    expect(parsed[0].messages[0].timestamp).toBeInstanceOf(Date);
   });
 
   it('rejects unsupported export formats', () => {
@@ -96,5 +124,10 @@ describe('thread export utilities', () => {
     expect(result.threads.map((thread) => thread.id)).toEqual(['thread_3', 'thread_2', 'thread_1']);
     expect(result.threads.find((thread) => thread.id === 'thread_1')?.title).toBe('Newer title');
     expect(result.threads.find((thread) => thread.id === 'thread_2')?.title).toBe('Test thread');
+  });
+
+  it('measures UTF-8 byte size', () => {
+    expect(getUtf8ByteSize('hello')).toBe(5);
+    expect(getUtf8ByteSize('🙂')).toBe(4);
   });
 });
